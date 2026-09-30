@@ -1,0 +1,39 @@
+import type { CardDef, CardManifest } from './types'
+
+/** Card size in table (world) units. Poker ratio 63.5 x 88.9 mm. */
+export const CARD_W = 250
+export const CARD_H = 350
+export const TOKEN_SIZE = 70
+
+export const clampScale = (s: number) => Math.min(4, Math.max(0.08, s))
+
+const BASE = `${import.meta.env.BASE_URL}cards`
+
+export async function loadManifest(): Promise<CardManifest> {
+  const res = await fetch(`${BASE}/cards.json`)
+  if (!res.ok) throw new Error(`Could not load ${BASE}/cards.json — run "uv run scripts/split_cards.py" first.`)
+  return res.json()
+}
+
+export function cardImage(id: string, faceUp: boolean, size: 'sm' | 'lg'): string {
+  return `${BASE}/${size}/${id}-${faceUp ? 'front' : 'back'}.webp`
+}
+
+export function cardLabel(card: CardDef | undefined): string {
+  if (!card) return ''
+  return card.code ?? card.name ?? `#${card.id}`
+}
+
+/** Order by printed card number (Y003 < Y010 < Y291c); cards without one go last. */
+export function compareCards(a: CardDef | undefined, b: CardDef | undefined): number {
+  const byId = (a?.id ?? '').localeCompare(b?.id ?? '')
+  if (a?.code && b?.code) return a.code.localeCompare(b.code, undefined, { numeric: true }) || byId
+  if (a?.code || b?.code) return a?.code ? -1 : 1
+  return byId
+}
+
+export function matchesQuery(card: CardDef, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return [card.code, card.name, card.type, `#${card.id}`].some((s) => s?.toLowerCase().includes(q))
+}

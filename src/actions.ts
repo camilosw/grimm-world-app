@@ -1,0 +1,411 @@
+import { AREA_HEADER, AREA_PAD } from './areas'
+import { CARD_H, CARD_W, compareCards } from './cards'
+import { DECK_SPECS, deckStack, homeDeck, storySlot, type DeckKind } from './decks'
+import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
+
+// Pure table transformations. Each returns a new Table (or the same one when
+// nothing changes) so they can be passed straight to store.update().
+
+function newId(t: Table, prefix: string): [string, number] {
+  return [`${prefix}${t.nextId}`, t.nextId + 1]
+}
+
+function setStack(t: Table, s: Stack): Table {
+  return { ...t, stacks: { ...t.stacks, [s.id]: s } }
+}
+
+function removeStack(t: Table, id: string): Table {
+  const stacks = { ...t.stacks }
+  delete stacks[id]
+  return { ...t, stacks, z: t.z.filter((z) => z !== id), dock: t.dock?.filter((d) => d !== id) }
+}
+
+export function isDocked(t: Table, id: string): boolean {
+  return !!t.dock?.includes(id)
+}
+
+/** Every stack, on the table or in the sidebar. */
+function allStacks(t: Table): Stack[] {
+  return [...t.z, ...(t.dock ?? [])].map((id) => t.stacks[id])
+}
+
+/** Put cards on the table as a new stack (on top of everything). */
+export function addStack(t: Table, x: number, y: number, cards: CardRef[], extra: Partial<Stack> = {}): [Table, string] {
+  const [id, nextId] = newId(t, 's')
+  const stack: Stack = { id, x, y, rot: 0, cards, ...extra }
+  return [{ ...t, nextId, stacks: { ...t.stacks, [id]: stack }, z: [...t.z, id] }, id]
+}
+
+/**
+ * Replace a stack's cards. A pile on the table disappears when it becomes
+ * empty; a sidebar deck stays as an empty slot so cards can go back into it.
+ */
+function withCards(t: Table, s: Stack, cards: CardRef[]): Table {
+  let next = t
+  // Remember which deck the cards came out of, so they can find their way back.
+  if (s.deck && isDocked(t, s.id)) {
+    const kept = new Set(cards.map((c) => c.id))
+    const left = s.cards.filter((c) => !kept.has(c.id))
+    if (left.length) next = { ...t, origin: { ...t.origin, ...Object.fromEntries(left.map((c) => [c.id, s.deck!])) } }
+  }
+  return cards.length || isDocked(t, s.id) || s.slot ? setStack(next, { ...s, cards }) : removeStack(next, s.id)
+}
+
+
+export function moveStack(t: Table, id: string, x: number, y: number): Table {
+  const s = t.stacks[id]
+  if (!s || s.slot || (s.x === x && s.y === y)) return t
+  return bringToFront(setStack(t, { ...s, x, y }), id)
+}
+
+/** Lift the top card off a stack and drop it at (x, y) as its own stack. */
+export function takeTop(t: Table, id: string, x: number, y: number): [Table, string | null] {
+  const s = t.stacks[id]
+  if (!s?.cards.length) return [t, null]
+  if (s.cards.length === 1 && !isDocked(t, id) && !s.slot) return [moveStack(t, id, x, y), id]
+  const top = s.cards[s.cards.length - 1]
+  return addStack(withCards(t, s, s.cards.slice(0, -1)), x, y, [top], { rot: s.rot })
+}
+
+/** Move all cards of `sourceId` onto (or under) `targetId`. */
+export function mergeStacks(t: Table, sourceId: string, targetId: string, where: 'top' | 'bottom'): Table {
+  const src = t.stacks[sourceId]
+  const dst = t.stacks[targetId]
+  if (!src || !dst || src === dst) return t
+  let cards: CardRef[]
+  if (where === 'top') {
+    cards = [...dst.cards, ...src.cards]
+  } else {
+    // Cards slid under a pile take on the facing of that pile's bottom card.
+    const faceUp = dst.cards[0]?.faceUp ?? src.cards[0].faceUp
+    cards = [...src.cards.map((c) => ({ ...c, faceUp })), ...dst.cards]
+  }
+  return removeStack(setStack(t, { ...dst, cards }), sourceId)
+}
+
+export function flipTop(t: Table, id: string): Table {
+  const s = t.stacks[id]
+  if (!s?.cards.length) return t
+  const cards = [...s.cards]
+  const top = cards[cards.length - 1]
+  cards[cards.length - 1] = { ...top, faceUp: !top.faceUp }
+  return setStack(t, { ...s, cards })
+}
+
+/** Turn the whole pile over, like flipping a real deck. */
+export function flipStack(t: Table, id: string): Table {
+  const s = t.stacks[id]
+  if (!s?.cards.length) return t
+  return setStack(t, { ...s, cards: s.cards.map((c) => ({ ...c, faceUp: !c.faceUp })).reverse() })
+}
+
+export function rotateStack(t: Table, id: string, delta: number): Table {
+  const s = t.stacks[id]
+  if (!s) return t
+  return setStack(t, { ...s, rot: ((((s.rot + delta) % 360) + 360) % 360) as Rotation })
+}
+
+export function shuffleStack(t: Table, id: string): Table {
+  const s = t.stacks[id]
+  if (!s || s.cards.length < 2) return t
+  const cards = [...s.cards]
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[cards[i], cards[j]] = [cards[j], cards[i]]
+  }
+  return setStack(t, { ...s, cards })
+}
+
+export function sortStack(t: Table, id: string, defs: Record<string, CardDef>): Table {
+  const s = t.stacks[id]
+  if (!s || s.cards.length < 2) return t
+  // Top of the pile (end of the array) holds the lowest number.
+  const cards = [...s.cards].sort((a, b) => compareCards(defs[b.id], defs[a.id]))
+  return setStack(t, { ...s, cards })
+}
+
+/** Place the top card at the bottom of the pile (e.g. after reading a Fate Number). */
+export function topToBottom(t: Table, id: string): Table {
+  const s = t.stacks[id]
+  if (!s || s.cards.length < 2) return t
+  const top = s.cards[s.cards.length - 1]
+  return setStack(t, { ...s, cards: [{ ...top, faceUp: s.cards[0].faceUp }, ...s.cards.slice(0, -1)] })
+}
+
+/**
+ * Draw the top card face up next to the pile (onto a pile already lying there).
+ * Decks in the sidebar draw to `at` instead.
+ */
+export function drawTop(t: Table, id: string, at?: { x: number; y: number }): Table {
+  const s = t.stacks[id]
+  if (!s || s.cards.length < (isDocked(t, id) ? 1 : 2)) return t
+  const x = at?.x ?? s.x + CARD_W + 40
+  const y = at?.y ?? s.y
+  const top = { ...s.cards[s.cards.length - 1], faceUp: true }
+  const t2 = withCards(t, s, s.cards.slice(0, -1))
+  const there = t2.z.map((z) => t2.stacks[z]).find((o) => Math.abs(o.x - x) < 5 && Math.abs(o.y - y) < 5)
+  if (there) return setStack(t2, { ...there, cards: [...there.cards, top] })
+  return addStack(t2, x, y, [top], { rot: s.rot })[0]
+}
+
+/** Pull one card (by index, bottom = 0) out of a pile onto the table. */
+export function extractCard(t: Table, id: string, index: number, x: number, y: number, faceUp = true): Table {
+  const s = t.stacks[id]
+  if (!s || !s.cards[index]) return t
+  const card = { ...s.cards[index], faceUp }
+  const rest = s.cards.filter((_, i) => i !== index)
+  return addStack(withCards(t, s, rest), x, y, [card])[0]
+}
+
+/** Pull several cards out of a pile into one new pile. */
+export function extractCards(t: Table, id: string, indices: number[], x: number, y: number): Table {
+  const s = t.stacks[id]
+  if (!s || !indices.length) return t
+  const set = new Set(indices)
+  const picked = s.cards.filter((_, i) => set.has(i))
+  const rest = s.cards.filter((_, i) => !set.has(i))
+  return addStack(withCards(t, s, rest), x, y, picked)[0]
+}
+
+export function moveCardInStack(t: Table, id: string, index: number, where: 'top' | 'bottom'): Table {
+  const s = t.stacks[id]
+  if (!s || !s.cards[index]) return t
+  const card = s.cards[index]
+  const rest = s.cards.filter((_, i) => i !== index)
+  return setStack(t, { ...s, cards: where === 'top' ? [...rest, card] : [card, ...rest] })
+}
+
+export function bringToFront(t: Table, id: string): Table {
+  if (!t.z.includes(id) || t.z[t.z.length - 1] === id) return t
+  return { ...t, z: [...t.z.filter((z) => z !== id), id] }
+}
+
+export function sendToBack(t: Table, id: string): Table {
+  if (!t.z.includes(id) || t.z[0] === id) return t
+  return { ...t, z: [id, ...t.z.filter((z) => z !== id)] }
+}
+
+export function renameStack(t: Table, id: string, label: string): Table {
+  const s = t.stacks[id]
+  if (!s) return t
+  return setStack(t, { ...s, label: label.trim() || undefined })
+}
+
+/** Find which stack holds a card, and where. */
+export function locateCard(t: Table, cardId: string): { stack: Stack; index: number } | null {
+  for (const stack of allStacks(t)) {
+    const index = stack.cards.findIndex((c) => c.id === cardId)
+    if (index >= 0) return { stack, index }
+  }
+  return null
+}
+
+export function addToken(t: Table, x: number, y: number, color: string, shape: Token['shape']): Table {
+  const [id, nextId] = newId(t, 't')
+  return { ...t, nextId, tokens: [...t.tokens, { id, x, y, color, shape }] }
+}
+
+export function moveToken(t: Table, id: string, x: number, y: number): Table {
+  const tok = t.tokens.find((k) => k.id === id)
+  if (!tok || (tok.x === x && tok.y === y)) return t
+  // Moved token goes last so it renders on top.
+  return { ...t, tokens: [...t.tokens.filter((k) => k.id !== id), { ...tok, x, y }] }
+}
+
+export function removeToken(t: Table, id: string): Table {
+  return { ...t, tokens: t.tokens.filter((k) => k.id !== id) }
+}
+
+/** Topmost stack whose center is close enough to (cx, cy) to stack onto it. */
+export function stackTargetAt(t: Table, cx: number, cy: number, exclude: string | null): Stack | null {
+  const reach = CARD_W * 0.4
+  for (let i = t.z.length - 1; i >= 0; i--) {
+    const s = t.stacks[t.z[i]]
+    if (s.id === exclude || s.slot) continue
+    if (Math.hypot(s.x + CARD_W / 2 - cx, s.y + CARD_H / 2 - cy) < reach) return s
+  }
+  return null
+}
+
+// ---------- hand ----------
+
+/** Move the top card (or every card) of a pile into the hand. */
+export function stackToHand(t: Table, id: string, which: 'top' | 'all'): Table {
+  const s = t.stacks[id]
+  if (!s?.cards.length) return t
+  const moved = which === 'top' ? s.cards.slice(-1) : [...s.cards].reverse()
+  const rest = which === 'top' ? s.cards.slice(0, -1) : []
+  const t2 = withCards(t, s, rest)
+  return { ...t2, hand: [...(t2.hand ?? []), ...moved.map((c) => ({ ...c, faceUp: true }))] }
+}
+
+/** Play a card from the hand onto the table, or onto a pile when `targetId` is given. */
+export function handToTable(t: Table, index: number, x: number, y: number, targetId: string | null): Table {
+  const card = t.hand?.[index]
+  if (!card) return t
+  const t2 = { ...t, hand: t.hand!.filter((_, i) => i !== index) }
+  const target = targetId ? t2.stacks[targetId] : null
+  if (target) return bringToFront(setStack(t2, { ...target, cards: [...target.cards, { ...card, faceUp: true }] }), target.id)
+  return addStack(t2, x, y, [{ ...card, faceUp: true }])[0]
+}
+
+export function reorderHand(t: Table, from: number, to: number): Table {
+  const hand = [...(t.hand ?? [])]
+  if (!hand[from] || from === to) return t
+  const [card] = hand.splice(from, 1)
+  hand.splice(Math.max(0, Math.min(hand.length, to)), 0, card)
+  return { ...t, hand }
+}
+
+// ---------- battlefield ----------
+
+/** Take a card out of whatever pile (or the hand) holds it. */
+function takeCard(t: Table, cardId: string): [Table, CardRef | null] {
+  const handIndex = t.hand?.findIndex((c) => c.id === cardId) ?? -1
+  if (handIndex >= 0) return [{ ...t, hand: t.hand!.filter((_, i) => i !== handIndex) }, t.hand![handIndex]]
+  const where = locateCard(t, cardId)
+  if (!where) return [t, null]
+  const { stack, index } = where
+  return [withCards(t, stack, stack.cards.filter((_, i) => i !== index)), stack.cards[index]]
+}
+
+export interface TerrainSlot {
+  code: string
+  down: boolean
+}
+
+/**
+ * Lay out Terrain Cards edge to edge as drawn on a Conflict Card, inside a
+ * battlefield area at (x, y). `rows` holds card codes like "T07" (null = empty
+ * cell); down-facing cards are turned 180°. Replaces any earlier battlefield.
+ */
+export function buildBattlefield(
+  t: Table,
+  rows: (TerrainSlot | null)[][],
+  defs: Record<string, CardDef>,
+  x: number,
+  y: number,
+): Table {
+  const idByCode = new Map(Object.values(defs).map((d) => [d.code, d.id]))
+  const battlefield = { x, y, cols: Math.max(1, ...rows.map((r) => r.length)), rows: rows.length }
+  const x0 = x + AREA_PAD
+  const y0 = y + AREA_HEADER
+  let next: Table = { ...clearBattlefield(t, defs), battlefield }
+  rows.forEach((row, r) =>
+    row.forEach((slot, c) => {
+      const id = slot && idByCode.get(slot.code)
+      if (!id) return
+      const [t2, card] = takeCard(next, id)
+      if (!card) return
+      next = addStack(t2, x0 + c * CARD_W, y0 + r * CARD_H, [{ ...card, faceUp: true }], { rot: slot.down ? 180 : 0 })[0]
+    }),
+  )
+  return next
+}
+
+/** Put every Terrain Card lying on the table back into the Terrain deck and remove the battlefield. */
+export function clearBattlefield(t: Table, defs: Record<string, CardDef>): Table {
+  let next: Table = { ...t, battlefield: null }
+  for (const id of t.z) {
+    const s = next.stacks[id]
+    if (s?.cards.some((c) => defs[c.id]?.type === 'terrain')) {
+      const terrain = s.cards.filter((c) => defs[c.id]?.type === 'terrain')
+      next = returnToDecks(withCards(next, s, s.cards.filter((c) => !terrain.includes(c))), terrain, defs)
+    }
+  }
+  return next
+}
+
+// ---------- decks ----------
+
+/** Put cards (bottom → top, kept in that order) into a sidebar deck, at the place its rules say. */
+function insertIntoDeck(t: Table, kind: DeckKind, cards: CardRef[], defs: Record<string, CardDef>, under = false): Table {
+  const deck = deckStack(t, kind)
+  if (!deck || !cards.length) return t
+  const spec = DECK_SPECS[kind]
+  const added = cards.map((c) => ({ ...c, faceUp: spec.faceUp }))
+  if (spec.insert === 'sorted') return sortStack(setStack(t, { ...deck, cards: [...deck.cards, ...added] }), deck.id, defs)
+  const bottom = under || spec.insert === 'bottom'
+  return setStack(t, { ...deck, cards: bottom ? [...added, ...deck.cards] : [...deck.cards, ...added] })
+}
+
+/** Send cards (already taken off the table or out of the hand) back to their own decks. */
+function returnToDecks(t: Table, cards: CardRef[], defs: Record<string, CardDef>): Table {
+  const groups = new Map<DeckKind, CardRef[]>()
+  for (const card of cards) {
+    const def = defs[card.id]
+    if (!def) continue
+    const kind = homeDeck(t, def)
+    groups.set(kind, [...(groups.get(kind) ?? []), card])
+  }
+  let next = t
+  for (const [kind, group] of groups) next = insertIntoDeck(next, kind, group, defs)
+  return next
+}
+
+/** A table pile (or its top card) goes back to the decks its cards belong to. */
+export function stackToDecks(t: Table, id: string, which: 'top' | 'all', defs: Record<string, CardDef>): Table {
+  const s = t.stacks[id]
+  if (!s?.cards.length || isDocked(t, id)) return t
+  const moved = which === 'top' ? s.cards.slice(-1) : s.cards
+  return returnToDecks(withCards(t, s, which === 'top' ? s.cards.slice(0, -1) : []), moved, defs)
+}
+
+/** A hand card goes back to its deck. */
+export function handToDecks(t: Table, index: number, defs: Record<string, CardDef>): Table {
+  const card = t.hand?.[index]
+  if (!card) return t
+  return returnToDecks({ ...t, hand: t.hand!.filter((_, i) => i !== index) }, [card], defs)
+}
+
+/** Cards of a pile that a deck may not hold (empty = the pile may go under that deck). */
+export function notHeldBy(t: Table, stackId: string, kind: DeckKind, defs: Record<string, CardDef>): CardDef[] {
+  return (t.stacks[stackId]?.cards ?? []).map((c) => defs[c.id]).filter((d) => d && !DECK_SPECS[kind].holds(d))
+}
+
+/**
+ * Slide a table pile under a sidebar deck, as the rules ask (X-cards under the
+ * Encounter Deck, enemies under the Enemy Card, banished cards under Banned Cards).
+ */
+export function putUnderDeck(t: Table, stackId: string, kind: DeckKind, defs: Record<string, CardDef>): Table {
+  const s = t.stacks[stackId]
+  if (!s || isDocked(t, stackId) || notHeldBy(t, stackId, kind, defs).length) return t
+  return insertIntoDeck(removeStack(t, stackId), kind, s.cards, defs, true)
+}
+
+// ---------- storybook ----------
+
+/** Turn over the top card of the storybook onto the revealed pile. */
+export function revealStory(t: Table): Table {
+  const deck = storySlot(t, 'story')
+  const shown = storySlot(t, 'story-revealed')
+  const top = deck?.cards.at(-1)
+  if (!deck || !shown || !top) return t
+  const t2 = setStack(t, { ...deck, cards: deck.cards.slice(0, -1) })
+  return setStack(t2, { ...shown, cards: [...shown.cards, { ...top, faceUp: true }] })
+}
+
+/** Put the top revealed card back on top of the storybook, face down. */
+export function unrevealStory(t: Table): Table {
+  const deck = storySlot(t, 'story')
+  const shown = storySlot(t, 'story-revealed')
+  const top = shown?.cards.at(-1)
+  if (!deck || !shown || !top) return t
+  const t2 = setStack(t, { ...shown, cards: shown.cards.slice(0, -1) })
+  return setStack(t2, { ...deck, cards: [...deck.cards, { ...top, faceUp: false }] })
+}
+
+/**
+ * Put a table pile into the storybook directly under the card "Chapter N", so it
+ * comes up right after that chapter. If that chapter was already revealed, the
+ * cards go on top and come up next.
+ */
+export function putUnderChapter(t: Table, stackId: string, chapter: number, defs: Record<string, CardDef>): Table {
+  const s = t.stacks[stackId]
+  const deck = storySlot(t, 'story')
+  if (!s || !deck || s.slot || notHeldBy(t, stackId, 'storybook', defs).length) return t
+  const cards = s.cards.map((c) => ({ ...c, faceUp: false }))
+  const at = deck.cards.findIndex((c) => defs[c.id]?.name === `Chapter ${chapter}`)
+  const next = at < 0 ? [...deck.cards, ...cards] : [...deck.cards.slice(0, at), ...cards, ...deck.cards.slice(at)]
+  return setStack(removeStack(t, stackId), { ...deck, cards: next })
+}

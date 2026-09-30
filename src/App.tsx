@@ -1,0 +1,642 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import * as A from './actions'
+import { CARD_H, CARD_W, clampScale, loadManifest, TOKEN_SIZE } from './cards'
+import { BattlefieldDialog, BrowseDialog, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
+import { Hand } from './Hand'
+import { AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, refusal, type Area } from './areas'
+import { DECK_SPECS, homeDeck } from './decks'
+import { initialTable, migrateTable, playableCards } from './setup'
+import { Sidebar } from './Sidebar'
+import { loadSaved, redo, resetTable, undo, update, useHistory, useTable } from './store'
+import { TableView, type Selection, type Zone } from './Table'
+import type { CardDef, CardManifest, CardRef, Table, Token, View } from './types'
+
+type Dialog =
+  | { kind: 'inspect'; card: CardRef }
+  | { kind: 'browse'; stackId: string }
+  | { kind: 'find' }
+  | { kind: 'rename'; stackId: string }
+  | { kind: 'menu' }
+  | { kind: 'tokens' }
+  | { kind: 'battle' }
+  | { kind: 'areas' }
+  | { kind: 'chapter'; stackId: string }
+  | null
+
+/** A remembered on/off panel setting (per device). */
+function usePanel(key: string): [boolean, () => void] {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(key) !== '0'
+    } catch {
+      return true
+    }
+  })
+  const toggle = () => {
+    try {
+      localStorage.setItem(key, open ? '0' : '1')
+    } catch {
+      // Only a convenience.
+    }
+    setOpen(!open)
+  }
+  return [open, toggle]
+}
+
+const sameZone = (a: Zone | null, b: Zone | null) => JSON.stringify(a) === JSON.stringify(b)
+
+const DECKS_IN_SIDEBAR = (t: Table) => (t.dock ?? []).map((id) => t.stacks[id])
+
+const TOKENS: { label: string; color: string; shape: Token['shape'] }[] = [
+  { label: 'Player marker', color: '#e8e2d6', shape: 'cube' },
+  { label: 'Character', color: '#8a8f98', shape: 'pawn' },
+  { label: 'Ally', color: '#7b4fb5', shape: 'pawn' },
+  { label: 'Enemy yellow', color: '#f2c318', shape: 'pawn' },
+  { label: 'Enemy turquoise', color: '#1fb5b0', shape: 'pawn' },
+  { label: 'Enemy black', color: '#1d1d1f', shape: 'pawn' },
+  { label: 'Enemy pink', color: '#e75aa6', shape: 'pawn' },
+]
+
+/** Every playable card exactly once (older saves may still hold the title card). */
+function isValidTable(t: Table | null, manifest: CardManifest): t is Table {
+  if (!t?.stacks || !t.z || !t.tokens) return false
+  const ids = [...Object.values(t.stacks).flatMap((s) => s.cards), ...(t.hand ?? [])].map((c) => c.id)
+  const known = new Set(manifest.cards.map((c) => c.id))
+  const unique = new Set(ids)
+  return unique.size === ids.length && ids.every((id) => known.has(id)) && playableCards(manifest).every((c) => unique.has(c.id))
+}
+
+export default function App() {
+  const [manifest, setManifest] = useState<CardManifest | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const table = useTable()
+  const history = useHistory()
+  const [view, setView] = useState<View>({ x: 0, y: 0, scale: 0.5 })
+  const [rawSelection, setSelection] = useState<Selection>(null)
+  const [dialog, setDialog] = useState<Dialog>(null)
+  const [putUnder, setPutUnder] = useState<string | null>(null)
+  const [handOpen, toggleHand] = usePanel('grimm-world:hand-open')
+  const [sidebarOpen, toggleSidebar] = usePanel('grimm-world:sidebar-open')
+  const [zoneHover, setZoneHover] = useState<Zone | null>(null)
+  const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null)
+  /** Sidebar decks a dragged card would go back to. */
+  const [homeHover, setHomeHover] = useState<string[]>([])
+  const noticeTimer = useRef<number | undefined>(undefined)
+  const areaRef = useRef<HTMLDivElement>(null)
+  const handRef = useRef<HTMLDivElement>(null)
+
+  const defs = useMemo<Record<string, CardDef>>(
+    () => Object.fromEntries((manifest ? playableCards(manifest) : []).map((c) => [c.id, c])),
+    [manifest],
+  )
+
+  /** Zoom and pan so that the given table rectangle fills the screen. */
+  const fitRect = useCallback((minX: number, minY: number, maxX: number, maxY: number) => {
+    const el = areaRef.current
+    if (!el) return
+    const pad = 40
+    const scale = clampScale(Math.min(1, (el.clientWidth - pad * 2) / (maxX - minX), (el.clientHeight - pad * 2) / (maxY - minY)))
+    setView({
+      scale,
+      x: (el.clientWidth - (maxX - minX) * scale) / 2 - minX * scale,
+      y: (el.clientHeight - (maxY - minY) * scale) / 2 - minY * scale,
+    })
+  }, [])
+
+  const fit = useCallback(
+    (t: Table) => {
+      const items = [
+        ...t.z.map((id) => t.stacks[id]).map((s) => ({ x: s.x, y: s.y - 50, w: CARD_W, h: CARD_H + 90 })),
+        ...t.tokens.map((k) => ({ x: k.x, y: k.y, w: TOKEN_SIZE, h: TOKEN_SIZE })),
+        ...AREAS,
+        ...(t.battlefield ? [battlefieldArea(t.battlefield)] : []),
+      ]
+      fitRect(
+        Math.min(...items.map((i) => i.x)),
+        Math.min(...items.map((i) => i.y)),
+        Math.max(...items.map((i) => i.x + i.w)),
+        Math.max(...items.map((i) => i.y + i.h)),
+      )
+    },
+    [fitRect],
+  )
+
+  useEffect(() => {
+    loadManifest()
+      .then((m) => {
+        const saved = loadSaved()
+        const cardDefs = Object.fromEntries(m.cards.map((c) => [c.id, c]))
+        const t = isValidTable(saved, m) ? migrateTable(saved, cardDefs) : initialTable(m)
+        setManifest(m)
+        resetTable(t)
+        requestAnimationFrame(() => fit(t))
+      })
+      .catch((e: Error) => setError(e.message))
+  }, [fit])
+
+  // Keyboard shortcuts for desktop testing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).closest('input, textarea')) return
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+      } else if (e.key === 'Escape') {
+        setSelection(null)
+        setPutUnder(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // A selection goes stale after undo/redo or when a pile is used up.
+  const selectedStack = rawSelection?.kind === 'stack' ? table?.stacks[rawSelection.id] : undefined
+  const selectedToken = rawSelection?.kind === 'token' ? table?.tokens.find((t) => t.id === rawSelection.id) : undefined
+  const selection = selectedStack || selectedToken ? rawSelection : null
+
+  /**
+   * A free spot near the middle of the screen, in table coordinates, for the
+   * given cards: outside the areas if possible, else in an area that takes them.
+   */
+  const dropAt = useCallback(
+    (cardIds: string[] = []) => {
+      const el = areaRef.current!
+      const cx = (el.clientWidth / 2 - view.x) / view.scale - CARD_W / 2
+      const cy = (el.clientHeight / 2 - view.y) / view.scale - CARD_H / 2
+      if (!table) return { x: cx, y: cy }
+      const stacks = table.z.map((id) => table.stacks[id])
+      const free = (x: number, y: number) => !stacks.some((s) => Math.abs(s.x - x) < CARD_W + 10 && Math.abs(s.y - y) < CARD_H + 10)
+      // Try spots on a half-card grid, nearest to the screen center first.
+      const spots: { x: number; y: number; d: number }[] = []
+      for (let i = -12; i <= 12; i++) {
+        for (let j = -8; j <= 8; j++) spots.push({ x: cx + (i * CARD_W) / 2, y: cy + (j * CARD_H) / 2, d: Math.hypot(i * CARD_W, j * CARD_H) })
+      }
+      spots.sort((a, b) => a.d - b.d)
+      const outside = spots.find((p) => free(p.x, p.y) && !areaForCard(table, p.x, p.y))
+      const allowed = spots.find((p) => free(p.x, p.y) && !refusal(areaForCard(table, p.x, p.y), cardIds, defs))
+      return outside ?? allowed ?? { x: cx, y: cy }
+    },
+    [view, table, defs],
+  )
+
+  const notify = (text: string, ok = false) => {
+    setNotice({ text, ok })
+    window.clearTimeout(noticeTimer.current)
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 2500)
+  }
+
+  /** Can these cards go to (x, y) or onto `targetId`? Tells the player when not. */
+  const allowedAt = (cardIds: string[], x: number, y: number, targetId: string | null) => {
+    if (!table) return false
+    const onto = targetId ? table.stacks[targetId] : null
+    const why = refusal(areaForCard(table, onto?.x ?? x, onto?.y ?? y), cardIds, defs)
+    if (why) notify(why)
+    return !why
+  }
+
+  const showArea = (area: Area) => {
+    setDialog(null)
+    fitRect(area.x, area.y, area.x + area.w, area.y + area.h)
+  }
+
+  const showStack = (stackId: string) => {
+    const s = table?.stacks[stackId]
+    const el = areaRef.current
+    if (!s || !el || !table) return
+    if (s.slot) {
+      const area = AREAS.find((a) => a.id === 'storybook')!
+      return showArea(area)
+    }
+    if (A.isDocked(table, stackId)) {
+      if (!sidebarOpen) toggleSidebar()
+      document.querySelector(`[data-deck="${stackId}"]`)?.scrollIntoView({ block: 'nearest' })
+      return setSelection({ kind: 'stack', id: stackId })
+    }
+    const scale = Math.max(view.scale, 0.6)
+    setView({ scale, x: el.clientWidth / 2 - (s.x + CARD_W / 2) * scale, y: el.clientHeight / 2 - (s.y + CARD_H / 2) * scale })
+    setSelection({ kind: 'stack', id: stackId })
+  }
+
+  /** Drop zone (hand, sidebar deck, sidebar) under a screen point. */
+  const zoneAt = (clientX: number, clientY: number): Zone | null => {
+    const el = document.elementFromPoint(clientX, clientY)
+    const deck = el?.closest<HTMLElement>('[data-deck]')
+    if (deck) return { kind: 'deck', id: deck.dataset.deck! }
+    if (el?.closest('[data-dock]')) return { kind: 'dock' }
+    if (el?.closest('.hand')) return { kind: 'hand' }
+    return null
+  }
+
+  /** Table position for a card dropped at a screen point, or null if outside the table. */
+  const worldAt = (clientX: number, clientY: number) => {
+    const r = areaRef.current?.getBoundingClientRect()
+    if (!r || clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) return null
+    return { x: (clientX - r.left - view.x) / view.scale - CARD_W / 2, y: (clientY - r.top - view.y) / view.scale - CARD_H / 2 }
+  }
+
+  /** Names of the decks these cards go back to, e.g. "Lost Pages". */
+  const homeNames = (cards: CardRef[]) => {
+    if (!table) return ''
+    const kinds = [...new Set(cards.map((c) => defs[c.id] && homeDeck(table, defs[c.id])).filter(Boolean))]
+    return kinds.map((k) => DECK_SPECS[k!].label).join(', ')
+  }
+
+  /** A table pile (or its top card) was dropped on the hand or the sidebar. */
+  const dropOnZone = (zone: Zone, stackId: string, whole: boolean) => {
+    if (zone.kind === 'hand') return update((t) => A.stackToHand(t, stackId, whole ? 'all' : 'top'))
+    // Wherever it lands on the sidebar, a card goes back to its own deck.
+    const s = table?.stacks[stackId]
+    if (!s) return
+    notify(`Back to ${homeNames(whole ? s.cards : s.cards.slice(-1))}`, true)
+    update((t) => A.stackToDecks(t, stackId, whole ? 'all' : 'top', defs))
+  }
+
+  /** A hand card was released at a screen point (`slot` set when still inside the tray). */
+  const dropFromHand = (index: number, clientX: number, clientY: number, slot: number | null) => {
+    if (slot !== null) return update((t) => A.reorderHand(t, index, slot))
+    const card = table?.hand?.[index]
+    if (!table || !card) return
+    const zone = zoneAt(clientX, clientY)
+    if (zone?.kind === 'deck' || zone?.kind === 'dock') {
+      notify(`Back to ${homeNames([card])}`, true)
+      return update((t) => A.handToDecks(t, index, defs))
+    }
+    const at = worldAt(clientX, clientY)
+    if (!at) return
+    const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
+    if (!allowedAt([card.id], at.x, at.y, target)) return
+    update((t) => A.handToTable(t, index, at.x, at.y, target))
+  }
+
+  /** Put the pile waiting in "Put under…" mode under a table pile or a sidebar deck. */
+  const putUnderTarget = (targetId: string) => {
+    const sourceId = putUnder
+    setPutUnder(null)
+    if (!table || !sourceId || sourceId === targetId) return
+    const target = table.stacks[targetId]
+    if (target.slot === 'story-revealed') return notify('Put cards under the storybook itself (the right-hand card)')
+    if (target.slot === 'story') {
+      const refused = A.notHeldBy(table, sourceId, 'storybook', defs)
+      if (refused.length) return notify(`${refused[0].code ?? refused[0].name ?? 'This card'} can't go into the Storybook`)
+      return setDialog({ kind: 'chapter', stackId: sourceId })
+    }
+    if (target.deck) {
+      const refused = A.notHeldBy(table, sourceId, target.deck, defs)
+      if (refused.length) return notify(`${refused[0].code ?? refused[0].name ?? 'This card'} can't go into the ${target.label}`)
+      update((t) => A.putUnderDeck(t, sourceId, target.deck!, defs))
+    } else {
+      const cards = table.stacks[sourceId].cards.map((c) => c.id)
+      if (!allowedAt(cards, target.x, target.y, null)) return
+      update((t) => A.mergeStacks(t, sourceId, targetId, 'bottom'))
+    }
+    setSelection({ kind: 'stack', id: targetId })
+  }
+
+  /** The top card of a sidebar deck was released at a screen point. */
+  const dropFromDeck = (deckId: string, clientX: number, clientY: number) => {
+    const zone = zoneAt(clientX, clientY)
+    if (zone?.kind === 'hand') return update((t) => A.stackToHand(t, deckId, 'top'))
+    if (zone?.kind === 'deck' && zone.id !== deckId) return notify("Cards can't move from one deck to another")
+    if (zone) return
+    const at = worldAt(clientX, clientY)
+    const card = table?.stacks[deckId]?.cards.at(-1)
+    if (!at || !table || !card) return
+    const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
+    if (!allowedAt([card.id], at.x, at.y, target)) return
+    update((t) => {
+      const [t2, newId] = A.takeTop(t, deckId, at.x, at.y)
+      return newId && target ? A.mergeStacks(t2, newId, target, 'top') : t2
+    })
+  }
+
+  const buildBattlefield = (rows: (A.TerrainSlot | null)[][]) => {
+    const { x, y } = BATTLEFIELD_ORIGIN
+    update((t) => A.buildBattlefield(t, rows, defs, x, y))
+    setSelection(null)
+    showArea(battlefieldArea({ x, y, cols: Math.max(1, ...rows.map((r) => r.length)), rows: rows.length }))
+  }
+
+  const exportSave = () => {
+    const blob = new Blob([JSON.stringify(table)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `grimm-world-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
+  const importSave = (file: File) => {
+    file.text().then((text) => {
+      try {
+        const parsed = JSON.parse(text) as Table
+        if (!manifest || !isValidTable(parsed, manifest)) throw new Error('not a Grimm World save')
+        const t = migrateTable(parsed, Object.fromEntries(manifest.cards.map((c) => [c.id, c])))
+        resetTable(t)
+        setSelection(null)
+        fit(t)
+      } catch (e) {
+        alert(`Could not load this file: ${(e as Error).message}`)
+      }
+    })
+  }
+
+  if (error) return <div className="splash">{error}</div>
+  if (!manifest || !table) return <div className="splash">Loading cards…</div>
+
+  const act = (fn: (t: Table, id: string) => Table) => selectedStack && update((t) => fn(t, selectedStack.id))
+  const count = selectedStack?.cards.length ?? 0
+  const topCard = selectedStack?.cards[count - 1]
+  const docked = !!selectedStack && A.isDocked(table, selectedStack.id)
+  /** Decks draw several cards; a pile on the table needs at least two. */
+  const many = count > (docked ? 0 : 1)
+
+  return (
+    <div className="app">
+      <header className="toolbar">
+        <button onClick={toggleSidebar} className={sidebarOpen ? 'on' : ''} aria-label="Toggle decks">
+          🂠 <span>Decks</span>
+        </button>
+        <button onClick={undo} disabled={!(history & 1)} aria-label="Undo">
+          ↶ <span>Undo</span>
+        </button>
+        <button onClick={redo} disabled={!(history & 2)} aria-label="Redo">
+          ↷ <span>Redo</span>
+        </button>
+        <span className="spacer" />
+        <button onClick={() => setDialog({ kind: 'find' })}>
+          🔍 <span>Find card</span>
+        </button>
+        <button onClick={() => setDialog({ kind: 'tokens' })}>
+          ● <span>Figures</span>
+        </button>
+        <button onClick={() => setDialog({ kind: 'areas' })}>
+          📍 <span>Areas</span>
+        </button>
+        <button onClick={() => setDialog({ kind: 'battle' })}>
+          ⚔ <span>Battle</span>
+        </button>
+        <button onClick={toggleHand} className={handOpen ? 'on' : ''} aria-label="Toggle hand">
+          ✋ <span>Hand</span>
+          {table.hand?.length ? ` ${table.hand.length}` : ''}
+        </button>
+        <button onClick={() => fit(table)} aria-label="Fit table">
+          ⤢ <span>Fit</span>
+        </button>
+        <button onClick={() => setDialog({ kind: 'menu' })} aria-label="Menu">
+          ☰
+        </button>
+      </header>
+
+      <div className="main">
+      {sidebarOpen && (
+        <Sidebar
+          decks={(table.dock ?? []).map((id) => table.stacks[id])}
+          defs={defs}
+          selectedId={selectedStack && docked ? selectedStack.id : null}
+          hoverIds={zoneHover && zoneHover.kind !== 'hand' ? homeHover : []}
+          onTap={(id) => (putUnder ? putUnderTarget(id) : setSelection({ kind: 'stack', id }))}
+          onDoubleTap={(id) => update((t) => A.flipTop(t, id))}
+          onInspect={(card) => setDialog({ kind: 'inspect', card })}
+          onDrop={dropFromDeck}
+        />
+      )}
+      <div className="table-area" ref={areaRef}>
+        <TableView
+          table={table}
+          defs={defs}
+          view={view}
+          onView={setView}
+          selection={selection}
+          onSelect={(s) => {
+            setSelection(s)
+            setPutUnder(null)
+          }}
+          onPickTarget={
+            putUnder ? putUnderTarget : null
+          }
+          onInspect={(card) => setDialog({ kind: 'inspect', card })}
+          zoneAt={zoneAt}
+          onZoneHover={(zone, cardIds) => {
+            setZoneHover((prev) => (sameZone(prev, zone) ? prev : zone))
+            if (zone && zone.kind !== 'hand' && table) {
+              const kinds = new Set(cardIds.map((id) => defs[id] && homeDeck(table, defs[id])))
+              setHomeHover(DECKS_IN_SIDEBAR(table).filter((d) => d.deck && kinds.has(d.deck)).map((d) => d.id))
+            }
+          }}
+          onZoneDrop={dropOnZone}
+          onClearBattlefield={() => update((t) => A.clearBattlefield(t, defs))}
+          onRefuse={notify}
+          onSlotTap={(slot) => update((t) => (slot === 'story' ? A.revealStory(t) : A.unrevealStory(t)))}
+        />
+        {notice && <div className={`notice${notice.ok ? ' ok' : ''}`}>{notice.text}</div>}
+        {putUnder && (
+          <div className="banner">
+            Tap the pile to slide the card{(table.stacks[putUnder]?.cards.length ?? 0) > 1 ? 's' : ''} under
+            <button onClick={() => setPutUnder(null)}>Cancel</button>
+          </div>
+        )}
+      </div>
+      </div>
+
+      {handOpen && (
+        <Hand
+          ref={handRef}
+          cards={table.hand ?? []}
+          defs={defs}
+          dropHint={zoneHover?.kind === 'hand'}
+          onInspect={(card) => setDialog({ kind: 'inspect', card })}
+          onDrop={dropFromHand}
+        />
+      )}
+
+      {selectedStack && !putUnder && (
+        <footer className="actions">
+          {many && <button onClick={() => act((t, id) => A.drawTop(t, id, docked && topCard ? dropAt([topCard.id]) : undefined))}>🂠 Draw</button>}
+          {count > 0 && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
+          {count > 1 && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
+          {count > 1 && <button onClick={() => setDialog({ kind: 'browse', stackId: selectedStack.id })}>☰ Browse</button>}
+          {count > 1 && <button onClick={() => act(A.shuffleStack)}>⤮ Shuffle</button>}
+          {count > 1 && <button onClick={() => act((t, id) => A.sortStack(t, id, defs))}>⇅ Sort</button>}
+          {topCard && <button onClick={() => setDialog({ kind: 'inspect', card: topCard })}>🔍 View</button>}
+          {!docked && <button onClick={() => act((t, id) => A.rotateStack(t, id, 90))}>↻ Rotate</button>}
+          {!docked && <button onClick={() => setPutUnder(selectedStack.id)}>⤵ Put under…</button>}
+          {count > 0 && (
+            <button
+              onClick={() => {
+                act((t, id) => A.stackToHand(t, id, 'all'))
+                if (!handOpen) toggleHand()
+              }}
+            >
+              ✋ {count > 1 ? 'All to hand' : 'To hand'}
+            </button>
+          )}
+          {count > 1 && <button onClick={() => act(A.flipStack)}>⇵ Turn pile over</button>}
+          {!docked && <button onClick={() => act(A.bringToFront)}>▲ Front</button>}
+          {!docked && <button onClick={() => act(A.sendToBack)}>▼ Back</button>}
+          {!docked && (
+            <button
+              onClick={() => {
+                notify(`Back to ${homeNames(selectedStack.cards)}`, true)
+                act((t, id) => A.stackToDecks(t, id, 'all', defs))
+              }}
+            >
+              ↩ Return to deck
+            </button>
+          )}
+          {!docked && <button onClick={() => setDialog({ kind: 'rename', stackId: selectedStack.id })}>✎ Name</button>}
+        </footer>
+      )}
+      {selectedToken && (
+        <footer className="actions">
+          <button onClick={() => update((t) => A.removeToken(t, selectedToken.id))}>🗑 Remove figure</button>
+        </footer>
+      )}
+
+      {dialog?.kind === 'inspect' && <CardViewer card={dialog.card} def={defs[dialog.card.id]} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'browse' && (
+        <BrowseDialog
+          table={table}
+          stackId={dialog.stackId}
+          defs={defs}
+          dropAt={dropAt}
+          onInspect={(card) => setDialog({ kind: 'inspect', card })}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'find' && (
+        <FindDialog
+          table={table}
+          defs={defs}
+          dropAt={dropAt}
+          onShow={showStack}
+          onInspect={(card) => setDialog({ kind: 'inspect', card })}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'battle' && (
+        <BattlefieldDialog
+          table={table}
+          defs={defs}
+          onBuild={buildBattlefield}
+          onClear={() => {
+            update((t) => A.clearBattlefield(t, defs))
+            setDialog(null)
+          }}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'rename' && (
+        <RenameDialog
+          initial={table.stacks[dialog.stackId]?.label ?? ''}
+          onSave={(label) => update((t) => A.renameStack(t, dialog.stackId, label))}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'chapter' && (
+        <ChapterDialog
+          onPick={(chapter) => {
+            update((t) => A.putUnderChapter(t, dialog.stackId, chapter, defs))
+            setDialog(null)
+          }}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'areas' && (
+        <div className="popover" onPointerDown={(e) => e.target === e.currentTarget && setDialog(null)}>
+          <div className="popover-panel">
+            {[...AREAS, ...(table.battlefield ? [battlefieldArea(table.battlefield)] : [])].map((area) => (
+              <button key={area.id} onClick={() => showArea(area)}>
+                {area.label}
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                setDialog(null)
+                fit(table)
+              }}
+            >
+              ⤢ Whole table
+            </button>
+          </div>
+        </div>
+      )}
+      {dialog?.kind === 'tokens' && (
+        <div className="popover" onPointerDown={(e) => e.target === e.currentTarget && setDialog(null)}>
+          <div className="popover-panel">
+            {TOKENS.map((tok) => (
+              <button
+                key={tok.label}
+                onClick={() => {
+                  const at = dropAt()
+                  let x = at.x + CARD_W / 2 - TOKEN_SIZE / 2
+                  const y = at.y + CARD_H / 2 - TOKEN_SIZE / 2
+                  while (table.tokens.some((k) => Math.abs(k.x - x) < TOKEN_SIZE && Math.abs(k.y - y) < TOKEN_SIZE)) x += TOKEN_SIZE + 10
+                  update((t) => A.addToken(t, x, y, tok.color, tok.shape))
+                  setDialog(null)
+                }}
+              >
+                <span className={`swatch ${tok.shape}`} style={{ background: tok.color }} /> {tok.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {dialog?.kind === 'menu' && (
+        <div className="popover" onPointerDown={(e) => e.target === e.currentTarget && setDialog(null)}>
+          <div className="popover-panel">
+            <button
+              onClick={() => {
+                if (!confirm('Start a new game? The current table will be replaced (export it first to keep it).')) return
+                const t = initialTable(manifest)
+                resetTable(t)
+                setSelection(null)
+                setDialog(null)
+                fit(t)
+              }}
+            >
+              ✦ New game
+            </button>
+            <button
+              onClick={() => {
+                exportSave()
+                setDialog(null)
+              }}
+            >
+              ⭳ Export save
+            </button>
+            <label className="button">
+              ⭱ Import save
+              <input
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) importSave(f)
+                  setDialog(null)
+                }}
+              />
+            </label>
+            {document.fullscreenEnabled && (
+              <button
+                onClick={() => {
+                  if (document.fullscreenElement) document.exitFullscreen()
+                  else document.documentElement.requestFullscreen()
+                  setDialog(null)
+                }}
+              >
+                ⛶ Full screen
+              </button>
+            )}
+            <p className="muted small">
+              Tap: select · Double-tap: flip · Long-press: read card · Drag a card off a pile to draw it · Drag ⠿ to move the whole
+              pile · Drop onto a pile to stack · Two fingers: zoom
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
