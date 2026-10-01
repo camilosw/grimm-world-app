@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { extractCard, extractCards, locateCard, moveCardInStack, type TerrainSlot } from './actions'
+import { extractCard, locateCard, playCards, type TerrainSlot } from './actions'
 import { cardImage, cardLabel, compareCards, matchesQuery } from './cards'
+import { CardGhost } from './CardGhost'
 import { update } from './store'
 import type { CardDef, CardRef, Table } from './types'
+import { useDragOut } from './useDragOut'
 
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -52,33 +54,25 @@ interface BrowseProps {
   /** World position for cards taken out of the pile. */
   dropAt: (cardIds: string[]) => { x: number; y: number } | null
   onInspect: (card: CardRef) => void
+  /** Cards were dragged out of the panel and released at this screen point. */
+  onDrop: (cardIds: string[], clientX: number, clientY: number) => void
   onClose: () => void
 }
 
-/** Look through a pile, pull cards out, or move them to the top/bottom. */
-export function BrowseDialog({ table, stackId, defs, dropAt, onInspect, onClose }: BrowseProps) {
+/**
+ * Look through a pile and pull cards out. Sits in the bottom half of the
+ * screen so the table stays in use: tap cards to select them, then take them
+ * out, or drag a card's ⠿ grip (with the other selected cards) onto the table.
+ */
+export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, onClose }: BrowseProps) {
   const stack = table.stacks[stackId]
   const [query, setQuery] = useState('')
-  const [showFronts, setShowFronts] = useState(true)
+  const [fronts, setFronts] = useState(true)
   const [picked, setPicked] = useState<Set<string>>(new Set())
-  const [active, setActive] = useState<string | null>(null)
-
-  // The pile disappears when its last card is taken out.
-  useEffect(() => {
-    if (!stack) onClose()
-  }, [stack, onClose])
-  if (!stack) return null
-  // Shown top → bottom; keep the real index for actions.
-  const entries = stack.cards
-    .map((card, index) => ({ card, index, def: defs[card.id] }))
-    .reverse()
-    .filter((e) => !e.def || matchesQuery(e.def, query))
-  const indexOf = (cardId: string) => stack.cards.findIndex((c) => c.id === cardId)
-
-  const act = (cardId: string, fn: (t: Table, index: number) => Table) => {
-    update((t) => fn(t, indexOf(cardId)))
-    setActive(null)
-  }
+  // Selected cards that are still in the pile, in pile order.
+  const chosen = stack?.cards.filter((c) => picked.has(c.id)).map((c) => c.id) ?? []
+  /** A dragged card takes the other selected cards along. */
+  const draggedWith = (cardId: string) => (picked.has(cardId) ? chosen : [cardId])
   const togglePick = (cardId: string) =>
     setPicked((p) => {
       const next = new Set(p)
@@ -86,69 +80,88 @@ export function BrowseDialog({ table, stackId, defs, dropAt, onInspect, onClose 
       else next.add(cardId)
       return next
     })
+  const view = (cardId: string) => onInspect({ id: cardId, faceUp: fronts })
+  // Swipes on a card scroll the list; only the grip drags.
+  const thumb = useDragOut<string>({ onTap: togglePick, onLongPress: view })
+  const grip = useDragOut<string>({ onTap: togglePick, onDrop: (cardId, x, y) => onDrop(draggedWith(cardId), x, y) })
+
+  // The pile disappears when its last card is taken out.
+  useEffect(() => {
+    if (!stack) onClose()
+  }, [stack, onClose])
+  if (!stack) return null
+  // Shown top → bottom.
+  const entries = stack.cards
+    .map((card, index) => ({ card, index, def: defs[card.id] }))
+    .reverse()
+    .filter((e) => !e.def || matchesQuery(e.def, query))
+  const dragged = new Set(grip.drag ? draggedWith(grip.drag.item) : [])
 
   return (
-    <Modal title={`${stack.label ?? 'Pile'} — ${stack.cards.length} cards (top first)`} onClose={onClose} wide>
-      <div className="dialog-tools">
+    <section className="browse" aria-label={`Browse ${stack.label ?? 'pile'}`}>
+      <header className="browse-bar">
+        <h2>
+          {stack.label ?? 'Pile'} — {stack.cards.length} cards <span className="muted">(top first)</span>
+        </h2>
         <input type="search" placeholder="Filter: Y003, B12, Terrain…" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <label className="check">
-          <input type="checkbox" checked={showFronts} onChange={(e) => setShowFronts(e.target.checked)} /> Show fronts
-        </label>
-        {picked.size > 0 && (
+        <div className="segmented" role="group" aria-label="Card side">
+          <button className={fronts ? 'on' : ''} aria-pressed={fronts} onClick={() => setFronts(true)}>
+            Fronts
+          </button>
+          <button className={fronts ? '' : 'on'} aria-pressed={!fronts} onClick={() => setFronts(false)}>
+            Backs
+          </button>
+        </div>
+        {chosen.length > 0 && (
           <>
             <button
               className="primary"
               onClick={() => {
-                const at = dropAt([...picked])
+                const at = dropAt(chosen)
                 if (!at) return
-                update((t) => extractCards(t, stackId, [...picked].map(indexOf), at.x, at.y))
-                setPicked(new Set())
+                const indices = chosen.map((id) => stack.cards.findIndex((c) => c.id === id))
+                update((t) => playCards(t, stackId, indices, at.x, at.y, null))
               }}
             >
-              Make new pile ({picked.size})
+              Take out ({chosen.length})
             </button>
             <button onClick={() => setPicked(new Set())}>Clear</button>
           </>
         )}
-      </div>
+        <button className="icon" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+      </header>
       <div className="card-grid">
         {entries.map(({ card, index, def }) => (
-          <div key={card.id} className={`grid-card${picked.has(card.id) ? ' picked' : ''}`}>
-            <button className="thumb" onClick={() => setActive(active === card.id ? null : card.id)}>
-              <img src={cardImage(card.id, showFronts || card.faceUp, 'sm')} alt={cardLabel(def)} loading="lazy" draggable={false} />
-            </button>
+          <div
+            key={card.id}
+            className={`grid-card${picked.has(card.id) ? ' picked' : ''}${dragged.has(card.id) ? ' dragging' : ''}`}
+          >
             <div className="grid-caption">
-              <span>{cardLabel(def)}</span>
+              <span className="grid-label">{cardLabel(def)}</span>
               <span className="muted">{stack.cards.length - index}</span>
             </div>
-            {active === card.id && (
-              <div className="card-menu">
-                <button
-                  onClick={() => {
-                    const at = dropAt([card.id])
-                    if (at) act(card.id, (t, i) => extractCard(t, stackId, i, at.x, at.y))
-                  }}
-                >
-                  Take out
-                </button>
-                <button onClick={() => act(card.id, (t, i) => moveCardInStack(t, stackId, i, 'top'))}>To top</button>
-                <button onClick={() => act(card.id, (t, i) => moveCardInStack(t, stackId, i, 'bottom'))}>To bottom</button>
-                <button onClick={() => onInspect({ ...card, faceUp: true })}>View</button>
-                <button
-                  onClick={() => {
-                    togglePick(card.id)
-                    setActive(null)
-                  }}
-                >
-                  {picked.has(card.id) ? 'Unselect' : 'Select'}
-                </button>
-              </div>
-            )}
+            <div className="thumb" role="button" aria-pressed={picked.has(card.id)} {...thumb.bind(card.id)}>
+              <img src={cardImage(card.id, fronts, 'sm')} alt={cardLabel(def)} loading="lazy" draggable={false} />
+              {picked.has(card.id) && <span className="pick-badge">✓</span>}
+            </div>
+            <div className="card-tools">
+              <span className="card-grip" aria-label={`Drag ${cardLabel(def)} onto the table`} {...grip.bind(card.id)}>
+                ⠿
+              </span>
+              <button className="card-view" onClick={() => view(card.id)} aria-label={`View ${cardLabel(def)}`}>
+                🔍
+              </button>
+            </div>
           </div>
         ))}
         {!entries.length && <p className="muted">No matching cards.</p>}
       </div>
-    </Modal>
+      {grip.drag && (
+        <CardGhost src={cardImage(grip.drag.item, fronts, 'sm')} x={grip.drag.x} y={grip.drag.y} count={dragged.size} />
+      )}
+    </section>
   )
 }
 
@@ -181,20 +194,7 @@ export function FindDialog({ table, defs, dropAt, onShow, onInspect, onClose }: 
       <div className="card-grid">
         {results.map((def) => {
           const where = locateCard(table, def.id)
-          if (!where) {
-            if (!table.hand?.some((c) => c.id === def.id)) return null
-            return (
-              <div key={def.id} className="grid-card">
-                <button className="thumb" onClick={() => onInspect({ id: def.id, faceUp: true })}>
-                  <img src={cardImage(def.id, true, 'sm')} alt={cardLabel(def)} loading="lazy" draggable={false} />
-                </button>
-                <div className="grid-caption">
-                  <span>{cardLabel(def)}</span>
-                  <span className="muted">in hand</span>
-                </div>
-              </div>
-            )
-          }
+          if (!where) return null
           const { stack, index } = where
           // Storybook cards stay in the storybook.
           const inPile = stack.cards.length > 1 && !stack.slot

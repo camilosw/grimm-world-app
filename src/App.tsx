@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, loadManifest, TOKEN_SIZE } from './cards'
-import { BattlefieldDialog, BrowseDialog, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
-import { Hand } from './Hand'
+import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
 import { AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, placement, type Area } from './areas'
 import { DECK_SPECS, homeDeck } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
@@ -15,7 +14,6 @@ import type { CardDef, CardManifest, CardRef, Table, Token, View } from './types
 
 type Dialog =
   | { kind: 'inspect'; card: CardRef }
-  | { kind: 'browse'; stackId: string }
   | { kind: 'find' }
   | { kind: 'rename'; stackId: string }
   | { kind: 'menu' }
@@ -77,7 +75,9 @@ export default function App() {
   const [rawSelection, setSelection] = useState<Selection>(null)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [putUnder, setPutUnder] = useState<string | null>(null)
-  const [handOpen, toggleHand] = usePanel('grimm-world:hand-open')
+  /** Pile shown in the browse panel. */
+  const [browseId, setBrowseId] = useState<string | null>(null)
+  const closeBrowse = useCallback(() => setBrowseId(null), [])
   const [sidebarOpen, toggleSidebar] = usePanel('grimm-world:sidebar-open')
   const [zoneHover, setZoneHover] = useState<Zone | null>(null)
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null)
@@ -88,7 +88,6 @@ export default function App() {
   const [homeHover, setHomeHover] = useState<string[]>([])
   const noticeTimer = useRef<number | undefined>(undefined)
   const areaRef = useRef<HTMLDivElement>(null)
-  const handRef = useRef<HTMLDivElement>(null)
 
   const defs = useMemo<Record<string, CardDef>>(
     () => Object.fromEntries((manifest ? playableCards(manifest) : []).map((c) => [c.id, c])),
@@ -150,6 +149,7 @@ export default function App() {
       } else if (e.key === 'Escape') {
         setSelection(null)
         setPutUnder(null)
+        setBrowseId(null)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -245,13 +245,12 @@ export default function App() {
     setSelection({ kind: 'stack', id: stackId })
   }
 
-  /** Drop zone (hand, sidebar deck, sidebar) under a screen point. */
+  /** Drop zone (sidebar deck, sidebar) under a screen point. */
   const zoneAt = (clientX: number, clientY: number): Zone | null => {
     const el = document.elementFromPoint(clientX, clientY)
     const deck = el?.closest<HTMLElement>('[data-deck]')
     if (deck) return { kind: 'deck', id: deck.dataset.deck! }
     if (el?.closest('[data-dock]')) return { kind: 'dock' }
-    if (el?.closest('.hand')) return { kind: 'hand' }
     return null
   }
 
@@ -269,9 +268,8 @@ export default function App() {
     return kinds.map((k) => DECK_SPECS[k!].label).join(', ')
   }
 
-  /** A table pile (or its top card) was dropped on the hand or the sidebar. */
-  const dropOnZone = (zone: Zone, stackId: string, whole: boolean) => {
-    if (zone.kind === 'hand') return update((t) => A.stackToHand(t, stackId, whole ? 'all' : 'top'))
+  /** A table pile (or its top card) was dropped on the sidebar. */
+  const dropOnZone = (stackId: string, whole: boolean) => {
     // Wherever it lands on the sidebar, a card goes back to its own deck.
     const s = table?.stacks[stackId]
     if (!s) return
@@ -279,22 +277,27 @@ export default function App() {
     update((t) => A.stackToDecks(t, stackId, whole ? 'all' : 'top', defs))
   }
 
-  /** A hand card was released at a screen point (`slot` set when still inside the tray). */
-  const dropFromHand = (index: number, clientX: number, clientY: number, slot: number | null) => {
-    if (slot !== null) return update((t) => A.reorderHand(t, index, slot))
-    const card = table?.hand?.[index]
-    if (!table || !card) return
+  /** Cards dragged out of the browse panel were released at a screen point. */
+  const dropFromBrowse = (stackId: string, cardIds: string[], clientX: number, clientY: number) => {
+    const stack = table?.stacks[stackId]
+    const indices = cardIds.map((id) => stack?.cards.findIndex((c) => c.id === id) ?? -1).filter((i) => i >= 0)
+    if (!table || !indices.length) return
     const zone = zoneAt(clientX, clientY)
-    if (zone?.kind === 'deck' || zone?.kind === 'dock') {
-      notify(`Back to ${homeNames([card])}`, true)
-      return update((t) => A.handToDecks(t, index, defs))
+    if (zone) {
+      if (!A.isDocked(table, stackId)) {
+        notify(`Back to ${homeNames(cardIds.map((id) => ({ id, faceUp: true })))}`, true)
+        return update((t) => A.cardsToDecks(t, stackId, indices, defs))
+      }
+      if (zone.kind === 'deck' && zone.id !== stackId) notify("Cards can't move from one deck to another")
+      return
     }
     const at = worldAt(clientX, clientY)
     if (!at) return
     const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
-    const p = placeAt([card.id], at.x, at.y, target)
-    if (p) update((t) => A.handToTable(t, index, p.x, p.y, p.onto))
+    const p = placeAt(cardIds, at.x, at.y, target)
+    if (p) update((t) => A.playCards(t, stackId, indices, p.x, p.y, p.onto))
   }
+
 
   /** Put the pile waiting in "Put under…" mode under a table pile or a sidebar deck. */
   const putUnderTarget = (targetId: string) => {
@@ -325,7 +328,6 @@ export default function App() {
   /** The top card of a sidebar deck was released at a screen point. */
   const dropFromDeck = (deckId: string, clientX: number, clientY: number) => {
     const zone = zoneAt(clientX, clientY)
-    if (zone?.kind === 'hand') return update((t) => A.stackToHand(t, deckId, 'top'))
     if (zone?.kind === 'deck' && zone.id !== deckId) return notify("Cards can't move from one deck to another")
     if (zone) return
     const at = worldAt(clientX, clientY)
@@ -409,10 +411,6 @@ export default function App() {
         <button onClick={() => setDialog({ kind: 'battle' })}>
           ⚔ <span>Battle</span>
         </button>
-        <button onClick={toggleHand} className={handOpen ? 'on' : ''} aria-label="Toggle hand">
-          ✋ <span>Hand</span>
-          {table.hand?.length ? ` ${table.hand.length}` : ''}
-        </button>
         <button onClick={() => fit(table)} aria-label="Fit table">
           ⤢ <span>Fit</span>
         </button>
@@ -427,7 +425,7 @@ export default function App() {
           decks={(table.dock ?? []).map((id) => table.stacks[id])}
           defs={defs}
           selectedId={selectedStack && docked ? selectedStack.id : null}
-          hoverIds={zoneHover && zoneHover.kind !== 'hand' ? homeHover : []}
+          hoverIds={zoneHover ? homeHover : []}
           onTap={(id) => (putUnder ? putUnderTarget(id) : setSelection({ kind: 'stack', id }))}
           onDoubleTap={(id) => update((t) => A.flipTop(t, id))}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
@@ -452,12 +450,12 @@ export default function App() {
           zoneAt={zoneAt}
           onZoneHover={(zone, cardIds) => {
             setZoneHover((prev) => (sameZone(prev, zone) ? prev : zone))
-            if (zone && zone.kind !== 'hand' && table) {
+            if (zone && table) {
               const kinds = new Set(cardIds.map((id) => defs[id] && homeDeck(table, defs[id])))
               setHomeHover(DECKS_IN_SIDEBAR(table).filter((d) => d.deck && kinds.has(d.deck)).map((d) => d.id))
             }
           }}
-          onZoneDrop={dropOnZone}
+          onZoneDrop={(_, stackId, whole) => dropOnZone(stackId, whole)}
           onClearBattlefield={() => update((t) => A.clearBattlefield(t, defs))}
           onRefuse={notify}
           onSlotTap={(slot) => update((t) => (slot === 'story' ? A.revealStory(t) : A.unrevealStory(t)))}
@@ -474,14 +472,16 @@ export default function App() {
       {rulesOpen && rules && <RulesPanel rules={rules} target={rulesTarget} onClose={() => setRulesOpen(false)} />}
       </div>
 
-      {handOpen && (
-        <Hand
-          ref={handRef}
-          cards={table.hand ?? []}
+      {browseId && (
+        <BrowsePanel
+          key={browseId}
+          table={table}
+          stackId={browseId}
           defs={defs}
-          dropHint={zoneHover?.kind === 'hand'}
+          dropAt={dropAt}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
-          onDrop={dropFromHand}
+          onDrop={(cardIds, x, y) => dropFromBrowse(browseId, cardIds, x, y)}
+          onClose={closeBrowse}
         />
       )}
 
@@ -499,22 +499,19 @@ export default function App() {
           )}
           {count > 0 && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
           {count > 1 && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
-          {count > 1 && <button onClick={() => setDialog({ kind: 'browse', stackId: selectedStack.id })}>☰ Browse</button>}
+          {count > 1 && (
+            <button
+              className={browseId === selectedStack.id ? 'on' : ''}
+              onClick={() => setBrowseId(browseId === selectedStack.id ? null : selectedStack.id)}
+            >
+              ☰ Browse
+            </button>
+          )}
           {count > 1 && <button onClick={() => act(A.shuffleStack)}>⤮ Shuffle</button>}
           {count > 1 && <button onClick={() => act((t, id) => A.sortStack(t, id, defs))}>⇅ Sort</button>}
           {topCard && <button onClick={() => setDialog({ kind: 'inspect', card: topCard })}>🔍 View</button>}
           {!docked && <button onClick={() => act((t, id) => A.rotateStack(t, id, 90))}>↻ Rotate</button>}
           {!docked && <button onClick={() => setPutUnder(selectedStack.id)}>⤵ Put under…</button>}
-          {count > 0 && (
-            <button
-              onClick={() => {
-                act((t, id) => A.stackToHand(t, id, 'all'))
-                if (!handOpen) toggleHand()
-              }}
-            >
-              ✋ {count > 1 ? 'All to hand' : 'To hand'}
-            </button>
-          )}
           {count > 1 && <button onClick={() => act(A.flipStack)}>⇵ Turn pile over</button>}
           {!docked && <button onClick={() => act(A.bringToFront)}>▲ Front</button>}
           {!docked && <button onClick={() => act(A.sendToBack)}>▼ Back</button>}
@@ -553,16 +550,6 @@ export default function App() {
                 }
               : undefined
           }
-        />
-      )}
-      {dialog?.kind === 'browse' && (
-        <BrowseDialog
-          table={table}
-          stackId={dialog.stackId}
-          defs={defs}
-          dropAt={dropAt}
-          onInspect={(card) => setDialog({ kind: 'inspect', card })}
-          onClose={() => setDialog(null)}
         />
       )}
       {dialog?.kind === 'find' && (

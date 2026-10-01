@@ -12,12 +12,12 @@ export interface DragOut<T> {
 interface Options<T> {
   onTap: (item: T) => void
   onLongPress?: (item: T) => void
-  /** The item was dragged and released at this screen point. */
-  onDrop: (item: T, clientX: number, clientY: number) => void
+  /** The item was dragged and released at this screen point. Without it, moving the finger cancels the press (e.g. to let a list scroll). */
+  onDrop?: (item: T, clientX: number, clientY: number) => void
 }
 
 /**
- * Pointer handling for things that live outside the table (hand, sidebar):
+ * Pointer handling for things that live outside the table (sidebar, browse panel):
  * tap, long-press, or drag a card out with a floating ghost image.
  */
 export function useDragOut<T>({ onTap, onLongPress, onDrop }: Options<T>) {
@@ -45,6 +45,7 @@ export function useDragOut<T>({ onTap, onLongPress, onDrop }: Options<T>) {
       const p = press.current
       if (!p || p.done) return
       if (!p.active && Math.hypot(e.clientX - p.x, e.clientY - p.y) < SLOP) return
+      if (!onDrop) return end()
       if (!p.active) window.clearTimeout(p.timer)
       p.active = true
       setDrag({ item: p.item, x: e.clientX, y: e.clientY })
@@ -53,7 +54,7 @@ export function useDragOut<T>({ onTap, onLongPress, onDrop }: Options<T>) {
       const p = press.current
       end()
       if (!p || p.done) return
-      if (p.active) onDrop(p.item, e.clientX, e.clientY)
+      if (p.active) onDrop?.(p.item, e.clientX, e.clientY)
       else onTap(p.item)
     },
     onPointerCancel: end,

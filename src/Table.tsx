@@ -15,14 +15,14 @@ import {
   type Area,
 } from './areas'
 import { CARD_H, CARD_W, cardImage, cardLabel, clampScale, TOKEN_SIZE } from './cards'
-import { CardGhost } from './Hand'
+import { CardGhost } from './CardGhost'
 import { update } from './store'
 import type { CardDef, CardRef, Stack, StorySlot, Table as TableState, Token, View } from './types'
 
 export type Selection = { kind: 'stack' | 'token'; id: string } | null
 
-/** Places outside the table that accept cards: the hand, a sidebar deck, or the sidebar itself. */
-export type Zone = { kind: 'hand' } | { kind: 'deck'; id: string } | { kind: 'dock' }
+/** Places outside the table that accept cards: a sidebar deck, or the sidebar itself. */
+export type Zone = { kind: 'deck'; id: string } | { kind: 'dock' }
 
 interface Props {
   table: TableState
@@ -68,7 +68,7 @@ interface Drag {
   y: number
   dropOn: string | null
   zone: Zone | null
-  /** Screen position, for the floating card shown over the sidebar/hand. */
+  /** Screen position, for the floating card shown over the sidebar. */
   clientX: number
   clientY: number
   /** Area under the dragged card and whether it takes the card. */
@@ -323,7 +323,7 @@ export function TableView(props: Props) {
   const imgSize: 'sm' | 'lg' = view.scale * CARD_W * dpr > 330 ? 'lg' : 'sm'
   const dragStack = drag?.target.kind === 'stack' ? drag.target : null
   const liftedFrom = dragStack && !dragStack.whole ? table.stacks[dragStack.id] : null
-  // Over the sidebar or hand the table can't show the card, so it floats above everything.
+  // Over the sidebar the table can't show the card, so it floats above everything.
   const ghost = drag?.zone && dragStack ? table.stacks[dragStack.id]?.cards.at(-1) : null
   // While a card is dragged along a row of Money Cards, the others make room for it.
   const fanTo = dragStack?.whole && drag?.to && drag.area?.ok && SPOTS.some((s) => s.fan && s.id === drag.spot) ? drag.to : null

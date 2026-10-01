@@ -82,7 +82,7 @@ export interface Table {
   /** The sidebar deck each card last came out of, so it can go back there. */
   origin?: Record<string, DeckKind>
   tokens: Token[]
-  /** Cards held in the player's hand (e.g. Action Cards), left → right. */
+  /** Cards in the hand, which the app no longer has: only in older saves, `migrateTable` sends them back to their decks. */
   hand?: CardRef[]
   nextId: number
 }

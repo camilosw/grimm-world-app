@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { cardImage, cardLabel } from './cards'
-import { CardGhost } from './Hand'
+import { CardGhost } from './CardGhost'
 import { DECK_SPECS } from './decks'
 import type { CardDef, CardRef, Stack } from './types'
 import { useDragOut } from './useDragOut'

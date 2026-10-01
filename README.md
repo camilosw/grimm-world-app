@@ -51,7 +51,7 @@ Region, Character, Alignment, Money, Storybook, Terrain and Hit Point cards only
 
 **Character and Alignment Card places.** The Character area has a place for the Character Card at its top center and,
 half under its left side, one for the Alignment Card (dashed outlines). Wherever you drop one of these cards on the
-table — dragged from the sidebar, the hand or the table, drawn, or taken out with Find/Browse — it lands on its place,
+table — dragged from the sidebar, the table or the Browse panel, drawn, or taken out with Find/Browse — it lands on its place,
 and no other card can be put there. The Alignment Card always lies under the Character Card, with only its left half
 showing (**Rotate** it to show the value on its other end); both Alignment Cards dropped there form one pile. Other
 cards may still overlap the edges of these places.
@@ -82,7 +82,7 @@ left out; it isn't needed to play.
 
 | On a deck  | Action                                             |
 | ---------- | -------------------------------------------------- |
-| Drag       | Take the top card onto the table or into your hand |
+| Drag       | Take the top card onto the table                   |
 | Tap        | Select it (actions appear at the bottom)           |
 | Double-tap | Flip the top card                                  |
 | Long-press | Read the top card at full size                     |
@@ -119,9 +119,8 @@ deck only accepts the cards it may hold:
 | Two fingers / mouse wheel | Zoom                                                      |
 
 Pile and deck actions: **Draw** (top card face up onto the table), **Top → bottom** (after reading a Fate Number),
-**Browse** (look through, take out, move to top/bottom, or pick cards to form a new pile), **Shuffle**, **Sort** (by card
-number), **Put under…** (slide cards under another pile or a deck, e.g. X-cards under the Encounter Deck), **All to hand**,
-**Rotate**, **Front/Back** (overlap order, e.g. tucking the Alignment card under the Character card), **Return to
+**Browse** (see below), **Shuffle**, **Sort** (by card number), **Put under…** (slide cards under another pile or a
+deck, e.g. X-cards under the Encounter Deck), **Rotate**, **Front/Back** (overlap order, e.g. tucking the Alignment card under the Character card), **Return to
 deck** and **Name**.
 
 **📖 Rules** opens the rulebook beside the table (over it in portrait): the real pages, a contents list, search
@@ -134,8 +133,16 @@ at the section that explains it. When a new rulebook version comes out, replace 
 **🔍 Find card** searches every card by number or name ("Take card Y003 and resolve it") and can take it out of its deck.
 **● Figures** adds the player marker and the character, ally and enemy figures.
 
-**✋ Hand** shows a tray for your Action Cards. Drag cards onto the tray to take them into your hand, and drag them back
-up to play them onto the table, a pile or a deck. Swipe sideways to scroll the tray, tap a card to read it.
+**☰ Browse** opens a panel over the bottom half of the screen with the pile's cards, top card first. The table above
+stays in use (pan, zoom, move cards) until you close the panel with ✕ or tap **Browse** again. Filter by number or
+name, switch between **Fronts** and **Backs**, and swipe up and down to scroll.
+
+| In the Browse panel | Action                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| Tap a card          | Select / unselect it (✓)                                                            |
+| 🔍 or long-press    | Read it at full size                                                                |
+| **Take out (n)**    | Put the selected cards face up on the table as one pile                             |
+| Drag its `⠿` grip   | Put it (with the other selected cards, if it is selected) where you drop it: on the table or a pile, with the same area rules as any drop, or on the sidebar to send a table pile's cards back to their decks |
 
 **⚔ Battle** builds the battlefield of a Conflict Card in its own framed area. Type the Terrain Cards row by row, adding
 `v` to cards whose arrows point down and `-` for empty cells, e.g. `01 07v 15v` / `19 30 31`. Check the preview, then

@@ -1,4 +1,4 @@
-import { addStack, mergeStacks, settleFans, sortStack, takeCard } from './actions'
+import { addStack, mergeStacks, returnToDecks, settleFans, sortStack, takeCard } from './actions'
 import { CARD_W, compareCards } from './cards'
 import { AREA_HEADER, AREA_PAD, BATTLEFIELD_ORIGIN, family, SPOTS, spotPlace, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, type DeckKind } from './decks'
@@ -78,7 +78,14 @@ const OLD_LABELS: Record<string, DeckKind> = {
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
-  return settleFans(placeOnSpots(widenStorage(migrateDecks(t, defs)), defs))
+  return settleFans(placeOnSpots(widenStorage(emptyHand(migrateDecks(t, defs), defs)), defs))
+}
+
+/** The hand is gone: cards still held in it go back to their decks. */
+function emptyHand(t: Table, defs: Record<string, CardDef>): Table {
+  if (!('hand' in t)) return t
+  const { hand = [], ...rest } = t
+  return returnToDecks(rest, hand.filter((c) => defs[c.id]?.type !== 'title'), defs)
 }
 
 /**
@@ -184,7 +191,6 @@ function migrateDecks(t: Table, defs: Record<string, CardDef>): Table {
   next = {
     ...next,
     stacks: Object.fromEntries(Object.entries(next.stacks).map(([id, s]) => [id, { ...s, cards: s.cards.filter(playable) }])),
-    hand: next.hand?.filter(playable),
   }
   const empty = new Set(next.z.filter((id) => !next.stacks[id].cards.length && !next.stacks[id].slot))
   const stacks3 = Object.fromEntries(Object.entries(next.stacks).filter(([id]) => !empty.has(id)))

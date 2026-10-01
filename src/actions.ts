@@ -157,22 +157,20 @@ export function extractCard(t: Table, id: string, index: number, x: number, y: n
   return addStack(withCards(t, s, rest), x, y, [card])[0]
 }
 
-/** Pull several cards out of a pile into one new pile. */
-export function extractCards(t: Table, id: string, indices: number[], x: number, y: number): Table {
+/**
+ * Pull cards (by index, bottom = 0) out of a pile, face up and in their pile
+ * order, onto the table at (x, y) or onto the pile `ontoId`; onto their own
+ * pile they move to its top.
+ */
+export function playCards(t: Table, id: string, indices: number[], x: number, y: number, ontoId: string | null): Table {
   const s = t.stacks[id]
-  if (!s || !indices.length) return t
   const set = new Set(indices)
-  const picked = s.cards.filter((_, i) => set.has(i))
+  const picked = s?.cards.filter((_, i) => set.has(i)).map((c) => ({ ...c, faceUp: true })) ?? []
+  if (!picked.length) return t
   const rest = s.cards.filter((_, i) => !set.has(i))
-  return addStack(withCards(t, s, rest), x, y, picked)[0]
-}
-
-export function moveCardInStack(t: Table, id: string, index: number, where: 'top' | 'bottom'): Table {
-  const s = t.stacks[id]
-  if (!s || !s.cards[index]) return t
-  const card = s.cards[index]
-  const rest = s.cards.filter((_, i) => i !== index)
-  return setStack(t, { ...s, cards: where === 'top' ? [...rest, card] : [card, ...rest] })
+  if (ontoId === id) return setStack(t, { ...s, cards: [...rest, ...picked] })
+  const [t2, newId] = addStack(withCards(t, s, rest), x, y, picked)
+  return ontoId && t2.stacks[ontoId] ? mergeStacks(t2, newId, ontoId, 'top') : t2
 }
 
 export function bringToFront(t: Table, id: string): Table {
@@ -227,42 +225,10 @@ export function stackTargetAt(t: Table, cx: number, cy: number, exclude: string 
   return null
 }
 
-// ---------- hand ----------
-
-/** Move the top card (or every card) of a pile into the hand. */
-export function stackToHand(t: Table, id: string, which: 'top' | 'all'): Table {
-  const s = t.stacks[id]
-  if (!s?.cards.length) return t
-  const moved = which === 'top' ? s.cards.slice(-1) : [...s.cards].reverse()
-  const rest = which === 'top' ? s.cards.slice(0, -1) : []
-  const t2 = withCards(t, s, rest)
-  return { ...t2, hand: [...(t2.hand ?? []), ...moved.map((c) => ({ ...c, faceUp: true }))] }
-}
-
-/** Play a card from the hand onto the table, or onto a pile when `targetId` is given. */
-export function handToTable(t: Table, index: number, x: number, y: number, targetId: string | null): Table {
-  const card = t.hand?.[index]
-  if (!card) return t
-  const t2 = { ...t, hand: t.hand!.filter((_, i) => i !== index) }
-  const target = targetId ? t2.stacks[targetId] : null
-  if (target) return bringToFront(setStack(t2, { ...target, cards: [...target.cards, { ...card, faceUp: true }] }), target.id)
-  return addStack(t2, x, y, [{ ...card, faceUp: true }])[0]
-}
-
-export function reorderHand(t: Table, from: number, to: number): Table {
-  const hand = [...(t.hand ?? [])]
-  if (!hand[from] || from === to) return t
-  const [card] = hand.splice(from, 1)
-  hand.splice(Math.max(0, Math.min(hand.length, to)), 0, card)
-  return { ...t, hand }
-}
-
 // ---------- battlefield ----------
 
-/** Take a card out of whatever pile (or the hand) holds it. */
+/** Take a card out of whatever pile holds it. */
 export function takeCard(t: Table, cardId: string): [Table, CardRef | null] {
-  const handIndex = t.hand?.findIndex((c) => c.id === cardId) ?? -1
-  if (handIndex >= 0) return [{ ...t, hand: t.hand!.filter((_, i) => i !== handIndex) }, t.hand![handIndex]]
   const where = locateCard(t, cardId)
   if (!where) return [t, null]
   const { stack, index } = where
@@ -329,8 +295,8 @@ function insertIntoDeck(t: Table, kind: DeckKind, cards: CardRef[], defs: Record
   return setStack(t, { ...deck, cards: bottom ? [...added, ...deck.cards] : [...deck.cards, ...added] })
 }
 
-/** Send cards (already taken off the table or out of the hand) back to their own decks. */
-function returnToDecks(t: Table, cards: CardRef[], defs: Record<string, CardDef>): Table {
+/** Send cards (already taken off the table) back to their own decks. */
+export function returnToDecks(t: Table, cards: CardRef[], defs: Record<string, CardDef>): Table {
   const groups = new Map<DeckKind, CardRef[]>()
   for (const card of cards) {
     const def = defs[card.id]
@@ -351,11 +317,12 @@ export function stackToDecks(t: Table, id: string, which: 'top' | 'all', defs: R
   return returnToDecks(withCards(t, s, which === 'top' ? s.cards.slice(0, -1) : []), moved, defs)
 }
 
-/** A hand card goes back to its deck. */
-export function handToDecks(t: Table, index: number, defs: Record<string, CardDef>): Table {
-  const card = t.hand?.[index]
-  if (!card) return t
-  return returnToDecks({ ...t, hand: t.hand!.filter((_, i) => i !== index) }, [card], defs)
+/** Some cards (by index) of a table pile go back to their decks. */
+export function cardsToDecks(t: Table, id: string, indices: number[], defs: Record<string, CardDef>): Table {
+  const s = t.stacks[id]
+  if (!s || isDocked(t, id)) return t
+  const set = new Set(indices)
+  return returnToDecks(withCards(t, s, s.cards.filter((_, i) => !set.has(i))), s.cards.filter((_, i) => set.has(i)), defs)
 }
 
 /** Cards of a pile that a deck may not hold (empty = the pile may go under that deck). */
