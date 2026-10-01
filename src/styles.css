@@ -964,6 +964,22 @@ button.on {
   border-radius: 0 12px 12px 0;
 }
 
+.card-spot.covered-top,
+.card-spot.covered-bottom {
+  padding: 0 20px;
+  writing-mode: horizontal-tb;
+}
+
+.card-spot.covered-top {
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+}
+
+.card-spot.covered-bottom {
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+}
+
 .card-spot.accept {
   border: 6px solid #7fe3a0;
   background: rgba(127, 227, 160, 0.15);

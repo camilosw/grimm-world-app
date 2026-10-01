@@ -379,12 +379,13 @@ export function putUnderChapter(t: Table, stackId: string, chapter: number, defs
 
 // ---------- spots ----------
 
-/** Close the gaps in fanned spots (Money Cards): their piles lie on the first places, in left-to-right order. */
+/** Close the gaps in fanned spots (Money Cards, Goods): their piles lie on the first places, in row order. */
 export function settleFans(t: Table): Table {
   let next = t
   for (const spot of SPOTS.filter((s) => s.fan)) {
-    const places = spotPlaces(spot)
-    fanRow(next, spot).forEach((id, i) => {
+    const row = fanRow(next, spot)
+    const places = spotPlaces(spot, Math.min(row.length, spot.fan && 'count' in spot.fan ? spot.fan.count : Infinity))
+    row.forEach((id, i) => {
       const s = next.stacks[id]
       const p = places[Math.min(i, places.length - 1)]
       if (s.x !== p.x || s.y !== p.y) next = setStack(next, { ...s, x: p.x, y: p.y })

@@ -7,12 +7,14 @@ import {
   drawOrder,
   ENEMY_COLS,
   enemyOrigin,
+  fanHasPlace,
   fanRow,
   placement,
   SPOTS,
   spotPlaces,
   stacksOnSpot,
   type Area,
+  type Side,
 } from './areas'
 import { CARD_H, CARD_W, cardImage, cardLabel, clampScale, TOKEN_SIZE } from './cards'
 import { CardGhost } from './CardGhost'
@@ -360,22 +362,25 @@ export function TableView(props: Props) {
           </div>
         )}
         {SPOTS.map((spot) => {
-          // A fanned spot shows its next free place, none when full.
+          // A fanned spot shows its next free place, none when full (or, unlimited, closing up).
           const next = spot.fan ? fanRow(shownTable, spot).length : 0
-          if (spot.fan && next >= spot.fan.count) return null
-          const at = spotPlaces(spot)[next]
-          // A covered spot only shows the half beside the card lying on it.
+          if (spot.fan && !fanHasPlace(shownTable, spot)) return null
+          const at = spotPlaces(spot, next + 1)[next]
+          // A covered spot only shows the part beside the card lying on it.
           const side = coveredSide(spot)
+          const v = side === 'top' || side === 'bottom'
+          const w = side && !v ? (spot.shows ?? 0.5) * CARD_W : CARD_W
+          const h = v ? (spot.shows ?? 0.5) * CARD_H : CARD_H
           const state = drag?.spot === spot.id ? (drag.area?.ok ? ' accept' : ' refuse') : ''
           return (
             <div
               key={spot.id}
               className={`card-spot${side ? ` covered covered-${side}` : ''}${state}`}
               style={{
-                left: side === 'left' ? at.x + CARD_W / 2 : at.x,
-                top: at.y,
-                width: side ? CARD_W / 2 : CARD_W,
-                height: CARD_H,
+                left: side === 'left' ? at.x + CARD_W - w : at.x,
+                top: side === 'top' ? at.y + CARD_H - h : at.y,
+                width: w,
+                height: h,
               }}
             >
               <span>
@@ -504,9 +509,9 @@ interface StackViewProps {
   selected: boolean
   dropTarget: boolean
   lifted: boolean
-  /** Half of it lies under another card (the Alignment Card under the Character Card). */
-  covered: 'left' | 'right' | null
-  /** Lies in a row of Money Cards, whose cards slide when it rearranges. */
+  /** Part of it lies under another card (the Alignment Card under the Character Card, Money and Goods under the Storage Card). */
+  covered: Side | null
+  /** Lies in a row of Money Cards or Goods, whose cards slide when it rearranges. */
   sliding: boolean
 }
 

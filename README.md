@@ -68,6 +68,15 @@ fourth one is refused. Drag a card along the row to reorder it (the others make 
 the cards right of it close the gap. Each card lies on its own, so double-tap or **Rotate** it to show the amount you
 need.
 
+**Goods.** Encounter Cards held as goods (B-Encounters from the Encounter Deck and X-Encounters) go in two rows
+beside the Storage Card, each under a "Goods" placeholder. Left of it, the first is slid under the left side of the
+Storage Card so that only its left part shows. Below it, the first is slid under its bottom edge so that only its
+bottom part shows. In both rows each further card lies likewise under the one before. Drop an Encounter Card on or near
+a placeholder, or on a row, to add it there (where you drop it, or at the end); other cards are refused on it. There is
+no limit: once a row reaches the edge of the Storage area its cards close up to stay inside it (the placeholder then
+disappears — drop on the row). Unlike Money Cards, Encounter Cards are not pulled into a row from elsewhere on the
+table. Reordering and taking cards away work as for Money Cards.
+
 **Storybook area.** The storybook lies face down on the right; the revealed cards lie on the left, the top one being
 the current chapter. Tap the storybook to turn over its next card; tap the revealed cards to put the top one back on
 the storybook, face down. The storybook can't be looked through, sorted or moved; long-press the revealed card to read
