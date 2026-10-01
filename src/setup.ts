@@ -1,6 +1,6 @@
 import { addStack, mergeStacks, returnToDecks, settleFans, sortStack, takeCard } from './actions'
-import { CARD_W, compareCards } from './cards'
-import { AREA_HEADER, AREA_PAD, BATTLEFIELD_ORIGIN, family, SPOTS, spotPlace, stacksOnSpot, STORY_SLOTS } from './areas'
+import { CARD_H, CARD_W, compareCards } from './cards'
+import { AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, family, SPOTS, spotPlace, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardManifest, CardRef, Stack, Table } from './types'
 
@@ -12,6 +12,9 @@ function shuffled<T>(list: T[]): T[] {
   }
   return out
 }
+
+/** Current version of the area layout (`Table.layout`). */
+const LAYOUT = 1
 
 /** Every card used in play: all of them except the title card. */
 export function playableCards(manifest: CardManifest): CardDef[] {
@@ -53,7 +56,7 @@ function deckContents(cards: CardDef[]): Record<DeckKind, CardDef[]> {
  */
 export function initialTable(manifest: CardManifest): Table {
   const contents = deckContents(playableCards(manifest))
-  let table: Table = { stacks: {}, z: [], tokens: [], nextId: 1 }
+  let table: Table = { stacks: {}, z: [], tokens: [], layout: LAYOUT, nextId: 1 }
   for (const spec of SIDEBAR_DECKS) {
     const cards = contents[spec.kind].map((c) => ({ id: c.id, faceUp: spec.faceUp }))
     table = addStack(table, 0, 0, cards, { label: spec.label, deck: spec.kind })[0]
@@ -78,7 +81,7 @@ const OLD_LABELS: Record<string, DeckKind> = {
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
-  return settleFans(placeOnSpots(widenStorage(emptyHand(migrateDecks(t, defs), defs)), defs))
+  return settleFans(placeOnSpots(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs))), defs))
 }
 
 /** The hand is gone: cards still held in it go back to their decks. */
@@ -110,6 +113,25 @@ function widenStorage(t: Table): Table {
     }),
   )
   return { ...t, stacks, tokens: t.tokens.map((k) => (shifted(k) ? { ...k, x: k.x + dx } : k)) }
+}
+
+/**
+ * The Storybook area used to be one card high: it grew for the Encounter Card
+ * below the revealed cards, and the Home area below it moved down as far, with
+ * the cards and figures lying in it.
+ */
+function lowerHome(t: Table): Table {
+  if (t.layout === LAYOUT) return t
+  const story = AREAS.find((a) => a.id === 'storybook')!
+  const home = AREAS.find((a) => a.id === 'home')!
+  const dy = story.h - (CARD_H + AREA_HEADER + AREA_PAD)
+  const margin = CARD_W / 4
+  const inOldHome = (p: { x: number; y: number }) =>
+    p.x >= home.x - margin && p.x < home.x + home.w && p.y >= home.y - dy - margin && p.y < home.y - dy + home.h
+  const stacks = Object.fromEntries(
+    Object.entries(t.stacks).map(([id, s]) => [id, t.z.includes(id) && !s.slot && inOldHome(s) ? { ...s, y: s.y + dy } : s]),
+  )
+  return { ...t, stacks, tokens: t.tokens.map((k) => (inOldHome(k) ? { ...k, y: k.y + dy } : k)), layout: LAYOUT }
 }
 
 /** Cards with a spot of their own (Character, Alignment and Money Cards) lying elsewhere on the table move onto it. */

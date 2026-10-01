@@ -43,7 +43,7 @@ back where it came from. Space outside the areas takes any card. **📍 Areas** 
 | Encounter Bar | Y-Cards                                                                                                                  |
 | Character     | Character Card, Alignment Cards, Y-Cards (titles, skills, quests, status upgrades, Damage Card), Encounter Cards (items) |
 | Storage       | Storage Card and other Y-Cards, Encounter Cards (items, goods), Money Cards                                              |
-| Storybook     | the storybook itself (see below)                                                                                         |
+| Storybook     | the storybook itself, one Encounter Card (see below)                                                                     |
 | Home          | Y-Cards (house and extensions), Encounter Cards (stored items and goods)                                                 |
 | Battlefield   | Terrain Cards, Hit Point Cards, Y-Cards (enemies)                                                                        |
 
@@ -75,7 +75,8 @@ bottom part shows. In both rows each further card lies likewise under the one be
 a placeholder, or on a row, to add it there (where you drop it, or at the end); other cards are refused on it. There is
 no limit: once a row reaches the edge of the Storage area its cards close up to stay inside it (the placeholder then
 disappears — drop on the row). Unlike Money Cards, Encounter Cards are not pulled into a row from elsewhere on the
-table. Reordering and taking cards away work as for Money Cards.
+table. Reordering and taking cards away work as for Money Cards. Money Cards and Goods go into their rows one card at a
+time; a whole pile dropped there is refused.
 
 **Storybook area.** The storybook lies face down on the right; the revealed cards lie on the left, the top one being
 the current chapter. Tap the storybook to turn over its next card; tap the revealed cards to put the top one back on
@@ -83,6 +84,10 @@ the storybook, face down. The storybook can't be looked through, sorted or moved
 it. A revealed Y-card (sub-chapter card) can be dragged out, e.g. to the Encounter Bar. To put Y-cards "into the
 corresponding chapter", use **Put under…** on them, tap the storybook and pick the chapter: they go directly under that
 Chapter Card.
+
+**Storybook Encounter Card.** Below the revealed cards is a place for one Encounter Card, lying on top of the bottom
+edge of the current chapter (about a tenth of it). An Encounter Card dropped anywhere in the Storybook area lands on
+that place; a second one, a pile, or any other card is refused there.
 
 **🂠 Decks sidebar (left).** The other 14 decks of the game, sorted as in the rulebook (chapter 6.1); the table starts
 empty apart from the storybook. The Quest, Enemy and Training Decks and the Banned Cards pile start empty: the

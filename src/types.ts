@@ -84,6 +84,8 @@ export interface Table {
   tokens: Token[]
   /** Cards in the hand, which the app no longer has: only in older saves, `migrateTable` sends them back to their decks. */
   hand?: CardRef[]
+  /** Version of the area layout the cards lie in (missing: before the Storybook area grew for its Encounter Card). */
+  layout?: number
   nextId: number
 }
 

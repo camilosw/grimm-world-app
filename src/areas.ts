@@ -1,5 +1,5 @@
 import { CARD_H, CARD_W } from "./cards";
-import type { Battlefield, CardDef, CardType, Table } from "./types";
+import type { Battlefield, CardDef, CardType, StorySlot, Table } from "./types";
 
 /** Card families used by the area rules (B- and X-Encounter Cards behave the same). */
 type Family = Exclude<CardType, "encounter-b" | "encounter-x">;
@@ -37,7 +37,14 @@ const bar = { x: map.x + map.w + GAP, y: 0, ...box(6, 2) };
 const character = { x: 0, y: map.h + GAP, ...box(5, 3) };
 // Five wide, leaving room right of the Money Cards fanned out from the Storage Card (see SPOTS).
 const storage = { x: character.w + GAP, y: character.y, ...box(5, 3) };
-const story = { x: storage.x + storage.w + GAP, y: character.y, ...box(2, 1) };
+/** Part of the revealed storybook card's height covered by the Encounter Card lying on its bottom edge. */
+const STORY_COVERED = 0.15;
+// The revealed cards and the storybook, with the Encounter Card below the revealed cards (see SPOTS).
+const story = {
+  x: storage.x + storage.w + GAP,
+  y: character.y,
+  ...box(2, 2 - STORY_COVERED),
+};
 const home = { x: story.x, y: story.y + story.h + GAP, ...box(2, 1.4) };
 
 export const AREAS: Area[] = [
@@ -86,8 +93,13 @@ export interface Spot {
   /**
    * One card per place, in a row growing away from the `under` card, each slid under the one before as far as the
    * first lies under that card: at most `count` of them, or any number, closer together once they fill `room`.
+   * With `count: 1`, the spot holds a single card.
    */
   fan?: { count: number } | { room: number };
+  /** The storybook place whose top card this spot's card lies on. */
+  over?: StorySlot;
+  /** Cards of the family dropped anywhere in its area go here. */
+  fillsArea?: boolean;
 }
 
 type Point = { x: number; y: number };
@@ -322,6 +334,20 @@ export const SPOTS: Spot[] = [
     shows: GOODS_BELOW_SHOWS,
     fan: { room: storage.y + storage.h - AREA_PAD - CARD_H - goodsBelowY },
   },
+  // Below the revealed storybook cards, lying over the bottom edge of the top one. A single card: it takes the
+  // Storybook area's only Encounter Card.
+  {
+    id: "story-encounter",
+    label: "Encounter Card",
+    area: "storybook",
+    family: "encounter",
+    attracts: false,
+    x: story.x + AREA_PAD,
+    y: story.y + AREA_HEADER + Math.round((1 - STORY_COVERED) * CARD_H),
+    over: "story-revealed",
+    fillsArea: true,
+    fan: { count: 1 },
+  },
 ];
 
 /** Fixed places of the storybook: revealed cards on the left, the face-down deck on the right. */
@@ -473,7 +499,8 @@ function spotAt(
 
 /**
  * Table piles back to front as drawn: piles on a spot lie right under the card
- * of the spot covering them, and later places of a fanned spot under earlier ones.
+ * of the spot covering them, later places of a fanned spot under earlier ones,
+ * and piles on a spot lying over a storybook place right above it.
  */
 export function drawOrder(t: Table): string[] {
   let z = t.z;
@@ -486,6 +513,14 @@ export function drawOrder(t: Table): string[] {
     const first = Math.min(...below.map((id) => z.indexOf(id)));
     z = z.filter((id) => !below.includes(id));
     z.splice(above ? z.indexOf(above) : first, 0, ...below);
+  }
+  for (const spot of SPOTS) {
+    if (!spot.over) continue;
+    const on = stacksOnSpot(t, spot);
+    const slot = z.find((id) => t.stacks[id].slot === spot.over);
+    if (!on.length || !slot) continue;
+    z = z.filter((id) => !on.includes(id));
+    z.splice(z.indexOf(slot) + 1, 0, ...on);
   }
   return z;
 }
@@ -529,7 +564,7 @@ export function placement(
       ...(place ?? { x: own.x, y: own.y, onto: null }),
       area,
       spot: own,
-      refused: mixed ?? (place ? null : full(own)),
+      refused: mixed ?? oneEach(own, cardIds) ?? (place ? null : full(own)),
     };
   }
   const target = onto ? t.stacks[onto] : null;
@@ -539,7 +574,10 @@ export function placement(
   // (e.g. the Storage Card place, which the first Goods card overlaps until a Storage Card covers it).
   const fanned =
     !!onto && SPOTS.some((s) => s.fan && fanRow(t, s).includes(onto));
-  const taken = (fanned && spotAt(t, x, y)) || spotAt(t, at.x, at.y);
+  const taken =
+    (fanned && spotAt(t, x, y)) ||
+    spotAt(t, at.x, at.y) ||
+    areaSpot(area, families);
   if (!taken)
     return {
       x,
@@ -554,7 +592,8 @@ export function placement(
   const other = spot.attracts
     ? `Only the ${spot.label} goes on its place`
     : `Only ${FAMILY_NAMES[spot.family]} go on the ${spot.label} place`;
-  const refused = refusal(area, cardIds, defs) ?? (fits ? null : other);
+  // A spot takes its cards even in an area that doesn't (the Encounter Card in the Storybook area).
+  const refused = fits ? null : (refusal(area, cardIds, defs) ?? other);
   if (!spot.fan)
     return { ...place, onto: pileAt(t, place, moving), area, spot, refused };
   // A card joins a fanned row at the place it is dropped on, never on top of another card.
@@ -563,11 +602,34 @@ export function placement(
     ...(inRow ?? { ...place, onto: null }),
     area,
     spot,
-    refused: refused ?? (inRow ? null : full(spot)),
+    refused: refused ?? oneEach(spot, cardIds) ?? (inRow ? null : full(spot)),
   };
+}
+
+/** The spot taking cards of these families dropped anywhere in `area`, if any. */
+function areaSpot(
+  area: Area | null,
+  families: (Family | undefined)[],
+): { spot: Spot; place: Point } | undefined {
+  const spot = SPOTS.find(
+    (s) =>
+      s.fillsArea &&
+      s.area === area?.id &&
+      families.every((f) => f === s.family),
+  );
+  return spot && { spot, place: { x: spot.x, y: spot.y } };
+}
+
+/** A fanned spot takes one card per place, not a pile. */
+function oneEach(spot: Spot, cardIds: string[]): string | null {
+  return spot.fan && cardIds.length > 1
+    ? `Put ${FAMILY_NAMES[spot.family]} on the ${spot.label} place one at a time`
+    : null;
 }
 
 function full(spot: Spot): string {
   const area = AREAS.find((a) => a.id === spot.area)!;
+  if (fanMax(spot) === 1)
+    return `There is already a card on the ${spot.label} place in the ${area.label} area`;
   return `The ${area.label} area holds at most ${fanMax(spot)} ${FAMILY_NAMES[spot.family]}`;
 }
