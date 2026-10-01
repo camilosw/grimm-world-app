@@ -1,4 +1,4 @@
-import { addStack, mergeStacks, returnToDecks, settleFans, sortStack, takeCard } from './actions'
+import { addStack, mergeStacks, returnToDecks, settleSpots, sortStack, takeCard } from './actions'
 import { CARD_H, CARD_W, compareCards } from './cards'
 import { AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, family, SPOTS, spotPlace, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, type DeckKind } from './decks'
@@ -81,7 +81,7 @@ const OLD_LABELS: Record<string, DeckKind> = {
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
-  return settleFans(placeOnSpots(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs))), defs))
+  return settleSpots(placeOnSpots(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs))), defs))
 }
 
 /** The hand is gone: cards still held in it go back to their decks. */
@@ -149,9 +149,9 @@ function placeOnSpots(t: Table, defs: Record<string, CardDef>): Table {
       for (const card of own) {
         const [t2] = takeCard(next, card.id)
         // Appended to a fanned spot; a card that doesn't fit any more stays where it is.
-        const p = spotPlace(settleFans(t2), spot, null, -Infinity, -Infinity)
+        const p = spotPlace(settleSpots(t2), spot, null, -Infinity, -Infinity)
         if (!p) continue
-        const [t3, newId] = addStack(settleFans(t2), p.x, p.y, [card])
+        const [t3, newId] = addStack(settleSpots(t2), p.x, p.y, [card])
         next = p.onto ? mergeStacks(t3, newId, p.onto, 'top') : t3
       }
     }

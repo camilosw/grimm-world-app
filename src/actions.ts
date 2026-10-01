@@ -1,4 +1,4 @@
-import { AREA_HEADER, AREA_PAD, fanRow, SPOTS, spotPlaces } from './areas'
+import { AREA_HEADER, AREA_PAD, fanRow, SPOTS, spotPlaces, stacksOnSpot, turnedSpot } from './areas'
 import { CARD_H, CARD_W, compareCards, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
@@ -83,9 +83,10 @@ export function mergeStacks(t: Table, sourceId: string, targetId: string, where:
   return removeStack(setStack(t, { ...dst, cards }), sourceId)
 }
 
+/** Turn the top card over; a card lying turned on its place (Market Prices) stays face up. */
 export function flipTop(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!s?.cards.length) return t
+  if (!s?.cards.length || turnedSpot(t, id)) return t
   const cards = [...s.cards]
   const top = cards[cards.length - 1]
   cards[cards.length - 1] = { ...top, faceUp: !top.faceUp }
@@ -95,14 +96,14 @@ export function flipTop(t: Table, id: string): Table {
 /** Turn the whole pile over, like flipping a real deck. */
 export function flipStack(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!s?.cards.length) return t
+  if (!s?.cards.length || turnedSpot(t, id)) return t
   return setStack(t, { ...s, cards: s.cards.map((c) => ({ ...c, faceUp: !c.faceUp })).reverse() })
 }
 
-/** Turn a pile on the table; a Region Card in it never turns. */
+/** Turn a pile on the table; a Region Card in it never turns, nor a card lying turned on its place (Market Prices). */
 export function rotateStack(t: Table, id: string, delta: number, defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
-  if (!s || s.cards.some((c) => isLandscape(defs[c.id]))) return t
+  if (!s || s.cards.some((c) => isLandscape(defs[c.id])) || turnedSpot(t, id)) return t
   return setStack(t, { ...s, rot: ((((s.rot + delta) % 360) + 360) % 360) as Rotation })
 }
 
@@ -380,8 +381,11 @@ export function putUnderChapter(t: Table, stackId: string, chapter: number, defs
 
 // ---------- spots ----------
 
-/** Close the gaps in fanned spots (Money Cards, Goods): their piles lie on the first places, in row order. */
-export function settleFans(t: Table): Table {
+/**
+ * Lay the spots out: close the gaps in fanned spots (Money Cards, Goods), their piles lying on the first places in row
+ * order, and turn cards on a spot that turns them (Market Prices) face up and straight, as they must lie there.
+ */
+export function settleSpots(t: Table): Table {
   let next = t
   for (const spot of SPOTS.filter((s) => s.fan)) {
     const row = fanRow(next, spot)
@@ -391,6 +395,12 @@ export function settleFans(t: Table): Table {
       const p = places[Math.min(i, places.length - 1)]
       if (s.x !== p.x || s.y !== p.y) next = setStack(next, { ...s, x: p.x, y: p.y })
     })
+  }
+  for (const spot of SPOTS.filter((s) => s.turn)) {
+    for (const id of stacksOnSpot(next, spot)) {
+      const s = next.stacks[id]
+      if (s.rot || s.cards.some((c) => !c.faceUp)) next = setStack(next, { ...s, rot: 0, cards: s.cards.map((c) => ({ ...c, faceUp: true })) })
+    }
   }
   return next
 }

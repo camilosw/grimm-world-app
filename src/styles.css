@@ -991,6 +991,23 @@ button.on {
   border-radius: 12px 12px 0 0;
 }
 
+/* A covered place showing more of its width than its height (a landscape card mostly beside its cover) is written across. */
+.card-spot.covered.wide {
+  padding: 0 20px;
+  writing-mode: horizontal-tb;
+}
+
+.card-spot.narrow {
+  padding: 0;
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.card-spot.narrow small {
+  margin-top: 0;
+  font-size: 16px;
+}
+
 .card-spot.accept {
   border: 6px solid #7fe3a0;
   background: rgba(127, 227, 160, 0.15);
@@ -1249,7 +1266,7 @@ button.on {
   color: rgba(255, 245, 225, 0.6);
 }
 
-/* ---------- landscape cards (Region Cards) ---------- */
+/* ---------- landscape cards (Region Cards, Market Prices) ---------- */
 
 /* A landscape frame with the portrait card image turned a quarter to the left inside it, filling it exactly. */
 .landscape {
@@ -1271,8 +1288,8 @@ button.on {
   transform: rotate(-90deg);
 }
 
-.landscape.landscape-back > img,
-.stack .card.landscape.landscape-back > img {
+.landscape.turned-right > img,
+.stack .card.landscape.turned-right > img {
   transform: rotate(90deg);
 }
 

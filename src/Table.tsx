@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { flipTop, mergeStacks, moveStack, moveToken, settleFans, stackTargetAt, takeTop } from './actions'
+import { flipTop, mergeStacks, moveStack, moveToken, settleSpots, stackTargetAt, takeTop } from './actions'
 import {
   acceptsText,
   allAreas,
@@ -13,10 +13,11 @@ import {
   SPOTS,
   spotPlaces,
   stacksOnSpot,
+  turnedSpot,
   type Area,
   type Side,
 } from './areas'
-import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, TOKEN_SIZE } from './cards'
+import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, TOKEN_SIZE, turnedClass, type Turn } from './cards'
 import { CardGhost } from './CardGhost'
 import { update } from './store'
 import type { CardDef, CardRef, Stack, StorySlot, Table as TableState, Token, View } from './types'
@@ -82,6 +83,8 @@ interface Drag {
   to: { x: number; y: number } | null
 }
 
+/** Below this breadth (world units) a covered place's label is set smaller to fit (Market Prices showing only their price strip). */
+const NARROW_SPOT = 70
 const TAP_SLOP = 8
 const LONG_PRESS_MS = 500
 const DOUBLE_TAP_MS = 300
@@ -269,6 +272,8 @@ export function TableView(props: Props) {
     const last = lastTap.current
     if (last && last.id === target.id && now - last.time < DOUBLE_TAP_MS) {
       lastTap.current = null
+      const fixed = turnedSpot(table, target.id)
+      if (fixed) return props.onRefuse(`The ${fixed.label} card lies face up`)
       update((t) => flipTop(t, target.id))
       return
     }
@@ -330,9 +335,10 @@ export function TableView(props: Props) {
   const ghost = drag?.zone && dragStack ? table.stacks[dragStack.id]?.cards.at(-1) : null
   // While a card is dragged along a row of Money Cards, the others make room for it.
   const fanTo = dragStack?.whole && drag?.to && drag.area?.ok && SPOTS.some((s) => s.fan && s.id === drag.spot) ? drag.to : null
-  const shownTable = fanTo && dragStack ? settleFans(moveStack(table, dragStack.id, fanTo.x, fanTo.y)) : table
+  const shownTable = fanTo && dragStack ? settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y)) : table
   const sliding = new Set(SPOTS.filter((s) => s.fan).flatMap((s) => fanRow(shownTable, s)))
   const covered = new Map(SPOTS.filter((s) => s.under).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
+  const turned = new Map(SPOTS.flatMap((s) => (s.turn ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const) : [])))
 
   return (
     <div
@@ -369,15 +375,15 @@ export function TableView(props: Props) {
           const at = spotPlaces(spot, next + 1)[next]
           // A covered spot only shows the part beside the card lying on it.
           const side = coveredSide(spot)
-          const v = side === 'top' || side === 'bottom'
-          const w = side && !v ? (spot.shows ?? 0.5) * CARD_W : CARD_W
-          const h = v ? (spot.shows ?? 0.5) * CARD_H : CARD_H
           const state = drag?.spot === spot.id ? (drag.area?.ok ? ' accept' : ' refuse') : ''
-          const box = spot.landscape
-            ? cardBox(at.x, at.y, true)
-            : { left: side === 'left' ? at.x + CARD_W - w : at.x, top: side === 'top' ? at.y + CARD_H - h : at.y, width: w, height: h }
+          const box = cardBox(at.x, at.y, !!spot.landscape)
+          const hidden = 1 - (spot.shows ?? 0.5)
+          if (side === 'left') box.left += hidden * box.width
+          if (side === 'top') box.top += hidden * box.height
+          if (side === 'left' || side === 'right') box.width *= 1 - hidden
+          if (side === 'top' || side === 'bottom') box.height *= 1 - hidden
           return (
-            <div key={spot.id} className={`card-spot${side ? ` covered covered-${side}` : ''}${state}`} style={box}>
+            <div key={spot.id} className={`card-spot${side ? ` covered covered-${side}` : ''}${box.width > box.height ? ' wide' : ''}${Math.min(box.width, box.height) < NARROW_SPOT ? ' narrow' : ''}${state}`} style={box}>
               <span>
                 {spot.label}
                 {spot.hint && <small>{spot.hint}</small>}
@@ -405,6 +411,7 @@ export function TableView(props: Props) {
               dropTarget={drag?.dropOn === id}
               lifted={false}
               covered={covered.get(id) ?? null}
+              turn={turned.get(id) ?? null}
               sliding={sliding.has(id)}
             />
           )
@@ -508,14 +515,16 @@ interface StackViewProps {
   lifted: boolean
   /** Part of it lies under another card (the Alignment Card under the Character Card, Money and Goods under the Storage Card). */
   covered: Side | null
+  /** Lies landscape, face up, turned a quarter to this side by its place (Market Prices). */
+  turn?: Turn | null
   /** Lies in a row of Money Cards or Goods, whose cards slide when it rearranges. */
   sliding: boolean
 }
 
-function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, sliding }: StackViewProps) {
+function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding }: StackViewProps) {
   const top = stack.cards[stack.cards.length - 1]
   const count = stack.cards.length
-  const landscape = isLandscape(defs[top.id])
+  const landscape = isLandscape(defs[top.id]) || !!turn
   const cardRef = useRef<HTMLDivElement>(null)
   const faceUp = useFlip(cardRef, top, landscape ? 'x' : 'y')
   const depth = Math.min(8, Math.ceil(Math.log2(count + 1)))
@@ -527,7 +536,7 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, s
     <div className={classes} data-stack={stack.id} style={cardBox(stack.x, stack.y, landscape)}>
       <div
         ref={cardRef}
-        className={`card${landscapeClass(landscape, faceUp)}`}
+        className={`card${turn ? turnedClass(turn) : landscapeClass(landscape, faceUp)}`}
         style={{
           rotate: landscape ? undefined : `${stack.rot}deg`,
           boxShadow: [...shadow, lifted ? '0 18px 30px rgba(0,0,0,.55)' : '0 4px 10px rgba(0,0,0,.45)'].join(', '),

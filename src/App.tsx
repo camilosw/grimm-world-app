@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, TOKEN_SIZE } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
-import { AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, placement, type Area } from './areas'
+import { AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, placement, turnedSpot, type Area } from './areas'
 import { DECK_SPECS, homeDeck } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
@@ -380,6 +380,8 @@ export default function App() {
   const count = selectedStack?.cards.length ?? 0
   const topCard = selectedStack?.cards[count - 1]
   const docked = !!selectedStack && A.isDocked(table, selectedStack.id)
+  // A card lying turned on its place (Market Prices) stays face up and can't be rotated.
+  const fixed = !!selectedStack && !!turnedSpot(table, selectedStack.id)
   /** Decks draw several cards; a pile on the table needs at least two. */
   const many = count > (docked ? 0 : 1)
 
@@ -497,7 +499,7 @@ export default function App() {
               🂠 Draw
             </button>
           )}
-          {count > 0 && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
+          {count > 0 && !fixed && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
           {count > 1 && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
           {count > 1 && (
             <button
@@ -510,7 +512,7 @@ export default function App() {
           {count > 1 && <button onClick={() => act(A.shuffleStack)}>⤮ Shuffle</button>}
           {count > 1 && <button onClick={() => act((t, id) => A.sortStack(t, id, defs))}>⇅ Sort</button>}
           {topCard && <button onClick={() => setDialog({ kind: 'inspect', card: topCard })}>🔍 View</button>}
-          {!docked && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
+          {!docked && !fixed && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
             <button onClick={() => act((t, id) => A.rotateStack(t, id, 90, defs))}>↻ Rotate</button>
           )}
           {!docked && <button onClick={() => setPutUnder(selectedStack.id)}>⤵ Put under…</button>}

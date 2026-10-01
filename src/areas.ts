@@ -1,4 +1,4 @@
-import { CARD_H, CARD_W } from "./cards";
+import { CARD_H, CARD_W, cardBox, type Turn } from "./cards";
 import type { Battlefield, CardDef, CardType, StorySlot, Table } from "./types";
 
 /** Card families used by the area rules (B- and X-Encounter Cards behave the same). */
@@ -88,7 +88,10 @@ export interface Spot {
   y: number;
   /** The spot beside (or above/below) this one whose card lies on top of it, covering the side next to it. */
   under?: string;
-  /** Part of the card's width (height, for a spot above or below it) still showing beside the card on top of it (default: half). */
+  /**
+   * Part of the card's width (height, for a spot above or below it), as it lies, still showing beside the card on top
+   * of it (default: half).
+   */
   shows?: number;
   /**
    * One card per place, in a row growing away from the `under` card, each slid under the one before as far as the
@@ -102,6 +105,11 @@ export interface Spot {
   fillsArea?: boolean;
   /** Its card lies landscape across the place (Region Cards, see `cardBox()`). */
   landscape?: boolean;
+  /**
+   * A portrait card lies here landscape, turned a quarter to this side, face up (the Encounter Cards giving a region's
+   * market prices): it can't be turned over or rotated there.
+   */
+  turn?: Turn;
 }
 
 type Point = { x: number; y: number };
@@ -117,11 +125,18 @@ function vertical(spot: Spot): boolean {
   return side === "top" || side === "bottom";
 }
 
+/** Size of a spot's card as it lies there. */
+function lyingSize(spot: Spot): { w: number; h: number } {
+  const { width, height } = cardBox(0, 0, !!spot.landscape);
+  return { w: width, h: height };
+}
+
 /** Signed distance between the places of a fanned spot holding `n` cards (negative: the row grows to the left or up). */
 function fanStep(spot: Spot, n: number): number {
   const side = coveredSide(spot);
   const dir = side === "right" || side === "bottom" ? -1 : 1;
-  const full = (spot.shows ?? 0.5) * (vertical(spot) ? CARD_H : CARD_W);
+  const size = lyingSize(spot);
+  const full = (spot.shows ?? 0.5) * (vertical(spot) ? size.h : size.w);
   const room = spot.fan && "room" in spot.fan ? spot.fan.room : Infinity;
   return dir * Math.min(full, n > 1 ? room / (n - 1) : full);
 }
@@ -197,7 +212,7 @@ export function fanRow(
  * fanned spot is full. A plain spot: onto the pile lying there. A fanned spot:
  * at the place the card is dropped on, or after the last card when dropped
  * elsewhere. That position may lie half a unit beside a place, which sorts the
- * card into the row; `settleFans()` then lays the row out on its places.
+ * card into the row; `settleSpots()` then lays the row out on its places.
  */
 export function spotPlace(
   t: Table,
@@ -239,6 +254,11 @@ export function spotPlace(
 
 export type Side = "left" | "right" | "top" | "bottom";
 
+/** The spot turning the card lying on it (Market Prices) that pile `id` lies on, if any. */
+export function turnedSpot(t: Table, id: string): Spot | undefined {
+  return SPOTS.find((s) => s.turn && stacksOnSpot(t, s).includes(id));
+}
+
 /** Which side of a spot's card is covered by the card of the spot it lies under. */
 export function coveredSide(spot: Spot): Side | null {
   const cover = SPOTS.find((s) => s.id === spot.under);
@@ -267,6 +287,17 @@ const regionGrid = {
   x: map.x + (map.w - 2 * CARD_H) / 2,
   y: map.y + AREA_HEADER + (map.h - AREA_HEADER - AREA_PAD - 2 * CARD_W) / 2,
 };
+/** Place of the i-th Region Card (left to right, top to bottom): a portrait card's, the Region Card lies across it. */
+const regionPlace = (i: number) => ({
+  x: regionGrid.x + (i % 2) * CARD_H + (CARD_H - CARD_W) / 2,
+  y: regionGrid.y + Math.floor(i / 2) * CARD_W + (CARD_W - CARD_H) / 2,
+});
+/**
+ * Part of a Market Prices card's width, as it lies landscape, showing beside its Region Card; the rest lies under it.
+ * Just its price strip, as in rulebook figure 63. At most about 0.79: the room between a Region Card and the edge of
+ * the Map area, `(regionGrid.x - map.x - AREA_PAD) / CARD_H`.
+ */
+const MARKET_SHOWS = 0.17;
 
 export const SPOTS: Spot[] = [
   // Four places, one Region Card each. A spot's place is a portrait card's; the Region Card lies across it.
@@ -277,12 +308,34 @@ export const SPOTS: Spot[] = [
       area: "map",
       family: "region",
       attracts: true,
-      x: regionGrid.x + (i % 2) * CARD_H + (CARD_H - CARD_W) / 2,
-      y: regionGrid.y + Math.floor(i / 2) * CARD_W + (CARD_W - CARD_H) / 2,
+      ...regionPlace(i),
       fan: { count: 1 },
       landscape: true,
     }),
   ),
+  // Beside the outer edge of each Region Card, partly slid under it (`MARKET_SHOWS`): the Encounter Card
+  // giving the region's market prices (rulebook 7.1.2.5). Left of the left ones it is turned a quarter right, so its
+  // prices lie beside the goods on the Region Card's left edge; right of the right ones it is turned the other way.
+  ...[0, 1, 2, 3].map((i): Spot => {
+    const left = i % 2 === 0;
+    // Both lie landscape, so the shown part of the card is as wide as its place is away from the Region Card's.
+    const offset = (left ? -1 : 1) * Math.round(MARKET_SHOWS * CARD_H);
+    return {
+      id: `market-${i + 1}`,
+      label: "Market Prices",
+      hint: "Encounter Card",
+      area: "map",
+      family: "encounter",
+      attracts: false,
+      x: regionPlace(i).x + offset,
+      y: regionPlace(i).y,
+      under: `region-${i + 1}`,
+      shows: MARKET_SHOWS,
+      fan: { count: 1 },
+      landscape: true,
+      turn: left ? "right" : "left",
+    };
+  }),
   {
     id: "character",
     label: "Character Card",
@@ -502,7 +555,8 @@ function spotAt(
     const hidden = 1 - (spot.shows ?? 0.5);
     const dx = side === "left" ? 1 : side === "right" ? -1 : 0;
     const dy = side === "top" ? 1 : side === "bottom" ? -1 : 0;
-    return { x: (dx * hidden * CARD_W) / 2, y: (dy * hidden * CARD_H) / 2 };
+    const { w, h } = lyingSize(spot);
+    return { x: (dx * hidden * w) / 2, y: (dy * hidden * h) / 2 };
   };
   const near = SPOTS.flatMap((spot) =>
     places(spot).map((place) => ({
@@ -682,7 +736,8 @@ function full(spot: Spot): string {
   const max = SPOTS.filter(
     (s) => s.area === spot.area && s.family === spot.family,
   ).reduce((n, s) => n + fanMax(s), 0);
-  if (max === 1)
+  // A place cards don't find on their own: that one is taken.
+  if (max === 1 || !spot.attracts)
     return `There is already a card on the ${spot.label} place in the ${area.label} area`;
   return `The ${area.label} area holds at most ${max} ${FAMILY_NAMES[spot.family]}`;
 }

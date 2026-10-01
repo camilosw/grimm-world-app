@@ -39,7 +39,7 @@ back where it came from. Space outside the areas takes any card. **📍 Areas** 
 
 | Area          | Takes                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Map           | Region Cards only, on its four Region Card places                                                                        |
+| Map           | Region Cards on its four Region Card places, Encounter Cards on the four Market Prices places beside them                |
 | Encounter Bar | Y-Cards                                                                                                                  |
 | Character     | Character Card, Alignment Cards, Y-Cards (titles, skills, quests, status upgrades, Damage Card), Encounter Cards (items) |
 | Storage       | Storage Card and other Y-Cards, Encounter Cards (items, goods), Money Cards                                              |
@@ -54,6 +54,14 @@ sidebar, in lists and in the card viewer — and they can't be rotated. They tur
 cards turn about their vertical one). The Map area has four Region Card places, two by two, and takes nothing else. A
 Region Card dropped anywhere on the table goes to the place it is dropped on if that is free, else to the first free
 one; a fifth one is refused.
+
+**Market Prices.** Left of each left Region Card place and right of each right one is a "Market Prices" place for the
+Encounter Card that sets that region's goods prices (rulebook 7.1.2.5). It takes one Encounter Card, dropped on or near
+it, and nothing else. The card lies landscape and face up, slid under the Region Card so that only its price strip
+shows, as in the rulebook: on the left places it is turned a quarter right, so its prices lie beside the goods printed
+on the Region Card's left edge; on the right places it is turned the other way. A card dropped there face down turns face
+up, and it can't be flipped or rotated while it lies there (double-tap says so; **Flip** and **Rotate** are not
+offered). Dragged away, it is an ordinary upright card again.
 
 **Character and Alignment Card places.** The Character area has a place for the Character Card at its top center and,
 half under its left side, one for the Alignment Card (dashed outlines). Wherever you drop one of these cards on the
