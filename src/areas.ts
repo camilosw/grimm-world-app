@@ -45,7 +45,35 @@ const story = {
   y: character.y,
   ...box(2, 2 - STORY_COVERED),
 };
-const home = { x: story.x, y: story.y + story.h + GAP, ...box(2, 1.4) };
+/** Part of the house extension's height showing above the House Card (the rest lies under it). */
+const HOUSE_ABOVE_SHOWS = 0.27;
+/** Part of the house extension's height showing below the House Card. */
+const HOUSE_BELOW_SHOWS = 0.42;
+/** Part of a house extension's width showing beside the House Card, or beside the extension before it. */
+const HOUSE_SIDE_SHOWS = 0.5;
+/** Most house extensions left and right of the House Card. */
+const HOUSE_SIDE_CARDS = 2;
+/** Part of a Goods card's width showing left of the card on top of it (in the Storage and Home areas). */
+const GOODS_LEFT_SHOWS = 0.31;
+/** Most Goods left of the house extensions. */
+const HOME_GOODS_CARDS = 16;
+/** Part of an Equipment card's width showing right of the card on top of it. */
+const EQUIPMENT_SHOWS = 0.15;
+/** Most Equipment cards right of the house extensions. */
+const EQUIPMENT_CARDS = 4;
+/** Card widths taken left of the House Card: its extensions, then the Goods. */
+const HOME_LEFT =
+  HOUSE_SIDE_CARDS * HOUSE_SIDE_SHOWS + HOME_GOODS_CARDS * GOODS_LEFT_SHOWS;
+/** Card widths taken right of the House Card: its extensions, then the Equipment. */
+const HOME_RIGHT =
+  HOUSE_SIDE_CARDS * HOUSE_SIDE_SHOWS + EQUIPMENT_CARDS * EQUIPMENT_SHOWS;
+// The House Card with its extensions around it, and room for all the Goods to their left and the Equipment to their
+// right (see SPOTS). Drawn only as wide as the Goods and Equipment laid out need (`homeArea()`).
+const home = {
+  x: story.x,
+  y: story.y + story.h + GAP,
+  ...box(HOME_LEFT + 1 + HOME_RIGHT, 1 + HOUSE_ABOVE_SHOWS + HOUSE_BELOW_SHOWS),
+};
 
 export const AREAS: Area[] = [
   {
@@ -276,8 +304,13 @@ const storageSpot = {
   x: storage.x + (storage.w - CARD_W) / 2,
   y: storage.y + AREA_HEADER,
 };
-/** Part of a Goods card's width showing left of the card on top of it. */
-const GOODS_LEFT_SHOWS = 0.31;
+// Rounded like the places of a fanned spot (the Home area's top lies half a unit off the grid).
+/** Distance between the places of the house extensions left and right of the House Card. */
+const houseSideStep = Math.round(HOUSE_SIDE_SHOWS * CARD_W);
+const houseSpot = {
+  x: Math.round(home.x + AREA_PAD + HOME_LEFT * CARD_W),
+  y: Math.round(home.y + AREA_HEADER + HOUSE_ABOVE_SHOWS * CARD_H),
+};
 /** Part of a Goods card's height showing below the card on top of it. */
 const GOODS_BELOW_SHOWS = 0.21;
 const goodsX = Math.round(storageSpot.x - GOODS_LEFT_SHOWS * CARD_W);
@@ -422,6 +455,92 @@ export const SPOTS: Spot[] = [
     fillsArea: true,
     fan: { count: 1 },
   },
+  // In the middle of the Home area. The House Card is a Y-card; its extensions lie under it (rulebook 10).
+  {
+    id: "house",
+    label: "House Card",
+    hint: "Y730",
+    area: "home",
+    family: "lost-pages",
+    attracts: false,
+    ...houseSpot,
+  },
+  // Left and right of the House Card, up to two extensions each: the first slid half under it, the second half under
+  // the first (`HOUSE_SIDE_SHOWS`).
+  ...(["left", "right"] as const).map(
+    (side): Spot => ({
+      id: `house-${side}`,
+      label: "House Extension",
+      area: "home",
+      family: "lost-pages",
+      attracts: false,
+      x: houseSpot.x + (side === "left" ? -1 : 1) * houseSideStep,
+      y: houseSpot.y,
+      under: "house",
+      shows: HOUSE_SIDE_SHOWS,
+      fan: { count: HOUSE_SIDE_CARDS },
+    }),
+  ),
+  // Above and below it, one extension each, mostly under it (`HOUSE_ABOVE_SHOWS`, `HOUSE_BELOW_SHOWS`).
+  {
+    id: "house-above",
+    label: "House Extension",
+    area: "home",
+    family: "lost-pages",
+    attracts: false,
+    x: houseSpot.x,
+    y: houseSpot.y - Math.round(HOUSE_ABOVE_SHOWS * CARD_H),
+    under: "house",
+    shows: HOUSE_ABOVE_SHOWS,
+    fan: { count: 1 },
+  },
+  {
+    id: "house-below",
+    label: "House Extension",
+    area: "home",
+    family: "lost-pages",
+    attracts: false,
+    x: houseSpot.x,
+    y: houseSpot.y + Math.round(HOUSE_BELOW_SHOWS * CARD_H),
+    under: "house",
+    shows: HOUSE_BELOW_SHOWS,
+    fan: { count: 1 },
+  },
+  // Left of the house extensions, slid under the outer one as the Goods in the Storage area are under the Storage Card,
+  // each further one under the one before.
+  {
+    id: "home-goods",
+    label: "Goods",
+    hint: "Encounter Cards",
+    area: "home",
+    family: "encounter",
+    attracts: false,
+    x:
+      houseSpot.x -
+      HOUSE_SIDE_CARDS * houseSideStep -
+      Math.round(GOODS_LEFT_SHOWS * CARD_W),
+    y: houseSpot.y,
+    under: "house-left",
+    shows: GOODS_LEFT_SHOWS,
+    fan: { count: HOME_GOODS_CARDS },
+  },
+  // The same right of them, showing only a narrow strip of each card.
+  {
+    id: "home-equipment",
+    label: "Equipment",
+    hint: "Encounter Cards",
+    area: "home",
+    family: "encounter",
+    attracts: false,
+    x:
+      houseSpot.x +
+      HOUSE_SIDE_CARDS * houseSideStep +
+      Math.round(EQUIPMENT_SHOWS * CARD_W),
+    y: houseSpot.y,
+    under: "house-right",
+    shows: EQUIPMENT_SHOWS,
+    fan: { count: EQUIPMENT_CARDS },
+  },
 ];
 
 /** Fixed places of the storybook: revealed cards on the left, the face-down deck on the right. */
@@ -457,8 +576,25 @@ export function enemyOrigin(b: Battlefield): { x: number; y: number } {
   };
 }
 
+/**
+ * The Home area as wide as its rows need: from the place of the last Goods card (or the next one, while there is room)
+ * to that of the last Equipment card. The House Card keeps its place; the area grows left and right around it.
+ */
+export function homeArea(t: Table): Area {
+  const last = (id: string): Point => {
+    const spot = SPOTS.find((s) => s.id === id)!;
+    const n = Math.min(fanRow(t, spot).length, fanMax(spot) - 1);
+    return spotPlaces(spot, n + 1)[n];
+  };
+  const x = last("home-goods").x - AREA_PAD;
+  const right = last("home-equipment").x + CARD_W + AREA_PAD;
+  return { ...AREAS.find((a) => a.id === "home")!, x, w: right - x };
+}
+
+/** The areas as laid out on the table: the Home area fitted to its rows, and the battlefield if there is one. */
 export function allAreas(t: Table): Area[] {
-  return t.battlefield ? [...AREAS, battlefieldArea(t.battlefield)] : AREAS;
+  const areas = AREAS.map((a) => (a.id === "home" ? homeArea(t) : a));
+  return t.battlefield ? [...areas, battlefieldArea(t.battlefield)] : areas;
 }
 
 /** The one area for card families that have a dedicated place. */
@@ -542,6 +678,7 @@ function spotAt(
   t: Table,
   x: number,
   y: number,
+  families: (Family | undefined)[] = [],
 ): { spot: Spot; place: Point } | undefined {
   // An unlimited row reaches one place past its last card.
   const places = (spot: Spot) =>
@@ -568,13 +705,20 @@ function spotAt(
       ),
     })),
   );
-  // Overlapping places (half under another card, fanned) are close together: take the nearest.
-  return near.filter((n) => n.d < CARD_W * 0.4).sort((a, b) => a.d - b.d)[0];
+  // Overlapping places (half under another card, fanned) are close together: take the nearest that takes the cards,
+  // else the nearest (to refuse them there).
+  const fits = (spot: Spot) =>
+    families.length > 0 && families.every((f) => f === spot.family);
+  return near
+    .filter((n) => n.d < CARD_W * 0.4)
+    .sort(
+      (a, b) => Number(fits(b.spot)) - Number(fits(a.spot)) || a.d - b.d,
+    )[0];
 }
 
 /**
  * Table piles back to front as drawn: piles on a spot lie right under the card
- * of the spot covering them, later places of a fanned spot under earlier ones,
+ * (or fanned row) of the spot covering them, later places of a fanned spot under earlier ones,
  * and piles on a spot lying over a storybook place right above it.
  */
 export function drawOrder(t: Table): string[] {
@@ -583,11 +727,13 @@ export function drawOrder(t: Table): string[] {
     if (!spot.under && !spot.fan) continue;
     const below = stacksOnSpot(t, spot).reverse();
     if (!below.length) continue;
+    // Under the lowest card of the covering spot (the last of a fanned row, e.g. the outer house extension).
     const cover = SPOTS.find((s) => s.id === spot.under);
-    const above = cover && stacksOnSpot(t, cover)[0];
+    const covering = cover ? stacksOnSpot(t, cover) : [];
     const first = Math.min(...below.map((id) => z.indexOf(id)));
     z = z.filter((id) => !below.includes(id));
-    z.splice(above ? z.indexOf(above) : first, 0, ...below);
+    const above = Math.min(...covering.map((id) => z.indexOf(id)));
+    z.splice(covering.length ? above : first, 0, ...below);
   }
   for (const spot of SPOTS) {
     if (!spot.over) continue;
@@ -656,8 +802,8 @@ export function placement(
   const fanned =
     !!onto && SPOTS.some((s) => s.fan && fanRow(t, s).includes(onto));
   const taken =
-    (fanned && spotAt(t, x, y)) ||
-    spotAt(t, at.x, at.y) ||
+    (fanned && spotAt(t, x, y, families)) ||
+    spotAt(t, at.x, at.y, families) ||
     areaSpot(area, families);
   if (!taken)
     return {
@@ -737,6 +883,8 @@ function full(spot: Spot): string {
     (s) => s.area === spot.area && s.family === spot.family,
   ).reduce((n, s) => n + fanMax(s), 0);
   // A place cards don't find on their own: that one is taken.
+  if (!spot.attracts && fanMax(spot) > 1 && fanMax(spot) < Infinity)
+    return `The ${spot.label} place in the ${area.label} area holds at most ${fanMax(spot)} cards`;
   if (max === 1 || !spot.attracts)
     return `There is already a card on the ${spot.label} place in the ${area.label} area`;
   return `The ${area.label} area holds at most ${max} ${FAMILY_NAMES[spot.family]}`;

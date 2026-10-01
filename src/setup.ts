@@ -123,7 +123,8 @@ function widenStorage(t: Table): Table {
 function lowerHome(t: Table): Table {
   if (t.layout === LAYOUT) return t
   const story = AREAS.find((a) => a.id === 'storybook')!
-  const home = AREAS.find((a) => a.id === 'home')!
+  // The Home area as it was then: two cards wide, 1.4 high.
+  const home = { ...AREAS.find((a) => a.id === 'home')!, w: 2 * CARD_W + 2 * AREA_PAD, h: 1.4 * CARD_H + AREA_HEADER + AREA_PAD }
   const dy = story.h - (CARD_H + AREA_HEADER + AREA_PAD)
   const margin = CARD_W / 4
   const inOldHome = (p: { x: number; y: number }) =>

@@ -44,7 +44,7 @@ back where it came from. Space outside the areas takes any card. **📍 Areas** 
 | Character     | Character Card, Alignment Cards, Y-Cards (titles, skills, quests, status upgrades, Damage Card), Encounter Cards (items) |
 | Storage       | Storage Card and other Y-Cards, Encounter Cards (items, goods), Money Cards                                              |
 | Storybook     | the storybook itself, one Encounter Card (see below)                                                                     |
-| Home          | Y-Cards (house and extensions), Encounter Cards (stored items and goods)                                                 |
+| Home          | Y-Cards (House Card and extensions, on their places), Encounter Cards (stored items and goods)                           |
 | Battlefield   | Terrain Cards, Hit Point Cards, Y-Cards (enemies)                                                                        |
 
 Region, Character, Alignment, Money, Storybook, Terrain and Hit Point cards only fit in their own area.
@@ -91,6 +91,18 @@ no limit: once a row reaches the edge of the Storage area its cards close up to 
 disappears — drop on the row). Unlike Money Cards, Encounter Cards are not pulled into a row from elsewhere on the
 table. Reordering and taking cards away work as for Money Cards. Money Cards and Goods go into their rows one card at a
 time; a whole pile dropped there is refused.
+
+**Home.** The middle of the Home area is a place for the House Card (Y730), with "House Extension" places for the
+Y-cards of its extensions around it (rulebook 10: the house card is on top, the extensions underneath). Left and right
+of it, up to two extensions each: the first slid half under the House Card, the second half under the first. Above it,
+one extension with only its top part showing; below it, one with only its bottom part showing. Each place takes Y-cards
+dropped on or near it, one at a time, and nothing else; reordering and taking cards away work as for Money Cards.
+
+Left of the extensions is a row of up to 16 Goods, right of them a row of up to 4 Equipment cards (Encounter Cards). The
+first card of each row is slid under the outer extension, each further one under the one before: Goods show their left
+third, as in the Storage area, Equipment only a narrow strip. The Home area is only as wide as these rows: it grows to
+the left as Goods are added and to the right as Equipment is added, always leaving room for the next card; the House
+Card stays where it is. A 17th Goods card or a 5th Equipment card is refused.
 
 **Storybook area.** The storybook lies face down on the right; the revealed cards lie on the left, the top one being
 the current chapter. Tap the storybook to turn over its next card; tap the revealed cards to put the top one back on

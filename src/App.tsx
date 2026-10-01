@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, TOKEN_SIZE } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
-import { AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, placement, turnedSpot, type Area } from './areas'
+import { allAreas, AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, placement, turnedSpot, type Area } from './areas'
 import { DECK_SPECS, homeDeck } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
@@ -112,8 +112,7 @@ export default function App() {
       const items = [
         ...t.z.map((id) => t.stacks[id]).map((s) => ({ x: s.x, y: s.y - 50, w: CARD_W, h: CARD_H + 90 })),
         ...t.tokens.map((k) => ({ x: k.x, y: k.y, w: TOKEN_SIZE, h: TOKEN_SIZE })),
-        ...AREAS,
-        ...(t.battlefield ? [battlefieldArea(t.battlefield)] : []),
+        ...allAreas(t),
       ]
       fitRect(
         Math.min(...items.map((i) => i.x)),
@@ -601,7 +600,7 @@ export default function App() {
       {dialog?.kind === 'areas' && (
         <div className="popover" onPointerDown={(e) => e.target === e.currentTarget && setDialog(null)}>
           <div className="popover-panel">
-            {[...AREAS, ...(table.battlefield ? [battlefieldArea(table.battlefield)] : [])].map((area) => (
+            {allAreas(table).map((area) => (
               <button key={area.id} onClick={() => showArea(area)}>
                 {area.label}
               </button>
