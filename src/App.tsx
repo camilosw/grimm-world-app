@@ -3,7 +3,7 @@ import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, loadManifest, TOKEN_SIZE } from './cards'
 import { BattlefieldDialog, BrowseDialog, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
 import { Hand } from './Hand'
-import { AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, refusal, type Area } from './areas'
+import { AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, placement, type Area } from './areas'
 import { DECK_SPECS, homeDeck } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
@@ -161,16 +161,29 @@ export default function App() {
   const selectedToken = rawSelection?.kind === 'token' ? table?.tokens.find((t) => t.id === rawSelection.id) : undefined
   const selection = selectedStack || selectedToken ? rawSelection : null
 
+  const notify = (text: string, ok = false) => {
+    setNotice({ text, ok })
+    window.clearTimeout(noticeTimer.current)
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 2500)
+  }
+
   /**
    * A free spot near the middle of the screen, in table coordinates, for the
    * given cards: outside the areas if possible, else in an area that takes them.
+   * Null (and the player is told why) when they can't go on the table.
    */
   const dropAt = useCallback(
-    (cardIds: string[] = []) => {
+    (cardIds: string[] = []): { x: number; y: number } | null => {
       const el = areaRef.current!
       const cx = (el.clientWidth / 2 - view.x) / view.scale - CARD_W / 2
       const cy = (el.clientHeight / 2 - view.y) / view.scale - CARD_H / 2
       if (!table) return { x: cx, y: cy }
+      // Cards with a place of their own (Character, Alignment, Money Cards) always go there.
+      const own = placement(table, cardIds, defs, cx, cy, null)
+      if (own.spot?.attracts) {
+        if (own.refused) notify(own.refused)
+        return own.refused ? null : { x: own.x, y: own.y }
+      }
       const stacks = table.z.map((id) => table.stacks[id])
       const free = (x: number, y: number) => !stacks.some((s) => Math.abs(s.x - x) < CARD_W + 10 && Math.abs(s.y - y) < CARD_H + 10)
       // Try spots on a half-card grid, nearest to the screen center first.
@@ -180,25 +193,18 @@ export default function App() {
       }
       spots.sort((a, b) => a.d - b.d)
       const outside = spots.find((p) => free(p.x, p.y) && !areaForCard(table, p.x, p.y))
-      const allowed = spots.find((p) => free(p.x, p.y) && !refusal(areaForCard(table, p.x, p.y), cardIds, defs))
+      const allowed = spots.map((p) => placement(table, cardIds, defs, p.x, p.y, null)).find((p) => free(p.x, p.y) && !p.refused)
       return outside ?? allowed ?? { x: cx, y: cy }
     },
     [view, table, defs],
   )
 
-  const notify = (text: string, ok = false) => {
-    setNotice({ text, ok })
-    window.clearTimeout(noticeTimer.current)
-    noticeTimer.current = window.setTimeout(() => setNotice(null), 2500)
-  }
-
-  /** Can these cards go to (x, y) or onto `targetId`? Tells the player when not. */
-  const allowedAt = (cardIds: string[], x: number, y: number, targetId: string | null) => {
-    if (!table) return false
-    const onto = targetId ? table.stacks[targetId] : null
-    const why = refusal(areaForCard(table, onto?.x ?? x, onto?.y ?? y), cardIds, defs)
-    if (why) notify(why)
-    return !why
+  /** Where cards dropped at (x, y) or onto `targetId` really go, or null (and tell the player why) if they can't. */
+  const placeAt = (cardIds: string[], x: number, y: number, targetId: string | null) => {
+    if (!table) return null
+    const p = placement(table, cardIds, defs, x, y, targetId)
+    if (p.refused) notify(p.refused)
+    return p.refused ? null : p
   }
 
   /** Open the rulebook beside the table, at a section if given. */
@@ -286,8 +292,8 @@ export default function App() {
     const at = worldAt(clientX, clientY)
     if (!at) return
     const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
-    if (!allowedAt([card.id], at.x, at.y, target)) return
-    update((t) => A.handToTable(t, index, at.x, at.y, target))
+    const p = placeAt([card.id], at.x, at.y, target)
+    if (p) update((t) => A.handToTable(t, index, p.x, p.y, p.onto))
   }
 
   /** Put the pile waiting in "Put under…" mode under a table pile or a sidebar deck. */
@@ -308,7 +314,9 @@ export default function App() {
       update((t) => A.putUnderDeck(t, sourceId, target.deck!, defs))
     } else {
       const cards = table.stacks[sourceId].cards.map((c) => c.id)
-      if (!allowedAt(cards, target.x, target.y, null)) return
+      const p = placeAt(cards, target.x, target.y, targetId)
+      if (!p) return
+      if (p.onto !== targetId) return notify(`The ${p.spot?.label ?? 'card'} stays on its place`)
       update((t) => A.mergeStacks(t, sourceId, targetId, 'bottom'))
     }
     setSelection({ kind: 'stack', id: targetId })
@@ -324,10 +332,11 @@ export default function App() {
     const card = table?.stacks[deckId]?.cards.at(-1)
     if (!at || !table || !card) return
     const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
-    if (!allowedAt([card.id], at.x, at.y, target)) return
+    const p = placeAt([card.id], at.x, at.y, target)
+    if (!p) return
     update((t) => {
-      const [t2, newId] = A.takeTop(t, deckId, at.x, at.y)
-      return newId && target ? A.mergeStacks(t2, newId, target, 'top') : t2
+      const [t2, newId] = A.takeTop(t, deckId, p.x, p.y)
+      return newId && p.onto ? A.mergeStacks(t2, newId, p.onto, 'top') : t2
     })
   }
 
@@ -478,7 +487,16 @@ export default function App() {
 
       {selectedStack && !putUnder && (
         <footer className="actions">
-          {many && <button onClick={() => act((t, id) => A.drawTop(t, id, docked && topCard ? dropAt([topCard.id]) : undefined))}>🂠 Draw</button>}
+          {many && (
+            <button
+              onClick={() => {
+                const at = docked && topCard ? dropAt([topCard.id]) : undefined
+                if (at !== null) act((t, id) => A.drawTop(t, id, at))
+              }}
+            >
+              🂠 Draw
+            </button>
+          )}
           {count > 0 && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
           {count > 1 && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
           {count > 1 && <button onClick={() => setDialog({ kind: 'browse', stackId: selectedStack.id })}>☰ Browse</button>}
@@ -615,7 +633,7 @@ export default function App() {
               <button
                 key={tok.label}
                 onClick={() => {
-                  const at = dropAt()
+                  const at = dropAt()!
                   let x = at.x + CARD_W / 2 - TOKEN_SIZE / 2
                   const y = at.y + CARD_H / 2 - TOKEN_SIZE / 2
                   while (table.tokens.some((k) => Math.abs(k.x - x) < TOKEN_SIZE && Math.abs(k.y - y) < TOKEN_SIZE)) x += TOKEN_SIZE + 10

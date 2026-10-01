@@ -1,4 +1,4 @@
-import { AREA_HEADER, AREA_PAD } from './areas'
+import { AREA_HEADER, AREA_PAD, fanRow, SPOTS, spotPlaces } from './areas'
 import { CARD_H, CARD_W, compareCards } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
@@ -143,7 +143,7 @@ export function drawTop(t: Table, id: string, at?: { x: number; y: number }): Ta
   const y = at?.y ?? s.y
   const top = { ...s.cards[s.cards.length - 1], faceUp: true }
   const t2 = withCards(t, s, s.cards.slice(0, -1))
-  const there = t2.z.map((z) => t2.stacks[z]).find((o) => Math.abs(o.x - x) < 5 && Math.abs(o.y - y) < 5)
+  const there = t2.z.map((z) => t2.stacks[z]).find((o) => o.x === x && o.y === y)
   if (there) return setStack(t2, { ...there, cards: [...there.cards, top] })
   return addStack(t2, x, y, [top], { rot: s.rot })[0]
 }
@@ -260,7 +260,7 @@ export function reorderHand(t: Table, from: number, to: number): Table {
 // ---------- battlefield ----------
 
 /** Take a card out of whatever pile (or the hand) holds it. */
-function takeCard(t: Table, cardId: string): [Table, CardRef | null] {
+export function takeCard(t: Table, cardId: string): [Table, CardRef | null] {
   const handIndex = t.hand?.findIndex((c) => c.id === cardId) ?? -1
   if (handIndex >= 0) return [{ ...t, hand: t.hand!.filter((_, i) => i !== handIndex) }, t.hand![handIndex]]
   const where = locateCard(t, cardId)
@@ -408,4 +408,20 @@ export function putUnderChapter(t: Table, stackId: string, chapter: number, defs
   const at = deck.cards.findIndex((c) => defs[c.id]?.name === `Chapter ${chapter}`)
   const next = at < 0 ? [...deck.cards, ...cards] : [...deck.cards.slice(0, at), ...cards, ...deck.cards.slice(at)]
   return setStack(removeStack(t, stackId), { ...deck, cards: next })
+}
+
+// ---------- spots ----------
+
+/** Close the gaps in fanned spots (Money Cards): their piles lie on the first places, in left-to-right order. */
+export function settleFans(t: Table): Table {
+  let next = t
+  for (const spot of SPOTS.filter((s) => s.fan)) {
+    const places = spotPlaces(spot)
+    fanRow(next, spot).forEach((id, i) => {
+      const s = next.stacks[id]
+      const p = places[Math.min(i, places.length - 1)]
+      if (s.x !== p.x || s.y !== p.y) next = setStack(next, { ...s, x: p.x, y: p.y })
+    })
+  }
+  return next
 }

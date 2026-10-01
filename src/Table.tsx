@@ -1,6 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { flipTop, mergeStacks, moveStack, moveToken, stackTargetAt, takeTop } from './actions'
-import { acceptsText, allAreas, areaForCard, ENEMY_COLS, enemyOrigin, refusal, type Area } from './areas'
+import { flipTop, mergeStacks, moveStack, moveToken, settleFans, stackTargetAt, takeTop } from './actions'
+import {
+  acceptsText,
+  allAreas,
+  coveredSide,
+  drawOrder,
+  ENEMY_COLS,
+  enemyOrigin,
+  fanRow,
+  placement,
+  SPOTS,
+  spotPlaces,
+  stacksOnSpot,
+  type Area,
+} from './areas'
 import { CARD_H, CARD_W, cardImage, cardLabel, clampScale, TOKEN_SIZE } from './cards'
 import { CardGhost } from './Hand'
 import { update } from './store'
@@ -60,6 +73,10 @@ interface Drag {
   clientY: number
   /** Area under the dragged card and whether it takes the card. */
   area: { id: string; ok: boolean } | null
+  /** Spot the card goes to (or is refused from). */
+  spot: string | null
+  /** Where the card would really land. */
+  to: { x: number; y: number } | null
 }
 
 const TAP_SLOP = 8
@@ -227,11 +244,16 @@ export function TableView(props: Props) {
         onZoneHover(zone, (g2.target.whole ? s.cards : s.cards.slice(-1)).map((c) => c.id))
       }
       let area: Drag['area'] = null
+      let spot: string | null = null
+      let to: Drag['to'] = null
       if (g2.target.kind === 'stack' && !zone) {
         const dest = destination(g2.target, x, y, dropOn)
+        dropOn = dest.onto
         if (dest.area) area = { id: dest.area.id, ok: !dest.refused }
+        spot = dest.spot?.id ?? null
+        to = { x: dest.x, y: dest.y }
       }
-      setDrag({ target: g2.target, x, y, dropOn, zone, clientX: e.clientX, clientY: e.clientY, area })
+      setDrag({ target: g2.target, x, y, dropOn, zone, clientX: e.clientX, clientY: e.clientY, area, spot, to })
     }
   }
 
@@ -251,13 +273,11 @@ export function TableView(props: Props) {
     onSelect({ kind: 'stack', id: target.id })
   }
 
-  /** Area a dragged pile (or its top card) would land in, and why it can't go there. */
+  /** Where a dragged pile (or its top card) would really land, and why it can't go there. */
   function destination(target: { id: string; whole: boolean }, x: number, y: number, dropOn: string | null) {
     const s = table.stacks[target.id]
     const cards = (target.whole ? s.cards : s.cards.slice(-1)).map((c) => c.id)
-    const onto = dropOn ? table.stacks[dropOn] : null
-    const area: Area | null = onto ? areaForCard(table, onto.x, onto.y) : areaForCard(table, x, y)
-    return { area, refused: refusal(area, cards, defs) }
+    return placement(table, cards, defs, x, y, dropOn, target.whole ? target.id : null)
   }
 
   function commitDrag(d: Drag) {
@@ -265,15 +285,16 @@ export function TableView(props: Props) {
     if (target.kind === 'token') return update((t) => moveToken(t, target.id, x, y))
     if (target.kind !== 'stack') return
     if (zone) return onZoneDrop(zone, target.id, target.whole)
-    const { refused } = destination(target, x, y, dropOn)
-    if (refused) return props.onRefuse(refused)
+    const dest = destination(target, x, y, dropOn)
+    if (dest.refused) return props.onRefuse(dest.refused)
+    const onto = dest.onto
     update((t) => {
-      if (target.whole) return dropOn ? mergeStacks(t, target.id, dropOn, 'top') : moveStack(t, target.id, x, y)
-      const [t2, newId] = takeTop(t, target.id, x, y)
-      return dropOn && newId ? mergeStacks(t2, newId, dropOn, 'top') : t2
+      if (target.whole) return onto ? mergeStacks(t, target.id, onto, 'top') : moveStack(t, target.id, dest.x, dest.y)
+      const [t2, newId] = takeTop(t, target.id, dest.x, dest.y)
+      return onto && newId ? mergeStacks(t2, newId, onto, 'top') : t2
     })
-    if (!dropOn && (target.whole || table.stacks[target.id]?.cards.length === 1)) onSelect({ kind: 'stack', id: target.id })
-    else if (dropOn) onSelect({ kind: 'stack', id: dropOn })
+    if (!onto && (target.whole || table.stacks[target.id]?.cards.length === 1)) onSelect({ kind: 'stack', id: target.id })
+    else if (onto) onSelect({ kind: 'stack', id: onto })
   }
 
   function onPointerUp(e: React.PointerEvent) {
@@ -304,6 +325,11 @@ export function TableView(props: Props) {
   const liftedFrom = dragStack && !dragStack.whole ? table.stacks[dragStack.id] : null
   // Over the sidebar or hand the table can't show the card, so it floats above everything.
   const ghost = drag?.zone && dragStack ? table.stacks[dragStack.id]?.cards.at(-1) : null
+  // While a card is dragged along a row of Money Cards, the others make room for it.
+  const fanTo = dragStack?.whole && drag?.to && drag.area?.ok && SPOTS.some((s) => s.fan && s.id === drag.spot) ? drag.to : null
+  const shownTable = fanTo && dragStack ? settleFans(moveStack(table, dragStack.id, fanTo.x, fanTo.y)) : table
+  const sliding = new Set(SPOTS.filter((s) => s.fan).flatMap((s) => fanRow(shownTable, s)))
+  const covered = new Map(SPOTS.filter((s) => s.under).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
 
   return (
     <div
@@ -333,12 +359,39 @@ export function TableView(props: Props) {
             Enemies
           </div>
         )}
-        {table.z.map((id) => {
-          const s = table.stacks[id]
+        {SPOTS.map((spot) => {
+          // A fanned spot shows its next free place, none when full.
+          const next = spot.fan ? fanRow(shownTable, spot).length : 0
+          if (spot.fan && next >= spot.fan.count) return null
+          const at = spotPlaces(spot)[next]
+          // A covered spot only shows the half beside the card lying on it.
+          const side = coveredSide(spot)
+          const state = drag?.spot === spot.id ? (drag.area?.ok ? ' accept' : ' refuse') : ''
+          return (
+            <div
+              key={spot.id}
+              className={`card-spot${side ? ` covered covered-${side}` : ''}${state}`}
+              style={{
+                left: side === 'left' ? at.x + CARD_W / 2 : at.x,
+                top: at.y,
+                width: side ? CARD_W / 2 : CARD_W,
+                height: CARD_H,
+              }}
+            >
+              <span>
+                {spot.label}
+                {spot.hint && <small>{spot.hint}</small>}
+              </span>
+            </div>
+          )
+        })}
+        {drawOrder(shownTable).map((id) => {
+          const s = shownTable.stacks[id]
           let shown = s
           if (dragStack?.id === id) {
-            if (dragStack.whole && ghost) return null
-            shown = dragStack.whole ? { ...s, x: drag!.x, y: drag!.y } : { ...s, cards: s.cards.slice(0, -1) }
+            // A pile moved as a whole is drawn above everything (below).
+            if (dragStack.whole) return null
+            shown = { ...s, cards: s.cards.slice(0, -1) }
           }
           if (s.slot) return <SlotView key={id} stack={shown} defs={defs} size={imgSize} />
           if (!shown.cards.length) return null
@@ -350,10 +403,24 @@ export function TableView(props: Props) {
               size={imgSize}
               selected={selection?.kind === 'stack' && selection.id === id}
               dropTarget={drag?.dropOn === id}
-              lifted={dragStack?.whole === true && dragStack.id === id}
+              lifted={false}
+              covered={covered.get(id) ?? null}
+              sliding={sliding.has(id)}
             />
           )
         })}
+        {dragStack?.whole && drag && !ghost && table.stacks[dragStack.id] && (
+          <StackView
+            stack={{ ...table.stacks[dragStack.id], x: drag.x, y: drag.y }}
+            defs={defs}
+            size={imgSize}
+            selected={selection?.kind === 'stack' && selection.id === dragStack.id}
+            dropTarget={false}
+            lifted
+            covered={null}
+            sliding={false}
+          />
+        )}
         {liftedFrom && drag && !ghost && (
           <StackView
             stack={{ ...liftedFrom, id: 'lifted', x: drag.x, y: drag.y, cards: liftedFrom.cards.slice(-1), label: undefined }}
@@ -362,6 +429,8 @@ export function TableView(props: Props) {
             selected={false}
             dropTarget={false}
             lifted
+            covered={null}
+            sliding={false}
           />
         )}
         {table.tokens.map((tok) => (
@@ -435,14 +504,20 @@ interface StackViewProps {
   selected: boolean
   dropTarget: boolean
   lifted: boolean
+  /** Half of it lies under another card (the Alignment Card under the Character Card). */
+  covered: 'left' | 'right' | null
+  /** Lies in a row of Money Cards, whose cards slide when it rearranges. */
+  sliding: boolean
 }
 
-function StackView({ stack, defs, size, selected, dropTarget, lifted }: StackViewProps) {
+function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, sliding }: StackViewProps) {
   const top = stack.cards[stack.cards.length - 1]
   const count = stack.cards.length
   const depth = Math.min(8, Math.ceil(Math.log2(count + 1)))
   const shadow = Array.from({ length: depth }, (_, i) => `${i + 1}px ${(i + 1) * 1.5}px 0 ${i % 2 ? '#3a2e24' : '#d8cdb8'}`)
-  const classes = ['stack', selected && 'selected', dropTarget && 'drop-target', lifted && 'lifted'].filter(Boolean).join(' ')
+  const classes = ['stack', selected && 'selected', dropTarget && 'drop-target', lifted && 'lifted', covered && `covered-${covered}`, sliding && 'sliding']
+    .filter(Boolean)
+    .join(' ')
   return (
     <div className={classes} data-stack={stack.id} style={{ left: stack.x, top: stack.y, width: CARD_W, height: CARD_H }}>
       <div

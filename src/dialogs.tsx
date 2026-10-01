@@ -50,7 +50,7 @@ interface BrowseProps {
   stackId: string
   defs: Record<string, CardDef>
   /** World position for cards taken out of the pile. */
-  dropAt: () => { x: number; y: number }
+  dropAt: (cardIds: string[]) => { x: number; y: number } | null
   onInspect: (card: CardRef) => void
   onClose: () => void
 }
@@ -99,8 +99,9 @@ export function BrowseDialog({ table, stackId, defs, dropAt, onInspect, onClose 
             <button
               className="primary"
               onClick={() => {
-                const { x, y } = dropAt()
-                update((t) => extractCards(t, stackId, [...picked].map(indexOf), x, y))
+                const at = dropAt([...picked])
+                if (!at) return
+                update((t) => extractCards(t, stackId, [...picked].map(indexOf), at.x, at.y))
                 setPicked(new Set())
               }}
             >
@@ -124,8 +125,8 @@ export function BrowseDialog({ table, stackId, defs, dropAt, onInspect, onClose 
               <div className="card-menu">
                 <button
                   onClick={() => {
-                    const { x, y } = dropAt()
-                    act(card.id, (t, i) => extractCard(t, stackId, i, x, y))
+                    const at = dropAt([card.id])
+                    if (at) act(card.id, (t, i) => extractCard(t, stackId, i, at.x, at.y))
                   }}
                 >
                   Take out
@@ -154,7 +155,7 @@ export function BrowseDialog({ table, stackId, defs, dropAt, onInspect, onClose 
 interface FindProps {
   table: Table
   defs: Record<string, CardDef>
-  dropAt: () => { x: number; y: number }
+  dropAt: (cardIds: string[]) => { x: number; y: number } | null
   onShow: (stackId: string) => void
   onInspect: (card: CardRef) => void
   onClose: () => void
@@ -211,8 +212,9 @@ export function FindDialog({ table, defs, dropAt, onShow, onInspect, onClose }: 
                   <button
                     className="primary"
                     onClick={() => {
-                      const { x, y } = dropAt()
-                      update((t) => extractCard(t, stack.id, index, x, y))
+                      const at = dropAt([def.id])
+                      if (!at) return
+                      update((t) => extractCard(t, stack.id, index, at.x, at.y))
                       onClose()
                     }}
                   >

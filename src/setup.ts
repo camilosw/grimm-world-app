@@ -1,6 +1,6 @@
-import { addStack, sortStack } from './actions'
-import { compareCards } from './cards'
-import { STORY_SLOTS } from './areas'
+import { addStack, mergeStacks, settleFans, sortStack, takeCard } from './actions'
+import { CARD_W, compareCards } from './cards'
+import { AREA_HEADER, AREA_PAD, BATTLEFIELD_ORIGIN, family, SPOTS, spotPlace, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardManifest, CardRef, Stack, Table } from './types'
 
@@ -78,6 +78,58 @@ const OLD_LABELS: Record<string, DeckKind> = {
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
+  return settleFans(placeOnSpots(widenStorage(migrateDecks(t, defs)), defs))
+}
+
+/**
+ * The Storage area used to be a card narrower: everything right of it (the
+ * Storybook and Home areas) moves right with its storybook, and a pile on the
+ * old Storage Card place moves to the new one.
+ */
+function widenStorage(t: Table): Table {
+  const revealed = storySlot(t, 'story-revealed')
+  const dx = STORY_SLOTS['story-revealed'].x - (revealed?.x ?? STORY_SLOTS['story-revealed'].x)
+  if (!revealed || !dx) return t
+  const margin = CARD_W / 4
+  const shifted = (p: { x: number; y: number }) =>
+    p.x >= revealed.x - AREA_PAD - margin && p.y >= revealed.y - AREA_HEADER - margin && p.y < BATTLEFIELD_ORIGIN.y - margin
+  const spot = SPOTS.find((s) => s.id === 'storage')!
+  const oldSpot = { x: spot.x - dx / 2, y: spot.y }
+  const stacks = Object.fromEntries(
+    Object.entries(t.stacks).map(([id, s]) => {
+      if (!t.z.includes(id)) return [id, s]
+      if (s.x === oldSpot.x && s.y === oldSpot.y) return [id, { ...s, x: spot.x }]
+      return [id, shifted(s) ? { ...s, x: s.x + dx } : s]
+    }),
+  )
+  return { ...t, stacks, tokens: t.tokens.map((k) => (shifted(k) ? { ...k, x: k.x + dx } : k)) }
+}
+
+/** Cards with a spot of their own (Character, Alignment and Money Cards) lying elsewhere on the table move onto it. */
+function placeOnSpots(t: Table, defs: Record<string, CardDef>): Table {
+  let next = t
+  for (const spot of SPOTS.filter((s) => s.attracts)) {
+    const placed = new Set(stacksOnSpot(next, spot))
+    for (const id of t.z) {
+      const s = next.stacks[id]
+      if (!s || s.slot) continue
+      const own = s.cards.filter((c) => family(defs[c.id]) === spot.family)
+      // In place: a pile of only these cards on the spot, or a single card on each place of a fanned spot.
+      if (!own.length || (placed.has(id) && own.length === s.cards.length && (!spot.fan || own.length === 1))) continue
+      for (const card of own) {
+        const [t2] = takeCard(next, card.id)
+        // Appended to a fanned spot; a card that doesn't fit any more stays where it is.
+        const p = spotPlace(settleFans(t2), spot, null, -Infinity, -Infinity)
+        if (!p) continue
+        const [t3, newId] = addStack(settleFans(t2), p.x, p.y, [card])
+        next = p.onto ? mergeStacks(t3, newId, p.onto, 'top') : t3
+      }
+    }
+  }
+  return next
+}
+
+function migrateDecks(t: Table, defs: Record<string, CardDef>): Table {
   let next = t
   // 1. Before the sidebar existed every deck lay on the table.
   if (!next.dock) {

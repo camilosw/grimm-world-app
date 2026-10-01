@@ -234,6 +234,20 @@ input:not([type]) {
   white-space: nowrap;
 }
 
+.stack.sliding {
+  transition:
+    left 0.15s ease,
+    top 0.15s ease;
+}
+
+.stack.covered-right .grip {
+  left: 25%;
+}
+
+.stack.covered-left .grip {
+  left: 75%;
+}
+
 .stack-label {
   position: absolute;
   left: 0;
@@ -842,6 +856,57 @@ button.on {
   border-radius: var(--radius);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
   pointer-events: none;
+}
+
+/* ---------- card spots (Character Card) ---------- */
+
+.card-spot {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  padding: 30px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 600;
+  color: rgba(255, 245, 225, 0.4);
+  border: 4px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  pointer-events: none;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.card-spot small {
+  display: block;
+  margin-top: 8px;
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.card-spot.covered {
+  padding: 20px 0;
+  writing-mode: vertical-rl;
+}
+
+.card-spot.covered-right {
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+}
+
+.card-spot.covered-left {
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+}
+
+.card-spot.accept {
+  border: 6px solid #7fe3a0;
+  background: rgba(127, 227, 160, 0.15);
+}
+
+.card-spot.refuse {
+  border: 6px solid #ff8a70;
+  background: rgba(255, 138, 112, 0.15);
 }
 
 /* ---------- storybook slots ---------- */

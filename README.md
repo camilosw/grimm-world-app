@@ -49,6 +49,25 @@ back where it came from. Space outside the areas takes any card. **📍 Areas** 
 
 Region, Character, Alignment, Money, Storybook, Terrain and Hit Point cards only fit in their own area.
 
+**Character and Alignment Card places.** The Character area has a place for the Character Card at its top center and,
+half under its left side, one for the Alignment Card (dashed outlines). Wherever you drop one of these cards on the
+table — dragged from the sidebar, the hand or the table, drawn, or taken out with Find/Browse — it lands on its place,
+and no other card can be put there. The Alignment Card always lies under the Character Card, with only its left half
+showing (**Rotate** it to show the value on its other end); both Alignment Cards dropped there form one pile. Other
+cards may still overlap the edges of these places.
+
+**Storage Card place.** The Storage area has a place for the Storage Card at its top center. It takes any Y-card, since the
+Storage Card is one of them: a Y-card dropped on or near it snaps onto it, and other cards are refused there. Unlike
+the Character and Alignment Cards, Y-cards are not pulled there from elsewhere on the table.
+
+**Money Cards.** Right of the Storage Card lies a row of up to three Money Cards (rulebook 4.3): the first slid half
+under the right side of the Storage Card, each further one half under the one before, so the amounts on their right
+halves show and add up to the character's money. The placeholder marks where the next one goes. Like the Alignment Card,
+a Money Card dropped anywhere on the table joins the row: where you drop it when that is on the row, else at its end. A
+fourth one is refused. Drag a card along the row to reorder it (the others make room while you drag); take one away and
+the cards right of it close the gap. Each card lies on its own, so double-tap or **Rotate** it to show the amount you
+need.
+
 **Storybook area.** The storybook lies face down on the right; the revealed cards lie on the left, the top one being
 the current chapter. Tap the storybook to turn over its next card; tap the revealed cards to put the top one back on
 the storybook, face down. The storybook can't be looked through, sorted or moved; long-press the revealed card to read
