@@ -21,7 +21,7 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
 }
 
 /** Full-size view of one card, with its other side one tap away. */
-export function CardViewer({ card, def, onClose }: { card: CardRef; def?: CardDef; onClose: () => void }) {
+export function CardViewer({ card, def, onClose, onRules }: { card: CardRef; def?: CardDef; onClose: () => void; onRules?: () => void }) {
   const [faceUp, setFaceUp] = useState(card.faceUp)
   const [rot, setRot] = useState(0)
   return (
@@ -38,6 +38,7 @@ export function CardViewer({ card, def, onClose }: { card: CardRef; def?: CardDe
         <span className="viewer-title">{cardLabel(def)}</span>
         <button onClick={() => setFaceUp((f) => !f)}>⟲ Other side</button>
         <button onClick={() => setRot((r) => (r + 90) % 360)}>↻ Rotate</button>
+        {onRules && <button onClick={onRules}>📖 Rules</button>}
         <button onClick={onClose}>✕ Close</button>
       </div>
     </div>
@@ -278,11 +279,12 @@ interface BattlefieldProps {
   defs: Record<string, CardDef>
   onBuild: (rows: (TerrainSlot | null)[][]) => void
   onClear: () => void
+  onRules: () => void
   onClose: () => void
 }
 
 /** Lay out Terrain Cards as shown in the middle section of a Conflict Card. */
-export function BattlefieldDialog({ table, defs, onBuild, onClear, onClose }: BattlefieldProps) {
+export function BattlefieldDialog({ table, defs, onBuild, onClear, onRules, onClose }: BattlefieldProps) {
   const [text, setText] = useState('')
   const rows = parseBattlefield(text)
   const byCode = useMemo(() => new Map(Object.values(defs).map((d) => [d.code, d])), [defs])
@@ -308,6 +310,7 @@ export function BattlefieldDialog({ table, defs, onBuild, onClear, onClose }: Ba
           <button className="primary" disabled={!count || unknown.length > 0} onClick={() => onBuild(rows)}>
             ⚔ Lay out {count || ''} card{count === 1 ? '' : 's'}
           </button>
+          <button onClick={onRules}>📖 How to set up a battlefield</button>
           <button disabled={!looseTerrain} onClick={onClear}>
             ↩ Clear battlefield{looseTerrain ? ` (${looseTerrain})` : ''}
           </button>

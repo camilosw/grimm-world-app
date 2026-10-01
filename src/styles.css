@@ -148,7 +148,8 @@ input:not([type]) {
 .table-area {
   position: relative;
   flex: 1;
-  min-width: 0;
+  /* Room to keep playing while the rules are open. */
+  min-width: 200px;
 }
 
 /* ---------- table ---------- */
@@ -889,4 +890,204 @@ button.on {
   justify-content: center;
   font-size: 18px;
   font-weight: 600;
+}
+
+/* ---------- rulebook drawer ---------- */
+
+.rules {
+  position: relative;
+  /* Gives way (down to 320px) rather than squeezing the table below its minimum. */
+  flex: 0 1 auto;
+  min-width: 320px;
+  /* Set by dragging the left edge; the default suits a landscape tablet. */
+  width: var(--rules-width, clamp(360px, 46%, 700px));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border-left: 1px solid #000;
+  z-index: 3;
+}
+
+/* Portrait tablets and phones: the rules cover the table. */
+@media (max-width: 900px) {
+  .rules {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    min-width: 0;
+  }
+
+  .rules-resize {
+    display: none;
+  }
+}
+
+/* A wide touch target on the left edge, with a visible grip in the middle. */
+.rules-resize {
+  position: absolute;
+  left: -12px;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  z-index: 4;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.rules-resize::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 6px;
+  height: 56px;
+  transform: translateY(-50%);
+  border-radius: 3px;
+  background: #6b5646;
+  box-shadow: 0 0 0 1px #000;
+}
+
+.rules-resize:hover::after,
+.rules-resize:active::after {
+  background: var(--gold);
+}
+
+.rules-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 14px;
+  border-bottom: 1px solid #000;
+}
+
+.rules-bar .spacer {
+  flex: 1;
+}
+
+@media (max-width: 1100px) {
+  .rules-bar button span {
+    display: none;
+  }
+}
+
+.rules-search {
+  display: flex;
+  padding: 8px 10px;
+}
+
+.rules-pages {
+  /* Page offsets (jumps, current page) are measured inside this box. */
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  padding: 0 10px 10px;
+  background: #15100d;
+  -webkit-overflow-scrolling: touch;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.rules-page-img {
+  background: #f4efe6;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+}
+
+.rules-page-img img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.rules-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rules-item {
+  flex-shrink: 0;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+  text-align: left;
+  white-space: normal;
+  background: transparent;
+  border-color: transparent;
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.rules-item:active,
+.rules-item.current {
+  background: var(--panel-2);
+}
+
+.rules-item.depth-0 {
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.rules-item.depth-1 {
+  padding-left: 24px;
+}
+
+.rules-item.depth-2 {
+  padding-left: 40px;
+  font-size: 14px;
+}
+
+.rules-num {
+  flex: 0 0 auto;
+  min-width: 52px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.rules-page {
+  margin-left: auto;
+}
+
+.rules-hit-section {
+  display: block;
+  font-size: 13px;
+}
+
+.rules-snippet {
+  display: block;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.rules-snippet mark {
+  color: #1b1512;
+  background: var(--gold);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.rules-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 12px max(6px, env(safe-area-inset-bottom));
+  border-top: 1px solid #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.area-info {
+  margin-left: 14px;
+  padding: 0 10px;
+  min-height: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  vertical-align: middle;
+  background: transparent;
+  border: none;
+  color: rgba(255, 245, 225, 0.6);
 }

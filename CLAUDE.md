@@ -13,17 +13,19 @@ npx tsc -b                   # type-check only
 npm run lint                 # oxlint
 uv run scripts/split_cards.py    # PDF → public/cards/{lg,sm}/NNN-{front,back}.webp + cards.json (~1 min)
 uv run scripts/index_cards.py    # OCR card types/numbers into cards.json (~15 min; --cards 120,130 to redo a few)
+uv run scripts/split_rules.py    # rulebook → public/rules/ page images + rules.json (~15 s)
 ```
 
 There is no test suite. Verify UI changes in a browser with the `playwright-cli` skill (tablet size: `resize 1180 820`). The table state is autosaved in `localStorage` under `grimm-world:table:v1`; clear it (`localStorage.clear()`) to start from the initial setup.
 
-`public/cards/` is generated and git-ignored. Python scripts use PEP 723 inline dependencies — run them with `uv run`, not pip/venv (the system Python has no pip).
+`public/cards/` and `public/rules/` are generated and git-ignored. Python scripts use PEP 723 inline dependencies — run them with `uv run`, not pip/venv (the system Python has no pip).
 
 ## Card data pipeline
 
 - `split_cards.py`: each PDF page is one 300 dpi JPEG with a centred 3×3 grid of 63.5×88.9 mm cards. Odd pages are fronts, even pages backs, **mirrored left↔right** (back of (row, col) is at (row, 2−col)). Card ids `001`–`540` follow sheet order. It crops the embedded JPEG (no re-render).
 - `index_cards.py` adds `type`, `code` (e.g. `Y291c`, `B23`, `X05`, `T07`, `R1-111`) and `name`. Card ranges per type, Region/Terrain numbers and hand-verified OCR corrections (`KNOWN`) are hardcoded for this specific PDF. Fronts are the reliable OCR source; backs are only a cross-check.
 - The app only needs `public/cards/cards.json` plus the images; card types drive the deck setup, deck/area rules and search. The title card (`type: 'title'`) is excluded from play (`playableCards`).
+- `split_rules.py`: the rulebook has no PDF outline and its extracted text loses the inline game symbols, so the app shows page images and uses text only for search. `rules.json` holds per-page text and a table of contents parsed from the Contents pages, with each heading's page and vertical position (`y`). Printed page N is PDF page N+1 (page 0 is the cover).
 
 ## App architecture (`src/`)
 
@@ -40,7 +42,7 @@ There is no test suite. Verify UI changes in a browser with the `playwright-cli`
 - `decks.ts`: the fixed decks (`DECKS`; `SIDEBAR_DECKS` excludes the storybook), what each may `holds`, how returned cards are inserted (`top` / `bottom` / `sorted`), and `homeDeck()` (origin deck if it may hold the card, else the default deck for the card type; time cards always go to the Time Card slot). Any drop on the sidebar returns cards to their home deck; deck-to-deck drags are refused; explicit cross-deck moves go through "Put under…" (`putUnderDeck`, `putUnderChapter`), which checks `holds`.
 - `areas.ts`: fixed framed areas of the play area (Map, Encounter Bar, Character, Storage, Storybook, Home) plus the battlefield area, which card families each accepts, and `refusal()` for drops. Space outside all areas accepts anything. Area geometry is constant, not saved state.
 
-**UI components.** `App.tsx` wires everything: toolbar, action bar for the selected pile, drop routing between table / hand / sidebar (`zoneAt` uses `elementFromPoint` on `data-deck` / `data-dock` / `.hand`), placement (`dropAt` finds a free spot respecting areas) and dialogs. `Table.tsx` owns all pointer gestures on the canvas (tap, double-tap flip, long-press inspect, drag top card vs. `⠿` grip for the whole pile, one-finger pan, pinch/wheel zoom) and renders areas, stacks, slots and tokens. `Sidebar.tsx` and `Hand.tsx` share `useDragOut.ts` for tap / long-press / drag-out with a floating `CardGhost`. `dialogs.tsx` holds the modal UIs (card viewer, browse pile, find card, battlefield builder, chapter picker).
+**UI components.** `App.tsx` wires everything: toolbar, action bar for the selected pile, drop routing between table / hand / sidebar (`zoneAt` uses `elementFromPoint` on `data-deck` / `data-dock` / `.hand`), placement (`dropAt` finds a free spot respecting areas) and dialogs. `Table.tsx` owns all pointer gestures on the canvas (tap, double-tap flip, long-press inspect, drag top card vs. `⠿` grip for the whole pile, one-finger pan, pinch/wheel zoom) and renders areas, stacks, slots and tokens. `Sidebar.tsx` and `Hand.tsx` share `useDragOut.ts` for tap / long-press / drag-out with a floating `CardGhost`. `dialogs.tsx` holds the modal UIs (card viewer, browse pile, find card, battlefield builder, chapter picker). `RulesPanel.tsx` is the rulebook drawer (lazy-loaded page images, contents, search); `rules.ts` maps areas, decks and card types/number ranges to rulebook section ids for the help links — section ids must exist in `rules.json`'s `toc`.
 
 **Setup & migration.** `setup.ts` `initialTable()` builds the rulebook chapter 6.1 setup (shuffled B-Encounters with Time Passes at the bottom, sorted Lost Pages/X/Regions/Terrain, storybook in its area, empty campaign decks). `migrateTable()` upgrades older saves (decks on the table, free-form sidebar decks, title card, storybook in the sidebar) — when changing the `Table` shape, extend it so existing saves on the tablet keep working, and keep `isValidTable` in `App.tsx` consistent (every playable card exactly once).
 

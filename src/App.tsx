@@ -6,6 +6,8 @@ import { Hand } from './Hand'
 import { AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, refusal, type Area } from './areas'
 import { DECK_SPECS, homeDeck } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
+import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
+import { RulesPanel } from './RulesPanel'
 import { Sidebar } from './Sidebar'
 import { loadSaved, redo, resetTable, undo, update, useHistory, useTable } from './store'
 import { TableView, type Selection, type Zone } from './Table'
@@ -79,6 +81,9 @@ export default function App() {
   const [sidebarOpen, toggleSidebar] = usePanel('grimm-world:sidebar-open')
   const [zoneHover, setZoneHover] = useState<Zone | null>(null)
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null)
+  const [rules, setRules] = useState<RulesManifest | null>(null)
+  const [rulesOpen, setRulesOpen] = useState(false)
+  const [rulesTarget, setRulesTarget] = useState<RuleTarget | null>(null)
   /** Sidebar decks a dragged card would go back to. */
   const [homeHover, setHomeHover] = useState<string[]>([])
   const noticeTimer = useRef<number | undefined>(undefined)
@@ -194,6 +199,21 @@ export default function App() {
     const why = refusal(areaForCard(table, onto?.x ?? x, onto?.y ?? y), cardIds, defs)
     if (why) notify(why)
     return !why
+  }
+
+  /** Open the rulebook beside the table, at a section if given. */
+  const openRules = (section?: string | null) => {
+    const show = () => {
+      setRulesOpen(true)
+      if (section) setRulesTarget({ section })
+    }
+    if (rules) return show()
+    loadRules()
+      .then((r) => {
+        setRules(r)
+        show()
+      })
+      .catch((e: Error) => notify(e.message))
   }
 
   const showArea = (area: Area) => {
@@ -371,6 +391,9 @@ export default function App() {
         <button onClick={() => setDialog({ kind: 'tokens' })}>
           ● <span>Figures</span>
         </button>
+        <button onClick={() => (rulesOpen ? setRulesOpen(false) : openRules())} className={rulesOpen ? 'on' : ''}>
+          📖 <span>Rules</span>
+        </button>
         <button onClick={() => setDialog({ kind: 'areas' })}>
           📍 <span>Areas</span>
         </button>
@@ -429,6 +452,7 @@ export default function App() {
           onClearBattlefield={() => update((t) => A.clearBattlefield(t, defs))}
           onRefuse={notify}
           onSlotTap={(slot) => update((t) => (slot === 'story' ? A.revealStory(t) : A.unrevealStory(t)))}
+          onAreaRules={(areaId) => openRules(AREA_RULES[areaId])}
         />
         {notice && <div className={`notice${notice.ok ? ' ok' : ''}`}>{notice.text}</div>}
         {putUnder && (
@@ -438,6 +462,7 @@ export default function App() {
           </div>
         )}
       </div>
+      {rulesOpen && rules && <RulesPanel rules={rules} target={rulesTarget} onClose={() => setRulesOpen(false)} />}
       </div>
 
       {handOpen && (
@@ -486,6 +511,9 @@ export default function App() {
             </button>
           )}
           {!docked && <button onClick={() => setDialog({ kind: 'rename', stackId: selectedStack.id })}>✎ Name</button>}
+          <button onClick={() => openRules(selectedStack.deck ? DECK_RULES[selectedStack.deck] : cardRule(topCard && defs[topCard.id]))}>
+            📖 Rules
+          </button>
         </footer>
       )}
       {selectedToken && (
@@ -494,7 +522,21 @@ export default function App() {
         </footer>
       )}
 
-      {dialog?.kind === 'inspect' && <CardViewer card={dialog.card} def={defs[dialog.card.id]} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'inspect' && (
+        <CardViewer
+          card={dialog.card}
+          def={defs[dialog.card.id]}
+          onClose={() => setDialog(null)}
+          onRules={
+            cardRule(defs[dialog.card.id])
+              ? () => {
+                  setDialog(null)
+                  openRules(cardRule(defs[dialog.card.id]))
+                }
+              : undefined
+          }
+        />
+      )}
       {dialog?.kind === 'browse' && (
         <BrowseDialog
           table={table}
@@ -520,6 +562,10 @@ export default function App() {
           table={table}
           defs={defs}
           onBuild={buildBattlefield}
+          onRules={() => {
+            setDialog(null)
+            openRules('8.1.2')
+          }}
           onClear={() => {
             update((t) => A.clearBattlefield(t, defs))
             setDialog(null)

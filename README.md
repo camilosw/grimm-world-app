@@ -10,6 +10,7 @@ Odd pages are fronts; even pages are the backs, mirrored left ↔ right.
 ```bash
 uv run scripts/split_cards.py      # ~1 min → public/cards/{lg,sm}/NNN-{front,back}.webp + cards.json
 uv run scripts/index_cards.py      # optional, ~15 min: OCR card numbers (Y003, B23, …) and card types
+uv run scripts/split_rules.py      # ~15 s: rulebook pages → public/rules/ (page images, search text, contents)
 ```
 
 - `lg` images are 750 × 1050 (300 dpi, full quality); `sm` images are 300 × 420 (table preview).
@@ -103,6 +104,13 @@ Pile and deck actions: **Draw** (top card face up onto the table), **Top → bot
 number), **Put under…** (slide cards under another pile or a deck, e.g. X-cards under the Encounter Deck), **All to hand**,
 **Rotate**, **Front/Back** (overlap order, e.g. tucking the Alignment card under the Character card), **Return to
 deck** and **Name**.
+
+**📖 Rules** opens the rulebook beside the table (over it in portrait): the real pages, a contents list, search
+(e.g. "fate number", "banish") and zoom. Drag its left edge to make it wider or narrower. It remembers the page you
+were reading and its width. The **ⓘ** next to an area's name,
+**📖 Rules** in the action bar of a selected deck or card, in the card viewer and in the Battle dialog open the rulebook
+at the section that explains it. When a new rulebook version comes out, replace the PDF in `game-files/` and re-run
+`scripts/split_rules.py`.
 
 **🔍 Find card** searches every card by number or name ("Take card Y003 and resolve it") and can take it out of its deck.
 **● Figures** adds the player marker and the character, ally and enemy figures.

@@ -32,6 +32,8 @@ interface Props {
   onRefuse: (message: string) => void
   /** A tap on the storybook (reveal) or on its revealed cards (put back). */
   onSlotTap: (slot: StorySlot) => void
+  /** The ⓘ of an area: open the rules about it. */
+  onAreaRules: (areaId: string) => void
 }
 
 type Target =
@@ -320,6 +322,7 @@ export function TableView(props: Props) {
             area={area}
             state={drag?.area?.id === area.id ? (drag.area.ok ? 'accept' : 'refuse') : null}
             onClear={area.id === 'battlefield' ? props.onClearBattlefield : undefined}
+            onRules={() => props.onAreaRules(area.id)}
           />
         ))}
         {table.battlefield && (
@@ -397,9 +400,10 @@ interface AreaViewProps {
   area: Area
   state: 'accept' | 'refuse' | null
   onClear?: () => void
+  onRules: () => void
 }
 
-function AreaView({ area, state, onClear }: AreaViewProps) {
+function AreaView({ area, state, onClear, onRules }: AreaViewProps) {
   return (
     <div
       className={`area area-${area.id}${state ? ` ${state}` : ''}`}
@@ -409,6 +413,9 @@ function AreaView({ area, state, onClear }: AreaViewProps) {
         <span>
           {area.id === 'battlefield' ? '⚔ ' : ''}
           {area.label}
+          <button className="area-info" data-ui onClick={onRules} aria-label={`Rules: ${area.label}`}>
+            ⓘ
+          </button>
           {acceptsText(area) !== area.label && <small>{acceptsText(area)}</small>}
         </span>
         {onClear && (

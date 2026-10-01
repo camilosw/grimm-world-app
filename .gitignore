@@ -30,3 +30,4 @@ __pycache__
 # Generated card images (run: uv run scripts/split_cards.py)
 public/cards/
 game-files
+public/rules/
