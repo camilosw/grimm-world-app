@@ -39,7 +39,7 @@ back where it came from. Space outside the areas takes any card. **📍 Areas** 
 
 | Area          | Takes                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Map           | Region Cards, Encounter Cards (goods prices), Y-Cards (e.g. Save Card Location)                                          |
+| Map           | Region Cards only, on its four Region Card places                                                                        |
 | Encounter Bar | Y-Cards                                                                                                                  |
 | Character     | Character Card, Alignment Cards, Y-Cards (titles, skills, quests, status upgrades, Damage Card), Encounter Cards (items) |
 | Storage       | Storage Card and other Y-Cards, Encounter Cards (items, goods), Money Cards                                              |
@@ -48,6 +48,12 @@ back where it came from. Space outside the areas takes any card. **📍 Areas** 
 | Battlefield   | Terrain Cards, Hit Point Cards, Y-Cards (enemies)                                                                        |
 
 Region, Character, Alignment, Money, Storybook, Terrain and Hit Point cards only fit in their own area.
+
+**Region Cards.** Region Cards are printed sideways, so the app always shows them landscape — on the table, in the
+sidebar, in lists and in the card viewer — and they can't be rotated. They turn over about their horizontal axis (other
+cards turn about their vertical one). The Map area has four Region Card places, two by two, and takes nothing else. A
+Region Card dropped anywhere on the table goes to the place it is dropped on if that is free, else to the first free
+one; a fifth one is refused.
 
 **Character and Alignment Card places.** The Character area has a place for the Character Card at its top center and,
 half under its left side, one for the Alignment Card (dashed outlines). Wherever you drop one of these cards on the

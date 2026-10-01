@@ -19,6 +19,31 @@ export function cardImage(id: string, faceUp: boolean, size: 'sm' | 'lg'): strin
   return `${BASE}/${size}/${id}-${faceUp ? 'front' : 'back'}.webp`
 }
 
+/**
+ * Region Cards are printed sideways: they always lie landscape, never rotate, and turn over about their horizontal
+ * axis.
+ */
+export function isLandscape(def: CardDef | undefined): boolean {
+  return def?.type === 'region'
+}
+
+/**
+ * Classes of the frame holding a card's image (with a leading space): a landscape frame shows the image turned a
+ * quarter to the left for the front and to the right for the back, which is printed the other way round.
+ */
+export function landscapeClass(landscape: boolean, faceUp: boolean): string {
+  return landscape ? ` landscape${faceUp ? '' : ' landscape-back'}` : ''
+}
+
+/**
+ * Screen box of a card whose place has its top-left corner at (x, y). A landscape card lies across that place,
+ * turned about its center, so it has the same center as any other card there.
+ */
+export function cardBox(x: number, y: number, landscape: boolean) {
+  if (!landscape) return { left: x, top: y, width: CARD_W, height: CARD_H }
+  return { left: x + (CARD_W - CARD_H) / 2, top: y + (CARD_H - CARD_W) / 2, width: CARD_H, height: CARD_W }
+}
+
 export function cardLabel(card: CardDef | undefined): string {
   if (!card) return ''
   return card.code ?? card.name ?? `#${card.id}`

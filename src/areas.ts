@@ -52,7 +52,7 @@ export const AREAS: Area[] = [
     id: "map",
     label: "Map",
     ...map,
-    accepts: ["region", "encounter", "lost-pages"],
+    accepts: ["region"],
   },
   { id: "bar", label: "Encounter Bar", ...bar, accepts: ["lost-pages"] },
   {
@@ -100,6 +100,8 @@ export interface Spot {
   over?: StorySlot;
   /** Cards of the family dropped anywhere in its area go here. */
   fillsArea?: boolean;
+  /** Its card lies landscape across the place (Region Cards, see `cardBox()`). */
+  landscape?: boolean;
 }
 
 type Point = { x: number; y: number };
@@ -260,8 +262,27 @@ const GOODS_LEFT_SHOWS = 0.31;
 const GOODS_BELOW_SHOWS = 0.21;
 const goodsX = Math.round(storageSpot.x - GOODS_LEFT_SHOWS * CARD_W);
 const goodsBelowY = Math.round(storageSpot.y + GOODS_BELOW_SHOWS * CARD_H);
+/** Top-left corner of the Region Cards laid out landscape, edge to edge, two by two in the middle of the Map area. */
+const regionGrid = {
+  x: map.x + (map.w - 2 * CARD_H) / 2,
+  y: map.y + AREA_HEADER + (map.h - AREA_HEADER - AREA_PAD - 2 * CARD_W) / 2,
+};
 
 export const SPOTS: Spot[] = [
+  // Four places, one Region Card each. A spot's place is a portrait card's; the Region Card lies across it.
+  ...[0, 1, 2, 3].map(
+    (i): Spot => ({
+      id: `region-${i + 1}`,
+      label: "Region Card",
+      area: "map",
+      family: "region",
+      attracts: true,
+      x: regionGrid.x + (i % 2) * CARD_H + (CARD_H - CARD_W) / 2,
+      y: regionGrid.y + Math.floor(i / 2) * CARD_W + (CARD_W - CARD_H) / 2,
+      fan: { count: 1 },
+      landscape: true,
+    }),
+  ),
   {
     id: "character",
     label: "Character Card",
@@ -553,7 +574,13 @@ export function placement(
   moving: string | null = null,
 ): Placement {
   const families = cardIds.map((id) => family(defs[id]));
-  const own = SPOTS.find((s) => s.attracts && families.includes(s.family));
+  const own = ownSpot(
+    t,
+    SPOTS.filter((s) => s.attracts && families.includes(s.family)),
+    moving,
+    x,
+    y,
+  );
   if (own) {
     const area = AREAS.find((a) => a.id === own.area)!;
     const mixed = families.every((f) => f === own.family)
@@ -606,6 +633,28 @@ export function placement(
   };
 }
 
+/**
+ * Of the attracting spots for the dropped cards, the one they go to: the place they are dropped on if it has room,
+ * else the one the moved pile lies on, else the first with room (the four Region Card places).
+ */
+function ownSpot(
+  t: Table,
+  spots: Spot[],
+  moving: string | null,
+  x: number,
+  y: number,
+): Spot | undefined {
+  if (spots.length < 2) return spots[0];
+  const room = (s: Spot) => !!spotPlace(t, s, moving, x, y);
+  const near = spotAt(t, x, y)?.spot;
+  return (
+    (near && spots.includes(near) && room(near) ? near : undefined) ??
+    spots.find((s) => !!moving && stacksOnSpot(t, s).includes(moving)) ??
+    spots.find(room) ??
+    spots[0]
+  );
+}
+
 /** The spot taking cards of these families dropped anywhere in `area`, if any. */
 function areaSpot(
   area: Area | null,
@@ -629,7 +678,11 @@ function oneEach(spot: Spot, cardIds: string[]): string | null {
 
 function full(spot: Spot): string {
   const area = AREAS.find((a) => a.id === spot.area)!;
-  if (fanMax(spot) === 1)
+  // Several places for the family: they are all taken.
+  const max = SPOTS.filter(
+    (s) => s.area === spot.area && s.family === spot.family,
+  ).reduce((n, s) => n + fanMax(s), 0);
+  if (max === 1)
     return `There is already a card on the ${spot.label} place in the ${area.label} area`;
-  return `The ${area.label} area holds at most ${fanMax(spot)} ${FAMILY_NAMES[spot.family]}`;
+  return `The ${area.label} area holds at most ${max} ${FAMILY_NAMES[spot.family]}`;
 }

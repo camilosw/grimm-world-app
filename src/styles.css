@@ -187,7 +187,7 @@ input:not([type]) {
   border-radius: 12px;
   overflow: hidden;
   background: #111;
-  transition: transform 0.15s ease;
+  transition: rotate 0.15s ease;
 }
 
 .stack .card img {
@@ -323,7 +323,18 @@ input:not([type]) {
   object-fit: contain;
   border-radius: 18px;
   box-shadow: 0 10px 40px #000;
-  transition: transform 0.2s ease;
+  transition: rotate 0.2s ease;
+}
+
+/* A landscape card (Region Card) as large as fits above the bar. */
+.viewer-card.landscape {
+  width: min(100%, (100vh - 110px) * 1.4);
+  flex: 0 0 auto;
+}
+
+.viewer .landscape > img {
+  max-width: none;
+  max-height: none;
 }
 
 .viewer img.sideways {
@@ -1236,4 +1247,35 @@ button.on {
   background: transparent;
   border: none;
   color: rgba(255, 245, 225, 0.6);
+}
+
+/* ---------- landscape cards (Region Cards) ---------- */
+
+/* A landscape frame with the portrait card image turned a quarter to the left inside it, filling it exactly. */
+.landscape {
+  aspect-ratio: 1050 / 750;
+}
+
+/* Without specificity, so a frame positioned otherwise (the fixed drag ghost) keeps its position. */
+:where(.landscape) {
+  position: relative;
+}
+
+.landscape > img,
+.stack .card.landscape > img {
+  position: absolute;
+  left: 14.2857%;
+  top: -20%;
+  width: 71.4286%;
+  height: 140%;
+  transform: rotate(-90deg);
+}
+
+.landscape.landscape-back > img,
+.stack .card.landscape.landscape-back > img {
+  transform: rotate(90deg);
+}
+
+.card-ghost.landscape {
+  width: 168px;
 }

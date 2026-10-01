@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { cardImage, cardLabel } from './cards'
+import { cardImage, cardLabel, isLandscape, landscapeClass } from './cards'
 import { CardGhost } from './CardGhost'
 import { DECK_SPECS } from './decks'
 import type { CardDef, CardRef, Stack } from './types'
@@ -50,9 +50,11 @@ export function Sidebar({ decks, defs, selectedId, hoverIds, onTap, onDoubleTap,
       {decks.map((deck) => {
         const card = deck.cards[deck.cards.length - 1]
         const classes = ['deck', selectedId === deck.id && 'selected', hoverIds.includes(deck.id) && 'drop-target'].filter(Boolean)
+        // The Regions deck lies landscape, like its cards.
+        const landscape = card ? isLandscape(defs[card.id]) : deck.deck === 'regions'
         return (
           <div key={deck.id} className={classes.join(' ')} data-deck={deck.id} {...bind(deck.id)}>
-            <div className="deck-card" style={{ '--depth': Math.min(6, Math.ceil(Math.log2(deck.cards.length + 1))) } as React.CSSProperties}>
+            <div className={`deck-card${landscapeClass(landscape, card?.faceUp ?? false)}`} style={{ '--depth': Math.min(6, Math.ceil(Math.log2(deck.cards.length + 1))) } as React.CSSProperties}>
               {card ? (
                 <img
                   src={cardImage(card.id, card.faceUp, 'sm')}
@@ -70,7 +72,9 @@ export function Sidebar({ decks, defs, selectedId, hoverIds, onTap, onDoubleTap,
         )
       })}
       <p className="sidebar-hint">Drop a card anywhere here to put it back into its deck</p>
-      {dragged && drag && <CardGhost src={cardImage(dragged.id, dragged.faceUp, 'sm')} x={drag.x} y={drag.y} />}
+      {dragged && drag && (
+        <CardGhost src={cardImage(dragged.id, dragged.faceUp, 'sm')} x={drag.x} y={drag.y} frame={landscapeClass(isLandscape(defs[dragged.id]), dragged.faceUp)} />
+      )}
     </aside>
   )
 }

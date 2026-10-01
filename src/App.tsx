@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
-import { CARD_H, CARD_W, clampScale, loadManifest, TOKEN_SIZE } from './cards'
+import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, TOKEN_SIZE } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
 import { AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, placement, type Area } from './areas'
 import { DECK_SPECS, homeDeck } from './decks'
@@ -510,7 +510,9 @@ export default function App() {
           {count > 1 && <button onClick={() => act(A.shuffleStack)}>⤮ Shuffle</button>}
           {count > 1 && <button onClick={() => act((t, id) => A.sortStack(t, id, defs))}>⇅ Sort</button>}
           {topCard && <button onClick={() => setDialog({ kind: 'inspect', card: topCard })}>🔍 View</button>}
-          {!docked && <button onClick={() => act((t, id) => A.rotateStack(t, id, 90))}>↻ Rotate</button>}
+          {!docked && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
+            <button onClick={() => act((t, id) => A.rotateStack(t, id, 90, defs))}>↻ Rotate</button>
+          )}
           {!docked && <button onClick={() => setPutUnder(selectedStack.id)}>⤵ Put under…</button>}
           {count > 1 && <button onClick={() => act(A.flipStack)}>⇵ Turn pile over</button>}
           {!docked && <button onClick={() => act(A.bringToFront)}>▲ Front</button>}

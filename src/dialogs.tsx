@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { extractCard, locateCard, playCards, type TerrainSlot } from './actions'
-import { cardImage, cardLabel, compareCards, matchesQuery } from './cards'
+import { cardImage, cardLabel, compareCards, isLandscape, landscapeClass, matchesQuery } from './cards'
 import { CardGhost } from './CardGhost'
 import { update } from './store'
 import type { CardDef, CardRef, Table } from './types'
 import { useDragOut } from './useDragOut'
+import { useFlip } from './useFlip'
 
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -22,24 +23,43 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
   )
 }
 
+/** A card's picture in a list; a Region Card lies landscape. */
+function Thumb({ id, faceUp, def }: { id: string; faceUp: boolean; def?: CardDef }) {
+  const img = <img src={cardImage(id, faceUp, 'sm')} alt={cardLabel(def)} loading="lazy" draggable={false} />
+  return isLandscape(def) ? <div className={landscapeClass(true, faceUp).trim()}>{img}</div> : img
+}
+
 /** Full-size view of one card, with its other side one tap away. */
 export function CardViewer({ card, def, onClose, onRules }: { card: CardRef; def?: CardDef; onClose: () => void; onRules?: () => void }) {
   const [faceUp, setFaceUp] = useState(card.faceUp)
   const [rot, setRot] = useState(0)
+  // A Region Card lies landscape, doesn't rotate, and turns over about its horizontal axis.
+  const landscape = isLandscape(def)
+  const imgRef = useRef<HTMLImageElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
+  const shownFace = useFlip(landscape ? frameRef : imgRef, { id: card.id, faceUp }, landscape ? 'x' : 'y')
+  const flip = () => setFaceUp((f) => !f)
   return (
     <div className="viewer" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <img
-        src={cardImage(card.id, faceUp, 'lg')}
-        alt={cardLabel(def)}
-        style={{ transform: `rotate(${rot}deg)` }}
-        className={rot % 180 ? 'sideways' : ''}
-        onClick={() => setFaceUp((f) => !f)}
-        draggable={false}
-      />
+      {landscape ? (
+        <div ref={frameRef} className={`viewer-card${landscapeClass(true, shownFace)}`} onClick={flip}>
+          <img src={cardImage(card.id, shownFace, 'lg')} alt={cardLabel(def)} draggable={false} />
+        </div>
+      ) : (
+        <img
+          ref={imgRef}
+          src={cardImage(card.id, shownFace, 'lg')}
+          alt={cardLabel(def)}
+          style={{ rotate: `${rot}deg` }}
+          className={rot % 180 ? 'sideways' : ''}
+          onClick={flip}
+          draggable={false}
+        />
+      )}
       <div className="viewer-bar">
         <span className="viewer-title">{cardLabel(def)}</span>
-        <button onClick={() => setFaceUp((f) => !f)}>⟲ Other side</button>
-        <button onClick={() => setRot((r) => (r + 90) % 360)}>↻ Rotate</button>
+        <button onClick={flip}>⟲ Other side</button>
+        {!landscape && <button onClick={() => setRot((r) => (r + 90) % 360)}>↻ Rotate</button>}
         {onRules && <button onClick={onRules}>📖 Rules</button>}
         <button onClick={onClose}>✕ Close</button>
       </div>
@@ -143,7 +163,7 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
               <span className="muted">{stack.cards.length - index}</span>
             </div>
             <div className="thumb" role="button" aria-pressed={picked.has(card.id)} {...thumb.bind(card.id)}>
-              <img src={cardImage(card.id, fronts, 'sm')} alt={cardLabel(def)} loading="lazy" draggable={false} />
+              <Thumb id={card.id} faceUp={fronts} def={def} />
               {picked.has(card.id) && <span className="pick-badge">✓</span>}
             </div>
             <div className="card-tools">
@@ -159,7 +179,13 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
         {!entries.length && <p className="muted">No matching cards.</p>}
       </div>
       {grip.drag && (
-        <CardGhost src={cardImage(grip.drag.item, fronts, 'sm')} x={grip.drag.x} y={grip.drag.y} count={dragged.size} />
+        <CardGhost
+          src={cardImage(grip.drag.item, fronts, 'sm')}
+          x={grip.drag.x}
+          y={grip.drag.y}
+          count={dragged.size}
+          frame={landscapeClass(isLandscape(defs[grip.drag.item]), fronts)}
+        />
       )}
     </section>
   )
@@ -201,7 +227,7 @@ export function FindDialog({ table, defs, dropAt, onShow, onInspect, onClose }: 
           return (
             <div key={def.id} className="grid-card">
               <button className="thumb" onClick={() => onInspect({ id: def.id, faceUp: true })}>
-                <img src={cardImage(def.id, true, 'sm')} alt={cardLabel(def)} loading="lazy" draggable={false} />
+                <Thumb id={def.id} faceUp def={def} />
               </button>
               <div className="grid-caption">
                 <span>{cardLabel(def)}</span>

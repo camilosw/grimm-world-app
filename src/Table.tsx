@@ -16,10 +16,11 @@ import {
   type Area,
   type Side,
 } from './areas'
-import { CARD_H, CARD_W, cardImage, cardLabel, clampScale, TOKEN_SIZE } from './cards'
+import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, TOKEN_SIZE } from './cards'
 import { CardGhost } from './CardGhost'
 import { update } from './store'
 import type { CardDef, CardRef, Stack, StorySlot, Table as TableState, Token, View } from './types'
+import { useFlip } from './useFlip'
 
 export type Selection = { kind: 'stack' | 'token'; id: string } | null
 
@@ -372,17 +373,11 @@ export function TableView(props: Props) {
           const w = side && !v ? (spot.shows ?? 0.5) * CARD_W : CARD_W
           const h = v ? (spot.shows ?? 0.5) * CARD_H : CARD_H
           const state = drag?.spot === spot.id ? (drag.area?.ok ? ' accept' : ' refuse') : ''
+          const box = spot.landscape
+            ? cardBox(at.x, at.y, true)
+            : { left: side === 'left' ? at.x + CARD_W - w : at.x, top: side === 'top' ? at.y + CARD_H - h : at.y, width: w, height: h }
           return (
-            <div
-              key={spot.id}
-              className={`card-spot${side ? ` covered covered-${side}` : ''}${state}`}
-              style={{
-                left: side === 'left' ? at.x + CARD_W - w : at.x,
-                top: side === 'top' ? at.y + CARD_H - h : at.y,
-                width: w,
-                height: h,
-              }}
-            >
+            <div key={spot.id} className={`card-spot${side ? ` covered covered-${side}` : ''}${state}`} style={box}>
               <span>
                 {spot.label}
                 {spot.hint && <small>{spot.hint}</small>}
@@ -446,7 +441,9 @@ export function TableView(props: Props) {
           />
         ))}
       </div>
-      {ghost && drag && <CardGhost src={cardImage(ghost.id, ghost.faceUp, 'sm')} x={drag.clientX} y={drag.clientY} />}
+      {ghost && drag && (
+        <CardGhost src={cardImage(ghost.id, ghost.faceUp, 'sm')} x={drag.clientX} y={drag.clientY} frame={landscapeClass(isLandscape(defs[ghost.id]), ghost.faceUp)} />
+      )}
     </div>
   )
 }
@@ -518,21 +515,25 @@ interface StackViewProps {
 function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, sliding }: StackViewProps) {
   const top = stack.cards[stack.cards.length - 1]
   const count = stack.cards.length
+  const landscape = isLandscape(defs[top.id])
+  const cardRef = useRef<HTMLDivElement>(null)
+  const faceUp = useFlip(cardRef, top, landscape ? 'x' : 'y')
   const depth = Math.min(8, Math.ceil(Math.log2(count + 1)))
   const shadow = Array.from({ length: depth }, (_, i) => `${i + 1}px ${(i + 1) * 1.5}px 0 ${i % 2 ? '#3a2e24' : '#d8cdb8'}`)
   const classes = ['stack', selected && 'selected', dropTarget && 'drop-target', lifted && 'lifted', covered && `covered-${covered}`, sliding && 'sliding']
     .filter(Boolean)
     .join(' ')
   return (
-    <div className={classes} data-stack={stack.id} style={{ left: stack.x, top: stack.y, width: CARD_W, height: CARD_H }}>
+    <div className={classes} data-stack={stack.id} style={cardBox(stack.x, stack.y, landscape)}>
       <div
-        className="card"
+        ref={cardRef}
+        className={`card${landscapeClass(landscape, faceUp)}`}
         style={{
-          transform: `rotate(${stack.rot}deg)`,
+          rotate: landscape ? undefined : `${stack.rot}deg`,
           boxShadow: [...shadow, lifted ? '0 18px 30px rgba(0,0,0,.55)' : '0 4px 10px rgba(0,0,0,.45)'].join(', '),
         }}
       >
-        <img src={cardImage(top.id, top.faceUp, size)} alt={cardLabel(defs[top.id])} draggable={false} />
+        <img src={cardImage(top.id, faceUp, size)} alt={cardLabel(defs[top.id])} draggable={false} />
       </div>
       {count > 1 && (
         <div className="grip" data-grip title="Drag here to move the whole pile">

@@ -1,5 +1,5 @@
 import { AREA_HEADER, AREA_PAD, fanRow, SPOTS, spotPlaces } from './areas'
-import { CARD_H, CARD_W, compareCards } from './cards'
+import { CARD_H, CARD_W, compareCards, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
 
@@ -99,9 +99,10 @@ export function flipStack(t: Table, id: string): Table {
   return setStack(t, { ...s, cards: s.cards.map((c) => ({ ...c, faceUp: !c.faceUp })).reverse() })
 }
 
-export function rotateStack(t: Table, id: string, delta: number): Table {
+/** Turn a pile on the table; a Region Card in it never turns. */
+export function rotateStack(t: Table, id: string, delta: number, defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
-  if (!s) return t
+  if (!s || s.cards.some((c) => isLandscape(defs[c.id]))) return t
   return setStack(t, { ...s, rot: ((((s.rot + delta) % 360) + 360) % 360) as Rotation })
 }
 
