@@ -32,6 +32,24 @@ npm run dev -- --host      # open http://<your-pc-ip>:5173 on the tablet
 On the tablet, use _Add to Home Screen_ for a full-screen app. The table saves automatically in the browser.
 Use **☰ → Export save** to keep a copy.
 
+## 3. Deploy to Vercel
+
+`public/cards/`, `public/rules/` and `public/booklets/` are generated and not in Git, so a deploy triggered by a
+GitHub push would be missing them. Instead, build on your PC (where the images exist) and upload the result with the
+Vercel CLI:
+
+```bash
+npm i -g vercel
+vercel login
+vercel link        # once: pick or create the project, don't connect the GitHub repo
+npm run deploy     # vercel build --prod && vercel deploy --prebuilt --prod
+```
+
+- Run the scripts from step 1 first, so `public/` is complete before `npm run deploy`.
+- If the project is connected to GitHub, turn off Git deployments in the project settings.
+- If Vercel doesn't detect Vite, set the build command to `npm run build` and the output directory to `dist`.
+- The card art is copyrighted: the deployed URL is public unless you enable deployment protection.
+
 ## Controls
 
 **Areas.** The table has a framed area for each part of the game (rulebook chapters 4 and 10). An area only takes
