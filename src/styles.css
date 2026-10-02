@@ -6,6 +6,11 @@
   --muted: #b3a48d;
   --accent: #c9302c;
   --gold: #e0b252;
+  /* Green baize of a reading desk under the rule booklets: the complement of their red-brown leather. */
+  --baize:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at 50% 45%, #3b5e48 0%, #23402f 50%, #0f1d15 100%);
   --radius: 10px;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
@@ -1119,6 +1124,8 @@ button.on {
   background: var(--panel);
   border-left: 1px solid #000;
   z-index: 3;
+  /* Its toolbar adapts to the panel's width (see .rules-bar). */
+  container-type: inline-size;
 }
 
 /* Portrait tablets and phones: the rules cover the table. */
@@ -1167,6 +1174,7 @@ button.on {
 
 .rules-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 6px 6px 6px 14px;
@@ -1178,6 +1186,13 @@ button.on {
 }
 
 @media (max-width: 1100px) {
+  .rules-bar button span {
+    display: none;
+  }
+}
+
+/* A narrow panel: icons only. */
+@container (max-width: 640px) {
   .rules-bar button span {
     display: none;
   }
@@ -1290,6 +1305,159 @@ button.on {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.rules-books button {
+  padding: 10px 12px;
+}
+
+.rules-group {
+  margin: 10px 10px 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rules-missing {
+  padding: 0 16px;
+}
+
+/* ---------- rule booklets ---------- */
+
+.booklet-shelf {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--baize);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  align-content: start;
+  gap: 14px;
+  padding: 6px 12px 16px;
+}
+
+.booklet-cover {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 6px;
+  white-space: normal;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.25;
+  background: transparent;
+  border-color: transparent;
+}
+
+.booklet-cover img {
+  display: block;
+  width: 100%;
+}
+
+/* A closed booklet's shadow on the desk, like the one printed around the open pages. */
+.booklet-cover img,
+.booklet-book img.cover {
+  filter: drop-shadow(5px 8px 9px rgba(0, 0, 0, 0.5));
+}
+
+.booklet-view {
+  /* Page offsets (jumps, current page) are measured inside this box. */
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  background: var(--baize);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* One page below the other, across the whole width (wider when zoomed in). */
+.booklet-scroll {
+  display: block;
+}
+
+.booklet-scroll-page {
+  position: relative;
+}
+
+.booklet-scroll-page img {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+
+.booklet-scroll-page img.cover {
+  filter: drop-shadow(5px 8px 9px rgba(0, 0, 0, 0.5));
+}
+
+/* Centred while it fits, scrollable from its edges when zoomed in. */
+.booklet-frame {
+  flex: none;
+  margin: auto;
+  /* Clips the empty half of a closed booklet without making a scroll container (pages turning still overhang top and bottom). */
+  overflow-x: clip;
+}
+
+.booklet-book {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  perspective: 2400px;
+  cursor: pointer;
+}
+
+.booklet-page,
+.booklet-leaf {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+
+.booklet-leaf {
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.booklet-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.booklet-face.back {
+  transform: rotateY(180deg);
+}
+
+.booklet-book img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.booklet-foot {
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.booklet-foot button.icon {
+  font-size: 30px;
+  line-height: 1;
+  min-width: 52px;
+  justify-content: center;
+}
+
+.booklet-where {
+  flex: 1;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.booklet-title {
+  color: var(--text);
 }
 
 .area-info {

@@ -11,6 +11,7 @@ Odd pages are fronts; even pages are the backs, mirrored left ↔ right.
 uv run scripts/split_cards.py      # ~1 min → public/cards/{lg,sm}/NNN-{front,back}.webp + cards.json
 uv run scripts/index_cards.py      # optional, ~15 min: OCR card numbers (Y003, B23, …) and card types
 uv run scripts/split_rules.py      # ~15 s: rulebook pages → public/rules/ (page images, search text, contents)
+uv run scripts/split_booklets.py   # ~1 min: rule booklets → public/booklets/ (page images, OCR search text)
 ```
 
 - `lg` images are 750 × 1050 (300 dpi, full quality); `sm` images are 300 × 420 (table preview).
@@ -188,7 +189,15 @@ deck** and **Name**.
 (e.g. "fate number", "banish") and zoom. Drag its left edge to make it wider or narrower. It remembers the page you
 were reading and its width. The **ⓘ** next to an area's name,
 **📖 Rules** in the action bar of a selected deck or card, in the card viewer and in the Battle dialog open the rulebook
-at the section that explains it. When a new rulebook version comes out, replace the PDF in `game-files/` and re-run
+at the section that explains it. **Booklets** at the top of the panel switches to the six rule booklets
+(`game-files/GrimmWorld_ENG_RuleBooklets_A4.pdf`, "The Encyclopedia"): tap a cover to open it. Two reading modes,
+switched with the buttons at the top: **📖 Two pages** — the booklet lies open with facing pages, as printed, and you
+turn the pages like a book: tap the right side (or swipe left, or press →) for the next page, the left side for the
+previous one, or use ‹ › below; **📄 One page** — the pages lie one below the other across the whole width of the panel,
+and you scroll through them like the rulebook. **☰ Shelf** (or tapping **Booklets** again) goes back to the covers, and
+from there back to the booklet you were reading; **☰ Contents** belongs to the rulebook only. The panel remembers the
+booklet, the page and the reading mode. The search
+also finds text in the booklets (read by OCR, so a word may now and then be missed). When a new rulebook version comes out, replace the PDF in `game-files/` and re-run
 `scripts/split_rules.py`.
 
 **🔍 Find card** searches every card by number or name ("Take card Y003 and resolve it") and can take it out of its deck.
