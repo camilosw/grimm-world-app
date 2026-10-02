@@ -856,8 +856,10 @@ button.on {
 /* ---------- table areas ---------- */
 
 .area {
+  /* Colour of the frame, and of the grip on it. */
+  --frame: #6b5646;
   position: absolute;
-  border: 6px solid #6b5646;
+  border: 6px solid var(--frame);
   border-radius: 24px;
   background: rgba(0, 0, 0, 0.22);
   box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45);
@@ -867,13 +869,13 @@ button.on {
 }
 
 .area.accept {
-  border-color: #7fe3a0;
+  --frame: #7fe3a0;
   background: rgba(127, 227, 160, 0.1);
   box-shadow: 0 0 0 14px rgba(127, 227, 160, 0.35);
 }
 
 .area.refuse {
-  border-color: #ff8a70;
+  --frame: #ff8a70;
   background: rgba(0, 0, 0, 0.45);
   box-shadow: 0 0 0 14px rgba(255, 138, 112, 0.55);
 }
@@ -884,8 +886,7 @@ button.on {
   justify-content: space-between;
   gap: 20px;
   height: 84px;
-  /* Clear of the grip lying over the top border. */
-  padding: 8px 24px 0 34px;
+  padding: 0 24px 0 34px;
   font-size: 30px;
   line-height: 1.15;
   font-weight: 700;
@@ -894,8 +895,19 @@ button.on {
 }
 
 .area.moving {
-  border-color: #e8c27a;
+  --frame: #e8c27a;
   box-shadow: 0 0 0 14px rgba(232, 194, 122, 0.35);
+}
+
+/* The table decks' areas are one card wide: a smaller name leaves room for its ⓘ beside the grip in the corner. */
+.area-deck .area-header {
+  padding-left: 26px;
+  font-size: 26px;
+}
+
+.area-deck .area-info {
+  margin-left: 2px;
+  padding: 0 4px;
 }
 
 /* Growing areas start a card or two wide: what doesn't fit of the line of accepted cards is cut off. */
@@ -903,29 +915,57 @@ button.on {
   min-width: 0;
 }
 
-/* Handle for dragging the area, as `.grip` is for a whole pile: at the top center, over the area's border. */
+/*
+ * Handle for dragging the area, as `.grip` is for a whole pile: a tab of the frame filling its top-right corner, joined
+ * to the border by a concave curve on each side (`::before` along the top, `::after` down the right).
+ */
 .area-grip {
+  --fillet: 14px;
   position: absolute;
-  top: -3px;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  right: 0;
   z-index: 1;
   display: flex;
   align-items: center;
-  height: 40px;
-  padding: 0 28px;
-  font-size: 30px;
-  font-weight: 600;
-  background: rgba(20, 14, 10, 0.85);
-  color: var(--text);
-  border: 2px solid #6b5646;
-  border-radius: 999px;
+  justify-content: center;
+  width: 46px;
+  height: 62px;
+  font-size: 34px;
+  background: var(--frame);
+  color: rgba(255, 245, 225, 0.75);
+  /* The top-right corner follows the frame's inner curve (its 24px radius less the 6px border). */
+  border-radius: 0 18px 0 18px;
   cursor: grab;
+  transition: background 0.12s ease;
+}
+
+.area-grip::before,
+.area-grip::after {
+  content: '';
+  position: absolute;
+  width: var(--fillet);
+  height: var(--fillet);
+  background: radial-gradient(
+    circle at 0 100%,
+    transparent calc(var(--fillet) - 0.5px),
+    var(--frame) var(--fillet)
+  );
+  transition: background 0.12s ease;
+}
+
+.area-grip::before {
+  top: 0;
+  right: 100%;
+}
+
+.area-grip::after {
+  top: 100%;
+  right: 0;
 }
 
 .area.moving .area-grip {
   cursor: grabbing;
-  border-color: #e8c27a;
+  color: rgba(20, 14, 10, 0.8);
 }
 
 .area-header small {
@@ -935,6 +975,11 @@ button.on {
   font-size: 20px;
   font-weight: 500;
   color: rgba(255, 245, 225, 0.4);
+}
+
+/* The battlefield's button, clear of the grip in the top-right corner. */
+.area-header > button {
+  margin-right: 34px;
 }
 
 .area-header button {

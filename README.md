@@ -71,7 +71,7 @@ of it and below it away, with everything lying in them (cards, places, figures),
 grows under. An area growing toward the one before it (Storage or Home growing left with their Goods, say) moves itself
 instead. Pushed areas move back as the area pushing them shrinks. Undo puts everything back as it was.
 
-**Rearranging the areas.** Drag the `⠿` grip at the top center of an area, over its border (the battlefield's too), to move the area, with
+**Rearranging the areas.** Drag the `⠿` tab in the top-right corner of an area (the battlefield's too) to move the area, with
 everything lying in it, wherever you like; the table shows where it will go while you drag. It snaps into line with the
 edge of another area, or a gap beside it, when it comes close. Areas in its way are pushed aside to their nearest free
 side and stay there. Loose cards and figures it would cover move off to the right, past the areas. From then on each
