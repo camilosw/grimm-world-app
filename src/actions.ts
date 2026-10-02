@@ -1,4 +1,4 @@
-import { AREA_HEADER, AREA_PAD, fanRow, settleLayout, spotPlaces, spotsOf, stacksOnSpot, turnedSpot } from './areas'
+import { AREA_HEADER, AREA_PAD, family, fanRow, settleLayout, spotPlace, spotPlaces, spotsOf, stacksOnSpot, turnedSpot } from './areas'
 import { CARD_H, CARD_W, compareCards, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
@@ -327,31 +327,74 @@ export function cardsToDecks(t: Table, id: string, indices: number[], defs: Reco
   return returnToDecks(withCards(t, s, s.cards.filter((_, i) => !set.has(i))), s.cards.filter((_, i) => set.has(i)), defs)
 }
 
-/** Cards of a pile that a deck may not hold (empty = the pile may go under that deck). */
-export function notHeldBy(t: Table, stackId: string, kind: DeckKind, defs: Record<string, CardDef>): CardDef[] {
-  return (t.stacks[stackId]?.cards ?? []).map((c) => defs[c.id]).filter((d) => d && !DECK_SPECS[kind].holds(d))
+/** The cards of a pile, or only those given (in pile order). */
+function cardsOf(t: Table, stackId: string, cardIds?: string[]): CardRef[] {
+  const cards = t.stacks[stackId]?.cards ?? []
+  if (!cardIds) return cards
+  const ids = new Set(cardIds)
+  return cards.filter((c) => ids.has(c.id))
+}
+
+/** Take cards (all of them if none given) out of a pile; an emptied table pile disappears. */
+function takeCards(t: Table, stackId: string, cardIds?: string[]): [Table, CardRef[]] {
+  const s = t.stacks[stackId]
+  const taken = cardsOf(t, stackId, cardIds)
+  if (!s || !taken.length) return [t, []]
+  const out = new Set(taken.map((c) => c.id))
+  return [withCards(t, s, s.cards.filter((c) => !out.has(c.id))), taken]
+}
+
+/** Cards of a pile (or those given) that a deck may not hold (empty = they may go under that deck). */
+export function notHeldBy(t: Table, stackId: string, kind: DeckKind, defs: Record<string, CardDef>, cardIds?: string[]): CardDef[] {
+  return cardsOf(t, stackId, cardIds)
+    .map((c) => defs[c.id])
+    .filter((d) => d && !DECK_SPECS[kind].holds(d))
 }
 
 /**
- * Slide a table pile under a sidebar deck, as the rules ask (X-cards under the
+ * Slide a table pile, or cards picked out of any pile, under a sidebar deck, as the rules ask (X-cards under the
  * Encounter Deck, enemies under the Enemy Card, banished cards under Banned Cards).
  */
-export function putUnderDeck(t: Table, stackId: string, kind: DeckKind, defs: Record<string, CardDef>): Table {
+export function putUnderDeck(t: Table, stackId: string, kind: DeckKind, defs: Record<string, CardDef>, cardIds?: string[]): Table {
   const s = t.stacks[stackId]
-  if (!s || isDocked(t, stackId) || notHeldBy(t, stackId, kind, defs).length) return t
-  return insertIntoDeck(removeStack(t, stackId), kind, s.cards, defs, true)
+  if (!s || s.deck === kind || s.slot === 'story' || notHeldBy(t, stackId, kind, defs, cardIds).length) return t
+  const [t2, cards] = takeCards(t, stackId, cardIds)
+  return insertIntoDeck(t2, kind, cards, defs, true)
+}
+
+/** Slide cards picked out of a pile (e.g. a sidebar deck) under a table pile, face up as when taken out. */
+export function putUnderPile(t: Table, stackId: string, cardIds: string[], targetId: string): Table {
+  if (stackId === targetId || !t.stacks[targetId] || t.stacks[stackId]?.slot === 'story') return t
+  const [t2, cards] = takeCards(t, stackId, cardIds)
+  const target = t2.stacks[targetId]
+  if (!cards.length || !target) return t
+  return setStack(t2, { ...target, cards: [...cards.map((c) => ({ ...c, faceUp: true })), ...target.cards] })
 }
 
 // ---------- storybook ----------
 
-/** Turn over the top card of the storybook onto the revealed pile. */
-export function revealStory(t: Table): Table {
+/**
+ * Turn over the top card of the storybook onto the revealed pile. A sub-chapter card (Y-card) on top isn't turned over:
+ * it goes unseen into the Encounter Bar, first in its row (rulebook 9.1.2, step 4: the Y-cards on top of the storybook go
+ * into the Encounter Bar until the next Chapter Card is visible).
+ */
+export function revealStory(t: Table, defs: Record<string, CardDef>): Table {
   const deck = storySlot(t, 'story')
   const shown = storySlot(t, 'story-revealed')
   const top = deck?.cards.at(-1)
   if (!deck || !shown || !top) return t
   const t2 = setStack(t, { ...deck, cards: deck.cards.slice(0, -1) })
+  const bar = storyToBar(t, defs)
+  if (bar) return addStack(t2, bar.x, bar.y, [{ ...top, faceUp: false }])[0]
   return setStack(t2, { ...shown, cards: [...shown.cards, { ...top, faceUp: true }] })
+}
+
+/** Where the storybook's top card goes in the Encounter Bar when revealed, if it is a card for the bar (a Y-card). */
+export function storyToBar(t: Table, defs: Record<string, CardDef>): { x: number; y: number } | null {
+  const top = storySlot(t, 'story')?.cards.at(-1)
+  const spot = spotsOf(t).find((s) => s.id === 'bar')
+  if (!top || !spot || family(defs[top.id]) !== spot.family) return null
+  return spotPlace(t, spot, null, -Infinity, -Infinity)
 }
 
 /** Put the top revealed card back on top of the storybook, face down. */
@@ -365,18 +408,34 @@ export function unrevealStory(t: Table): Table {
 }
 
 /**
- * Put a table pile into the storybook directly under the card "Chapter N", so it
- * comes up right after that chapter. If that chapter was already revealed, the
- * cards go on top and come up next.
+ * Put a table pile, or cards picked out of any pile, into the storybook directly under the Storybook card `name`
+ * ("Chapter 3", "Epilogue"), face down, so they come up right after it. If that card was already revealed, the cards
+ * go on top and come up next.
  */
-export function putUnderChapter(t: Table, stackId: string, chapter: number, defs: Record<string, CardDef>): Table {
+export function putUnderChapter(t: Table, stackId: string, name: string, defs: Record<string, CardDef>, cardIds?: string[]): Table {
   const s = t.stacks[stackId]
-  const deck = storySlot(t, 'story')
-  if (!s || !deck || s.slot || notHeldBy(t, stackId, 'storybook', defs).length) return t
-  const cards = s.cards.map((c) => ({ ...c, faceUp: false }))
-  const at = deck.cards.findIndex((c) => defs[c.id]?.name === `Chapter ${chapter}`)
+  if (!s || s.slot === 'story' || !storySlot(t, 'story') || notHeldBy(t, stackId, 'storybook', defs, cardIds).length) return t
+  const [t2, taken] = takeCards(t, stackId, cardIds)
+  const deck = storySlot(t2, 'story')!
+  const cards = taken.map((c) => ({ ...c, faceUp: false }))
+  const at = deck.cards.findIndex((c) => defs[c.id]?.name === name)
   const next = at < 0 ? [...deck.cards, ...cards] : [...deck.cards.slice(0, at), ...cards, ...deck.cards.slice(at)]
-  return setStack(removeStack(t, stackId), { ...deck, cards: next })
+  return setStack(t2, { ...deck, cards: next })
+}
+
+/** Names of the Storybook cards already turned over, and the current one (the last turned over). */
+export function storyProgress(t: Table, defs: Record<string, CardDef>): { revealed: Set<string>; current: string | null } {
+  const names = (storySlot(t, 'story-revealed')?.cards ?? [])
+    .map((c) => defs[c.id])
+    .filter((d) => d?.type === 'storybook' && d.name)
+    .map((d) => d.name!)
+  return { revealed: new Set(names), current: names.at(-1) ?? null }
+}
+
+/** Whether a table point lies on the face-down storybook. */
+export function storyAt(t: Table, x: number, y: number): boolean {
+  const s = storySlot(t, 'story')
+  return !!s && x >= s.x && x <= s.x + CARD_W && y >= s.y && y <= s.y + CARD_H
 }
 
 // ---------- spots ----------

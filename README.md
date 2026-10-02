@@ -121,10 +121,15 @@ Storage area pushes the Home area away). A 17th Goods card or a 5th Equipment ca
 
 **Storybook area.** The storybook lies face down on the right; the revealed cards lie on the left, the top one being
 the current chapter. Tap the storybook to turn over its next card; tap the revealed cards to put the top one back on
-the storybook, face down. The storybook can't be looked through, sorted or moved; long-press the revealed card to read
+the storybook, face down. A sub-chapter card (Y-card) on top of the storybook isn't turned over: a tap puts it unseen
+into the Encounter Bar, first in the row, so keep tapping until the next Chapter Card comes up (rulebook 9.1.2). The storybook can't be looked through, sorted or moved; long-press the revealed card to read
 it. A revealed Y-card (sub-chapter card) can be dragged out, e.g. to the Encounter Bar. To put Y-cards "into the
-corresponding chapter", use **Put under…** on them, tap the storybook and pick the chapter: they go directly under that
-Chapter Card.
+corresponding chapter", drop them on the face-down storybook (from the table, the Browse panel, the top of a deck, or
+the revealed cards), or use **Put under…** on them and tap the storybook. A dialog shows the backs of the cards, where
+the white book symbol gives their chapter, and asks under which Storybook Card they go: Chapter 1–14 or the Epilogue.
+They go face down directly under that card; chapters already turned over can't be picked, and under the current
+chapter (marked "now") they go on top of the storybook and come up next. All the cards of one drop go under the same
+card, so drop the cards of each chapter together (e.g. select them in the Browse panel).
 
 **Storybook Encounter Card.** Below the revealed cards is a place for one Encounter Card, lying on top of the bottom
 edge of the current chapter (about a tenth of it). An Encounter Card dropped anywhere in the Storybook area lands on
@@ -148,8 +153,8 @@ own deck**; the deck lights up while you drag. It goes where the rules want it: 
 X-Encounters, Regions and Terrain, under the Encounter Deck, on top of the others. Cards can't be dragged from one
 deck to another.
 
-Moves between decks that the rules ask for use **Put under…** on a card or pile on the table, then tap the deck. A
-deck only accepts the cards it may hold:
+Moves between decks that the rules ask for use **Put under…** on a card or pile on the table, or on the cards selected
+in the Browse panel, then tap the deck. A deck only accepts the cards it may hold:
 
 | Deck           | Holds                                                             |
 | -------------- | ----------------------------------------------------------------- |
@@ -197,6 +202,7 @@ name, switch between **Fronts** and **Backs**, and swipe up and down to scroll.
 | Tap a card          | Select / unselect it (✓)                                                            |
 | 🔍 or long-press    | Read it at full size                                                                |
 | **Take out (n)**    | Put the selected cards face up on the table as one pile                             |
+| **Put under…**      | Then tap a pile, a deck or the storybook to slide the selected cards under it       |
 | Drag its `⠿` grip   | Put it (with the other selected cards, if it is selected) where you drop it: on the table or a pile, with the same area rules as any drop, or on the sidebar to send a table pile's cards back to their decks |
 
 **⚔ Battle** builds the battlefield of a Conflict Card in its own framed area. Type the Terrain Cards row by row, adding

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { flipTop, mergeStacks, moveStack, moveToken, settleSpots, stackTargetAt, takeTop } from './actions'
+import { flipTop, mergeStacks, moveStack, moveToken, notHeldBy, settleSpots, stackTargetAt, storyAt, takeTop } from './actions'
 import {
   acceptsText,
   allAreas,
@@ -19,6 +19,7 @@ import {
 } from './areas'
 import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, TOKEN_SIZE, turnedClass, type Turn } from './cards'
 import { CardGhost } from './CardGhost'
+import { storySlot } from './decks'
 import { update } from './store'
 import type { CardDef, CardRef, Stack, StorySlot, Table as TableState, Token, View } from './types'
 import { useFlip } from './useFlip'
@@ -49,6 +50,8 @@ interface Props {
   onRefuse: (message: string) => void
   /** A tap on the storybook (reveal) or on its revealed cards (put back). */
   onSlotTap: (slot: StorySlot) => void
+  /** A table pile (or its top card) was dropped on the face-down storybook. */
+  onStoryDrop: (stackId: string, whole: boolean) => void
   /** The ⓘ of an area: open the rules about it. */
   onAreaRules: (areaId: string) => void
 }
@@ -252,7 +255,11 @@ export function TableView(props: Props) {
       let area: Drag['area'] = null
       let spot: string | null = null
       let to: Drag['to'] = null
-      if (g2.target.kind === 'stack' && !zone) {
+      const story = g2.target.kind === 'stack' && !zone ? storyDrop(g2.target, x, y) : undefined
+      if (story) {
+        dropOn = story.id
+        area = { id: 'storybook', ok: true }
+      } else if (g2.target.kind === 'stack' && !zone) {
         const dest = destination(g2.target, x, y, dropOn)
         dropOn = dest.onto
         if (dest.area) area = { id: dest.area.id, ok: !dest.refused }
@@ -281,6 +288,17 @@ export function TableView(props: Props) {
     onSelect({ kind: 'stack', id: target.id })
   }
 
+  /**
+   * The face-down storybook, if the dragged pile (or its top card) is dropped on it and may go into it: the cards then
+   * go under one of its cards (App asks which). Other cards (an Encounter Card for its place below) land as usual.
+   */
+  function storyDrop(target: { id: string; whole: boolean }, x: number, y: number) {
+    if (!storyAt(table, x + CARD_W / 2, y + CARD_H / 2)) return undefined
+    const s = table.stacks[target.id]
+    const cards = (target.whole ? s.cards : s.cards.slice(-1)).map((c) => c.id)
+    return notHeldBy(table, target.id, 'storybook', defs, cards).length ? undefined : storySlot(table, 'story')
+  }
+
   /** Where a dragged pile (or its top card) would really land, and why it can't go there. */
   function destination(target: { id: string; whole: boolean }, x: number, y: number, dropOn: string | null) {
     const s = table.stacks[target.id]
@@ -293,6 +311,7 @@ export function TableView(props: Props) {
     if (target.kind === 'token') return update((t) => moveToken(t, target.id, x, y))
     if (target.kind !== 'stack') return
     if (zone) return onZoneDrop(zone, target.id, target.whole)
+    if (dropOn && table.stacks[dropOn]?.slot === 'story') return props.onStoryDrop(target.id, target.whole)
     const dest = destination(target, x, y, dropOn)
     if (dest.refused) return props.onRefuse(dest.refused)
     const onto = dest.onto
@@ -401,7 +420,7 @@ export function TableView(props: Props) {
             if (dragStack.whole) return null
             shown = { ...s, cards: s.cards.slice(0, -1) }
           }
-          if (s.slot) return <SlotView key={id} stack={shown} defs={defs} size={imgSize} />
+          if (s.slot) return <SlotView key={id} stack={shown} defs={defs} size={imgSize} dropTarget={drag?.dropOn === id} />
           if (!shown.cards.length) return null
           return (
             <StackView
@@ -458,12 +477,12 @@ export function TableView(props: Props) {
 }
 
 /** One of the storybook's two fixed places. */
-function SlotView({ stack, defs, size }: { stack: Stack; defs: Record<string, CardDef>; size: 'sm' | 'lg' }) {
+function SlotView({ stack, defs, size, dropTarget }: { stack: Stack; defs: Record<string, CardDef>; size: 'sm' | 'lg'; dropTarget: boolean }) {
   const top = stack.cards[stack.cards.length - 1]
   const depth = Math.min(8, Math.ceil(Math.log2(stack.cards.length + 1)))
   const shadow = Array.from({ length: depth }, (_, i) => `${i + 1}px ${(i + 1) * 1.5}px 0 ${i % 2 ? '#3a2e24' : '#d8cdb8'}`)
   return (
-    <div className="stack slot" data-stack={stack.id} style={{ left: stack.x, top: stack.y, width: CARD_W, height: CARD_H }}>
+    <div className={`stack slot${dropTarget ? ' drop-target' : ''}`} data-stack={stack.id} style={{ left: stack.x, top: stack.y, width: CARD_W, height: CARD_H }}>
       {top ? (
         <div className="card" style={{ boxShadow: [...shadow, '0 4px 10px rgba(0,0,0,.45)'].join(', ') }}>
           <img src={cardImage(top.id, top.faceUp, size)} alt={top.faceUp ? cardLabel(defs[top.id]) : 'Storybook'} draggable={false} />

@@ -1073,6 +1073,37 @@ button.on {
   font-weight: 600;
 }
 
+/* The current chapter: cards put under it come up next. */
+.chapter-grid button.current {
+  flex-direction: column;
+  gap: 0;
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.chapter-grid button small {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.chapter-grid button.wide {
+  grid-column: span 2;
+}
+
+/* Backs of the cards being put into the storybook: the white book symbol names their chapter. */
+.chapter-cards {
+  display: flex;
+  gap: 8px;
+  padding: 16px 16px 0;
+  overflow-x: auto;
+}
+
+.chapter-cards img {
+  flex: none;
+  width: 130px;
+  border-radius: 6px;
+}
+
 /* ---------- rulebook drawer ---------- */
 
 .rules {

@@ -3,7 +3,7 @@ import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, TOKEN_SIZE } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
 import { allAreas, areaForCard, battlefieldArea, battlefieldOrigin, placement, turnedSpot, type Area } from './areas'
-import { DECK_SPECS, homeDeck } from './decks'
+import { DECK_SPECS, homeDeck, type DeckKind } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
 import { RulesPanel } from './RulesPanel'
@@ -20,7 +20,7 @@ type Dialog =
   | { kind: 'tokens' }
   | { kind: 'battle' }
   | { kind: 'areas' }
-  | { kind: 'chapter'; stackId: string }
+  | { kind: 'chapter'; stackId: string; cardIds?: string[] }
   | null
 
 /** A remembered on/off panel setting (per device). */
@@ -74,7 +74,8 @@ export default function App() {
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 0.5 })
   const [rawSelection, setSelection] = useState<Selection>(null)
   const [dialog, setDialog] = useState<Dialog>(null)
-  const [putUnder, setPutUnder] = useState<string | null>(null)
+  // Cards waiting in "Put under…" mode: a whole table pile, or cards picked in the Browse panel.
+  const [putUnder, setPutUnder] = useState<{ stackId: string; cardIds?: string[] } | null>(null)
   /** Pile shown in the browse panel. */
   const [browseId, setBrowseId] = useState<string | null>(null)
   const closeBrowse = useCallback(() => setBrowseId(null), [])
@@ -292,34 +293,51 @@ export default function App() {
     }
     const at = worldAt(clientX, clientY)
     if (!at) return
+    if (onStory(at, cardIds)) return setDialog({ kind: 'chapter', stackId, cardIds })
     const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
     const p = placeAt(cardIds, at.x, at.y, target)
     if (p) update((t) => A.playCards(t, stackId, indices, p.x, p.y, p.onto))
   }
 
 
-  /** Put the pile waiting in "Put under…" mode under a table pile or a sidebar deck. */
+  /** Tell the player which card a deck refuses, if any; true when they may all go in. */
+  const heldBy = (stackId: string, kind: DeckKind, label: string, cardIds?: string[]) => {
+    if (!table) return false
+    const refused = A.notHeldBy(table, stackId, kind, defs, cardIds)
+    if (refused.length) notify(`${refused[0].code ?? refused[0].name ?? 'This card'} can't go into the ${label}`)
+    return !refused.length
+  }
+
+  /**
+   * Whether cards dropped with their top-left corner at `at` land on the face-down storybook and may go into it
+   * (others, like an Encounter Card for the place below it, land as usual).
+   */
+  const onStory = (at: { x: number; y: number }, cardIds: string[]) =>
+    !!table &&
+    A.storyAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2) &&
+    cardIds.every((id) => defs[id] && DECK_SPECS.storybook.holds(defs[id]))
+
+  /** Put the cards waiting in "Put under…" mode under a table pile or a deck. */
   const putUnderTarget = (targetId: string) => {
-    const sourceId = putUnder
+    const source = putUnder
     setPutUnder(null)
-    if (!table || !sourceId || sourceId === targetId) return
+    if (!table || !source || source.stackId === targetId) return
+    const { stackId: sourceId, cardIds } = source
     const target = table.stacks[targetId]
     if (target.slot === 'story-revealed') return notify('Put cards under the storybook itself (the right-hand card)')
     if (target.slot === 'story') {
-      const refused = A.notHeldBy(table, sourceId, 'storybook', defs)
-      if (refused.length) return notify(`${refused[0].code ?? refused[0].name ?? 'This card'} can't go into the Storybook`)
-      return setDialog({ kind: 'chapter', stackId: sourceId })
+      if (heldBy(sourceId, 'storybook', 'Storybook', cardIds)) setDialog({ kind: 'chapter', stackId: sourceId, cardIds })
+      return
     }
     if (target.deck) {
-      const refused = A.notHeldBy(table, sourceId, target.deck, defs)
-      if (refused.length) return notify(`${refused[0].code ?? refused[0].name ?? 'This card'} can't go into the ${target.label}`)
-      update((t) => A.putUnderDeck(t, sourceId, target.deck!, defs))
+      if (!heldBy(sourceId, target.deck, DECK_SPECS[target.deck].label, cardIds)) return
+      update((t) => A.putUnderDeck(t, sourceId, target.deck!, defs, cardIds))
     } else {
-      const cards = table.stacks[sourceId].cards.map((c) => c.id)
+      const cards = cardIds ?? table.stacks[sourceId].cards.map((c) => c.id)
       const p = placeAt(cards, target.x, target.y, targetId)
       if (!p) return
       if (p.onto !== targetId) return notify(`The ${p.spot?.label ?? 'card'} stays on its place`)
-      update((t) => A.mergeStacks(t, sourceId, targetId, 'bottom'))
+      update((t) => (cardIds ? A.putUnderPile(t, sourceId, cardIds, targetId) : A.mergeStacks(t, sourceId, targetId, 'bottom')))
     }
     setSelection({ kind: 'stack', id: targetId })
   }
@@ -332,6 +350,7 @@ export default function App() {
     const at = worldAt(clientX, clientY)
     const card = table?.stacks[deckId]?.cards.at(-1)
     if (!at || !table || !card) return
+    if (onStory(at, [card.id])) return setDialog({ kind: 'chapter', stackId: deckId, cardIds: [card.id] })
     const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
     const p = placeAt([card.id], at.x, at.y, target)
     if (!p) return
@@ -461,13 +480,20 @@ export default function App() {
           onZoneDrop={(_, stackId, whole) => dropOnZone(stackId, whole)}
           onClearBattlefield={() => update((t) => A.clearBattlefield(t, defs))}
           onRefuse={notify}
-          onSlotTap={(slot) => update((t) => (slot === 'story' ? A.revealStory(t) : A.unrevealStory(t)))}
+          onSlotTap={(slot) => {
+            if (slot === 'story' && A.storyToBar(table, defs)) notify('Sub-chapter card placed in the Encounter Bar', true)
+            update((t) => (slot === 'story' ? A.revealStory(t, defs) : A.unrevealStory(t)))
+          }}
+          onStoryDrop={(stackId, whole) => {
+            const top = table.stacks[stackId]?.cards.at(-1)
+            setDialog({ kind: 'chapter', stackId, cardIds: whole ? undefined : top && [top.id] })
+          }}
           onAreaRules={(areaId) => openRules(AREA_RULES[areaId])}
         />
         {notice && <div className={`notice${notice.ok ? ' ok' : ''}`}>{notice.text}</div>}
         {putUnder && (
           <div className="banner">
-            Tap the pile to slide the card{(table.stacks[putUnder]?.cards.length ?? 0) > 1 ? 's' : ''} under
+            Tap a pile, a deck or the storybook to slide the card{(putUnder.cardIds ?? table.stacks[putUnder.stackId]?.cards ?? []).length > 1 ? 's' : ''} under
             <button onClick={() => setPutUnder(null)}>Cancel</button>
           </div>
         )}
@@ -484,6 +510,7 @@ export default function App() {
           dropAt={dropAt}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
           onDrop={(cardIds, x, y) => dropFromBrowse(browseId, cardIds, x, y)}
+          onPutUnder={(cardIds) => setPutUnder({ stackId: browseId, cardIds })}
           onClose={closeBrowse}
         />
       )}
@@ -516,7 +543,7 @@ export default function App() {
           {!docked && !fixed && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
             <button onClick={() => act((t, id) => A.rotateStack(t, id, 90, defs))}>↻ Rotate</button>
           )}
-          {!docked && <button onClick={() => setPutUnder(selectedStack.id)}>⤵ Put under…</button>}
+          {!docked && <button onClick={() => setPutUnder({ stackId: selectedStack.id })}>⤵ Put under…</button>}
           {count > 1 && <button onClick={() => act(A.flipStack)}>⇵ Turn pile over</button>}
           {!docked && <button onClick={() => act(A.bringToFront)}>▲ Front</button>}
           {!docked && <button onClick={() => act(A.sendToBack)}>▼ Back</button>}
@@ -592,8 +619,11 @@ export default function App() {
       )}
       {dialog?.kind === 'chapter' && (
         <ChapterDialog
-          onPick={(chapter) => {
-            update((t) => A.putUnderChapter(t, dialog.stackId, chapter, defs))
+          cards={dialog.cardIds ?? table.stacks[dialog.stackId]?.cards.map((c) => c.id) ?? []}
+          defs={defs}
+          progress={A.storyProgress(table, defs)}
+          onPick={(name) => {
+            update((t) => A.putUnderChapter(t, dialog.stackId, name, defs, dialog.cardIds))
             setDialog(null)
           }}
           onClose={() => setDialog(null)}

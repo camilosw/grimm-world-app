@@ -76,6 +76,8 @@ interface BrowseProps {
   onInspect: (card: CardRef) => void
   /** Cards were dragged out of the panel and released at this screen point. */
   onDrop: (cardIds: string[], clientX: number, clientY: number) => void
+  /** "Put under…" the selected cards: the player then taps the pile or deck to put them under. */
+  onPutUnder: (cardIds: string[]) => void
   onClose: () => void
 }
 
@@ -84,7 +86,7 @@ interface BrowseProps {
  * screen so the table stays in use: tap cards to select them, then take them
  * out, or drag a card's ⠿ grip (with the other selected cards) onto the table.
  */
-export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, onClose }: BrowseProps) {
+export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, onPutUnder, onClose }: BrowseProps) {
   const stack = table.stacks[stackId]
   const [query, setQuery] = useState('')
   const [fronts, setFronts] = useState(true)
@@ -145,6 +147,7 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
             >
               Take out ({chosen.length})
             </button>
+            <button onClick={() => onPutUnder(chosen)}>⤵ Put under…</button>
             <button onClick={() => setPicked(new Set())}>Clear</button>
           </>
         )}
@@ -378,20 +381,56 @@ export function BattlefieldDialog({ table, defs, onBuild, onClear, onRules, onCl
   )
 }
 
-/** Which chapter of the storybook cards are put into (the white book symbol on the card). */
-export function ChapterDialog({ onPick, onClose }: { onPick: (chapter: number) => void; onClose: () => void }) {
+/** The Storybook cards that cards can be put under: its chapters and the Epilogue, in card order. */
+const UNDER_STORY = /^(Chapter \d+|Epilogue)$/
+
+/**
+ * Which Storybook card the cards are put under. Their backs are shown at the top, where the white book symbol says
+ * which chapter they belong to; chapters already turned over can't be picked.
+ */
+export function ChapterDialog({
+  cards,
+  defs,
+  progress,
+  onPick,
+  onClose,
+}: {
+  cards: string[]
+  defs: Record<string, CardDef>
+  progress: { revealed: Set<string>; current: string | null }
+  onPick: (name: string) => void
+  onClose: () => void
+}) {
+  const names = Object.values(defs)
+    .filter((d) => d.type === 'storybook' && d.name && UNDER_STORY.test(d.name))
+    .map((d) => d.name!)
   return (
     <Modal title="Put under which chapter?" onClose={onClose}>
-      <div className="chapter-grid">
-        {Array.from({ length: 14 }, (_, i) => i + 1).map((n) => (
-          <button key={n} onClick={() => onPick(n)}>
-            {n}
-          </button>
+      <div className="chapter-cards">
+        {cards.map((id) => (
+          <Thumb key={id} id={id} faceUp={false} def={defs[id]} />
         ))}
       </div>
+      <div className="chapter-grid">
+        {names.map((name) => {
+          const current = name === progress.current
+          const past = progress.revealed.has(name) && !current
+          return (
+            <button
+              key={name}
+              className={`${current ? 'current' : ''}${name === 'Epilogue' ? ' wide' : ''}`}
+              disabled={past}
+              onClick={() => onPick(name)}
+            >
+              {name.replace(/^Chapter /, '')}
+              {current && <small>now</small>}
+            </button>
+          )
+        })}
+      </div>
       <p className="dialog-note muted">
-        The cards go directly under that Chapter Card, so they come up right after it. If that chapter has already been
-        revealed, they go on top of the storybook.
+        {cards.length > 1 ? `All ${cards.length} cards go` : 'The card goes'} face down directly under that Storybook
+        Card, to come up right after it; under the current chapter, on top of the storybook, to come up next.
       </p>
     </Modal>
   )
