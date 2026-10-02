@@ -1,6 +1,6 @@
-import { addStack, isFixed, mergeStacks, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
+import { addStack, mergeStacks, rearrange, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
 import { CARD_H, CARD_W, compareCards, family, TOKEN_SIZE } from './cards'
-import { allAreas, AREA_HEADER, AREA_PAD, areaForCard, AREAS, BATTLEFIELD_ORIGIN, deckPlace, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
+import { allAreas, AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, deckPlace, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, TABLE_DECKS, type DeckKind } from './decks'
 import type { CardDef, CardManifest, CardRef, Stack, Table } from './types'
 
@@ -266,26 +266,7 @@ function clearDeckAreas(t: Table): Table {
  */
 function packAreas(t: Table): Table {
   if ((t.layout ?? 0) >= LAYOUT) return t
-  const outside = (x: number, y: number) => !allAreas(t).some((a) => x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h)
-  const piles = t.z.filter((id) => !isFixed(t.stacks[id]) && !areaForCard(t, t.stacks[id].x, t.stacks[id].y))
-  const figures = t.tokens.filter((k) => outside(k.x + TOKEN_SIZE / 2, k.y + TOKEN_SIZE / 2)).map((k) => k.id)
-  const laid = settle(t)
-  const areas = allAreas(laid)
-  const covered = (x: number, y: number, w: number, h: number) =>
-    areas.some((a) => x < a.x + a.w && x + w > a.x && y < a.y + a.h && y + h > a.y)
-  const moved = new Set([
-    ...piles.filter((id) => covered(laid.stacks[id].x, laid.stacks[id].y, CARD_W, CARD_H)),
-    ...figures.filter((id) => {
-      const k = laid.tokens.find((k) => k.id === id)!
-      return covered(k.x, k.y, TOKEN_SIZE, TOKEN_SIZE)
-    }),
-  ])
-  if (!moved.size) return { ...laid, layout: LAYOUT }
-  const left = Math.min(...[...Object.values(laid.stacks), ...laid.tokens].filter((p) => moved.has(p.id)).map((p) => p.x))
-  const dx = Math.max(...areas.map((a) => a.x + a.w)) + CARD_W / 2 - left
-  const stacks = Object.fromEntries(Object.entries(laid.stacks).map(([id, s]) => [id, moved.has(id) ? { ...s, x: s.x + dx } : s]))
-  const tokens = laid.tokens.map((k) => (moved.has(k.id) ? { ...k, x: k.x + dx } : k))
-  return { ...laid, stacks, tokens, layout: LAYOUT }
+  return { ...rearrange(t, (t) => t), layout: LAYOUT }
 }
 
 /** Cards with a spot of their own (Character, Alignment, Money and Region Cards) lying elsewhere on the table move onto it. */

@@ -88,6 +88,11 @@ export interface Table {
   layout?: number
   /** How far each area lies from its place in `AREAS`, with its spots, as `settleLayout()` laid it out (missing: not moved). */
   shifts?: Record<string, { x: number; y: number }>
+  /**
+   * Where the player put each area (the top-left corner of its frame, by area id) once they dragged one: the areas then
+   * lie there, pushed aside only by an area growing into them (`settleLayout()`). Missing: the areas lie packed together.
+   */
+  anchors?: Record<string, { x: number; y: number }>
   /** Frames of the growing areas as last laid out: a card dropped on one belongs to that area (`settleLayout()`). */
   frames?: Record<string, { x: number; y: number; w: number; h: number }>
   nextId: number

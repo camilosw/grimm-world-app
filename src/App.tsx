@@ -650,6 +650,17 @@ export default function App() {
             >
               ⤢ Whole table
             </button>
+            {table.anchors && (
+              <button
+                onClick={() => {
+                  update(A.resetLayout)
+                  setDialog(null)
+                  notify('Areas packed together again', true)
+                }}
+              >
+                ↺ Reset layout
+              </button>
+            )}
           </div>
         </div>
       )}

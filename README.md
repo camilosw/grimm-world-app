@@ -71,6 +71,13 @@ of it and below it away, with everything lying in them (cards, places, figures),
 grows under. An area growing toward the one before it (Storage or Home growing left with their Goods, say) moves itself
 instead. Pushed areas move back as the area pushing them shrinks. Undo puts everything back as it was.
 
+**Rearranging the areas.** Drag the `⠿` grip in an area's header (the battlefield's too) to move the area, with
+everything lying in it, wherever you like; the table shows where it will go while you drag. It snaps into line with the
+edge of another area, or a gap beside it, when it comes close. Areas in its way are pushed aside to their nearest free
+side and stay there. Loose cards and figures it would cover move off to the right, past the areas. From then on each
+area stays where you put it: a growing area still pushes the areas in its way aside, and they move back to their own
+places as it shrinks. **📍 Areas → ↺ Reset layout** packs the areas together again in the three rows above.
+
 | Area          | Takes                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Map           | Region Cards on its four Region Card places, Encounter Cards on the four Market Prices places beside them                |
@@ -214,6 +221,7 @@ in the Browse panel, then tap the deck (in the sidebar or on the table). A deck 
 | Long-press                | Read the card at full size (tap it to see the other side) |
 | Drag a card               | Move it; dragging a pile takes its top card               |
 | Drag the `⠿ 42` handle    | Move the whole pile                                       |
+| Drag an area's `⠿` grip   | Move the area with everything in it                       |
 | Drop onto another pile    | Put it on top of that pile                                |
 | One finger on the table   | Pan                                                       |
 | Two fingers / mouse wheel | Zoom                                                      |

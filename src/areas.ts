@@ -866,19 +866,13 @@ export function battlefieldOrigin(t: Table): Point {
 const DECK_COLS = 2;
 
 /**
- * Lay the areas out after a change, each `GAP` from the one before however they grew, so that they lie close together:
- * the Map with the Encounter Bar right of it; below them the Character, Storage and Storybook areas, each right of the
- * one before, and the table decks' areas two by two right of the Storybook; the Home area below the Character and
- * Storage areas (and below any other area it reaches under), and the battlefield below them all. An area moves from its
- * place in `AREAS` with everything lying in it (its spots, piles and figures, see `Table.shifts`), so it moves back as
- * the area before it shrinks, and an area growing toward the one before it moves itself instead. Returns the same table
- * when nothing moves.
+ * Where the areas lie packed together, each `GAP` from the one before however they grew: the Map with the Encounter
+ * Bar right of it; below them the Character, Storage and Storybook areas, each right of the one before, and the table
+ * decks' areas two by two right of the Storybook; the Home area below the Character and Storage areas (and below any
+ * other area it reaches under), and the battlefield below them all, at the left edge.
  */
-export function settleLayout(t: Table): Table {
-  const { areas, owner } = measure(t);
-  const now = new Map(areas.map((a) => [a.id, a]));
+function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
   const laid = new Map<string, Rect>();
-  const delta = new Map<string, Point>();
   /** Put an area at (x, y); a coordinate left out is that of its own place in `AREAS`. */
   const put = (id: string, at: { x?: number; y?: number }) => {
     const a = now.get(id)!;
@@ -887,7 +881,6 @@ export function settleLayout(t: Table): Table {
     const dx = Math.round((at.x ?? a.x - d.x) - a.x);
     const dy = Math.round((at.y ?? a.y - d.y) - a.y);
     laid.set(id, { x: a.x + dx, y: a.y + dy, w: a.w, h: a.h });
-    delta.set(id, { x: dx, y: dy });
     return laid.get(id)!;
   };
   const map = put("map", {});
@@ -908,17 +901,137 @@ export function settleLayout(t: Table): Table {
     .map(([, r]) => r)
     .filter((r) => r.x < homeRight + GAP && rightOf(r) + GAP > character.x);
   put("home", { x: character.x, y: Math.max(...over.map(bottomOf)) + GAP });
-  const b = t.battlefield;
-  if (b) {
-    const y = battlefieldTop([...laid.values()]);
-    delta.set("battlefield", { x: 0, y: Math.ceil(y - b.y - 0.5) });
+  if (now.has("battlefield"))
+    put("battlefield", { x: BATTLEFIELD_ORIGIN.x, y: battlefieldTop([...laid.values()]) });
+  return laid;
+}
+
+/** Two areas closer than `GAP` to each other. */
+function crowd(a: Rect, b: Rect): boolean {
+  return (
+    a.x < rightOf(b) + GAP &&
+    b.x < rightOf(a) + GAP &&
+    a.y < bottomOf(b) + GAP &&
+    b.y < bottomOf(a) + GAP
+  );
+}
+
+/**
+ * Where an area goes among the areas already laid out: where it is, or pushed aside off the one in its way, `GAP` from
+ * it on whichever side is nearest and free (right or down when none is, then again off the next one in its way).
+ */
+function pushAside(laid: Rect[], r: Rect): Rect {
+  for (;;) {
+    const hit = laid.find((l) => crowd(l, r));
+    if (!hit) return r;
+    // Whole units, rounded away from the area pushed off.
+    const right = { ...r, x: Math.ceil(rightOf(hit) + GAP) };
+    const down = { ...r, y: Math.ceil(bottomOf(hit) + GAP) };
+    const left = { ...r, x: Math.floor(hit.x - GAP - r.w) };
+    const up = { ...r, y: Math.floor(hit.y - GAP - r.h) };
+    const far = (c: Rect) => Math.abs(c.x - r.x) + Math.abs(c.y - r.y);
+    const nearest = (cs: Rect[]) => cs.reduce((a, c) => (far(c) < far(a) ? c : a));
+    const free = [right, down, left, up].filter((c) => !laid.some((l) => crowd(l, c)));
+    if (free.length) return nearest(free);
+    r = nearest([right, down]);
+  }
+}
+
+/** Where the player put each area (`Table.anchors`): an area not put anywhere yet (a new battlefield) where it lies. */
+function anchorsOf(t: Table, areas: Area[]): Record<string, Point> {
+  return Object.fromEntries(areas.map((a) => [a.id, t.anchors?.[a.id] ?? { x: a.x, y: a.y }]));
+}
+
+/**
+ * Where the areas lie when the player put them somewhere: each at its anchor, unless an area laid out before it is in
+ * its way, which pushes it aside (`pushAside()`). They are laid out top to bottom, then left to right, so an area
+ * growing pushes the areas below and right of it away, and they move back as it shrinks; `first` goes first.
+ */
+function anchoredPlaces(areas: Area[], anchors: Record<string, Point>, first?: string): Map<string, Rect> {
+  const rank = (a: Area) => (a.id === first ? 0 : 1);
+  const order = [...areas].sort(
+    (a, b) => rank(a) - rank(b) || anchors[a.id].y - anchors[b.id].y || anchors[a.id].x - anchors[b.id].x,
+  );
+  const laid = new Map<string, Rect>();
+  for (const a of order) laid.set(a.id, pushAside([...laid.values()], { ...anchors[a.id], w: a.w, h: a.h }));
+  return laid;
+}
+
+const SNAP = 60;
+
+/**
+ * Where area `id` goes when the player drops its top-left corner at (x, y): in line with another area's edge, or `GAP`
+ * beside it, when one is less than `SNAP` away (each way on its own); in whole units.
+ */
+export function snapArea(t: Table, id: string, x: number, y: number): Point {
+  const areas = allAreas(t);
+  const a = areas.find((a) => a.id === id);
+  if (!a) return { x: Math.round(x), y: Math.round(y) };
+  const others = areas.filter((o) => o.id !== id);
+  const snap = (v: number, lines: number[]) => {
+    const l = lines.reduce((a, c) => (Math.abs(c - v) < Math.abs(a - v) ? c : a), Infinity);
+    return Math.round(Math.abs(l - v) < SNAP ? l : v);
+  };
+  return {
+    x: snap(x, others.flatMap((o) => [o.x, rightOf(o) + GAP, rightOf(o) - a.w, o.x - GAP - a.w])),
+    y: snap(y, others.flatMap((o) => [o.y, bottomOf(o) + GAP, bottomOf(o) - a.h, o.y - GAP - a.h])),
+  };
+}
+
+/**
+ * Where the player puts the areas by dropping area `id` with its top-left corner at (x, y) (`Table.anchors`): it lies
+ * there, and the areas in its way are pushed aside and stay there. Null when the area doesn't move.
+ */
+export function anchorsAfterMove(t: Table, id: string, x: number, y: number): Record<string, Point> | null {
+  const areas = allAreas(t);
+  const area = areas.find((a) => a.id === id);
+  if (!area || (area.x === x && area.y === y)) return null;
+  const anchors = anchorsOf(t, areas);
+  const before = anchoredPlaces(areas, anchors);
+  const moved = { ...anchors, [id]: { x, y } };
+  const after = anchoredPlaces(areas, moved, id);
+  const dropped = { x, y, w: area.w, h: area.h };
+  for (const a of areas) {
+    if (a.id === id) continue;
+    const p = after.get(a.id)!;
+    const q = before.get(a.id)!;
+    if (p.x !== q.x || p.y !== q.y || crowd(dropped, { ...anchors[a.id], w: a.w, h: a.h }))
+      moved[a.id] = { x: p.x, y: p.y };
+  }
+  return moved;
+}
+
+/**
+ * Lay the areas out after a change: packed together (`packedPlaces()`), or, once the player has dragged one, where they
+ * put each (`Table.anchors`, `anchoredPlaces()`). An area moves with everything lying in it (its spots, piles and
+ * figures, see `Table.shifts`), so it moves back as an area in its way shrinks, and an area growing toward the one
+ * before it moves itself instead. Returns the same table when nothing moves.
+ */
+export function settleLayout(t: Table): Table {
+  const { areas, owner } = measure(t);
+  const now = new Map(areas.map((a) => [a.id, a]));
+  const anchors = t.anchors && anchorsOf(t, areas);
+  const places = anchors ? anchoredPlaces(areas, anchors) : packedPlaces(t, now);
+  const delta = new Map<string, Point>();
+  const laid = new Map<string, Rect>();
+  for (const [id, p] of places) {
+    const a = now.get(id)!;
+    // In whole units, so that the spots moved with it stay on the grid their rows are laid out on.
+    const d = { x: Math.round(p.x - a.x), y: Math.round(p.y - a.y) };
+    delta.set(id, d);
+    laid.set(id, { x: a.x + d.x, y: a.y + d.y, w: a.w, h: a.h });
   }
 
   const moves = [...delta].filter(([, d]) => d.x || d.y);
   const frames = Object.fromEntries(GROWING.map((id) => [id, laid.get(id)!]));
   const same = (a?: Rect, c?: Rect) =>
     !!a && !!c && a.x === c.x && a.y === c.y && a.w === c.w && a.h === c.h;
-  if (!moves.length && GROWING.every((id) => same(t.frames?.[id], frames[id])))
+  const kept = (a?: Record<string, Point>) =>
+    !anchors ||
+    (!!a &&
+      Object.keys(a).length === Object.keys(anchors).length &&
+      Object.entries(anchors).every(([id, p]) => a[id]?.x === p.x && a[id]?.y === p.y));
+  if (!moves.length && GROWING.every((id) => same(t.frames?.[id], frames[id])) && kept(t.anchors))
     return t;
 
   const stacks = { ...t.stacks };
@@ -942,13 +1055,16 @@ export function settleLayout(t: Table): Table {
     const old = shiftOf(t, id);
     shifts[id] = { x: old.x + d.x, y: old.y + d.y };
   }
-  const battlefield = b && { ...b, y: b.y + delta.get("battlefield")!.y };
+  const b = t.battlefield;
+  const db = delta.get("battlefield");
+  const battlefield = b && db && { ...b, x: b.x + db.x, y: b.y + db.y };
   return {
     ...t,
     stacks,
     tokens,
     shifts,
     frames,
+    ...(anchors ? { anchors } : {}),
     ...(b ? { battlefield } : {}),
   };
 }

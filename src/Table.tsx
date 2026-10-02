@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { dropOnto, flipTop, isFixed, moveStack, moveToken, notHeldBy, settleSpots, stackTargetAt, storyAt, takeTop } from './actions'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { dropOnto, flipTop, isFixed, moveArea, moveStack, moveToken, notHeldBy, settleSpots, stackTargetAt, storyAt, takeTop } from './actions'
 import {
   acceptsText,
   allAreas,
@@ -12,6 +12,7 @@ import {
   fanRow,
   freePlaces,
   placement,
+  snapArea,
   spotsOf,
   stacksOnSpot,
   turnedSpot,
@@ -61,6 +62,8 @@ type Target =
   | { kind: 'stack'; id: string; whole: boolean }
   | { kind: 'slot'; id: string; slot: StorySlot }
   | { kind: 'token'; id: string }
+  /** An area, dragged by the grip in its header. */
+  | { kind: 'area'; id: string }
   | { kind: 'bg' }
 
 type Gesture =
@@ -140,6 +143,7 @@ export function TableView(props: Props) {
   function itemPos(target: Target): { x: number; y: number } | null {
     if (target.kind === 'stack') return table.stacks[target.id] ?? null
     if (target.kind === 'token') return table.tokens.find((t) => t.id === target.id) ?? null
+    if (target.kind === 'area') return allAreas(table).find((a) => a.id === target.id) ?? null
     return null
   }
 
@@ -178,8 +182,10 @@ export function TableView(props: Props) {
     const el = e.target as HTMLElement
     const stackEl = el.closest<HTMLElement>('[data-stack]')
     const tokenEl = el.closest<HTMLElement>('[data-token]')
+    const areaEl = el.closest<HTMLElement>('[data-area-grip]')
     let target: Target = { kind: 'bg' }
-    if (tokenEl) target = { kind: 'token', id: tokenEl.dataset.token! }
+    if (areaEl) target = { kind: 'area', id: areaEl.dataset.areaGrip! }
+    else if (tokenEl) target = { kind: 'token', id: tokenEl.dataset.token! }
     else if (stackEl) {
       const id = stackEl.dataset.stack!
       const slot = table.stacks[id]?.slot
@@ -240,6 +246,11 @@ export function TableView(props: Props) {
       gesture.current = { type: 'pan', x: p.x, y: p.y }
     } else if (g2.type === 'drag') {
       const w = toWorld(p.x, p.y)
+      if (g2.target.kind === 'area') {
+        const at = snapArea(table, g2.target.id, w.x - g2.offX, w.y - g2.offY)
+        setDrag({ target: g2.target, ...at, dropOn: null, zone: null, clientX: e.clientX, clientY: e.clientY, area: null, spot: null, to: null })
+        return
+      }
       const x = w.x - g2.offX
       const y = w.y - g2.offY
       let dropOn: string | null = null
@@ -274,6 +285,7 @@ export function TableView(props: Props) {
   }
 
   function onTap(target: Target) {
+    if (target.kind === 'area') return
     if (target.kind === 'bg') return onSelect(null)
     if (target.kind === 'slot') return onPickTarget ? onPickTarget(target.id) : props.onSlotTap(target.slot)
     if (target.kind === 'token') return onSelect({ kind: 'token', id: target.id })
@@ -312,6 +324,7 @@ export function TableView(props: Props) {
   function commitDrag(d: Drag) {
     const { target, x, y, dropOn, zone } = d
     if (target.kind === 'token') return update((t) => moveToken(t, target.id, x, y))
+    if (target.kind === 'area') return update((t) => moveArea(t, target.id, x, y))
     if (target.kind !== 'stack') return
     if (zone) return onZoneDrop(zone, target.id, target.whole)
     if (dropOn && table.stacks[dropOn]?.slot === 'story') return props.onStoryDrop(target.id, target.whole)
@@ -359,9 +372,16 @@ export function TableView(props: Props) {
   // Over the sidebar the table can't show the card, so it floats above everything.
   const ghost = drag?.zone && dragStack ? table.stacks[dragStack.id]?.cards.at(-1) : null
   // While a card is dragged along a row of Money Cards, the others make room for it.
-  const spots = spotsOf(table)
-  const fanTo = dragStack?.whole && drag?.to && drag.area?.ok && spots.some((s) => s.fan && s.id === drag.spot) ? drag.to : null
-  const shownTable = fanTo && dragStack ? settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y)) : table
+  const fanTo = dragStack?.whole && drag?.to && drag.area?.ok && spotsOf(table).some((s) => s.fan && s.id === drag.spot) ? drag.to : null
+  // While an area is dragged, the table shows it (and the areas it pushes aside) where it would go.
+  const movingArea = drag?.target.kind === 'area' ? drag.target.id : null
+  const areaPreview = useMemo(
+    () => (movingArea && drag ? moveArea(table, movingArea, drag.x, drag.y) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only where the area is dropped matters, not the rest of the drag
+    [table, movingArea, drag?.x, drag?.y],
+  )
+  const shownTable = areaPreview ?? (fanTo && dragStack ? settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y)) : table)
+  const spots = spotsOf(shownTable)
   const sliding = new Set(spots.filter((s) => s.fan).flatMap((s) => fanRow(shownTable, s)))
   const covered = new Map(spots.filter((s) => s.under).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
   const turned = new Map(spots.flatMap((s) => (s.turn ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const) : [])))
@@ -377,19 +397,19 @@ export function TableView(props: Props) {
       onContextMenu={(e) => e.preventDefault()}
     >
       <div className="world" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
-        {allAreas(table).map((area) => (
+        {allAreas(shownTable).map((area) => (
           <AreaView
             key={area.id}
             area={area}
-            state={drag?.area?.id === area.id ? (drag.area.ok ? 'accept' : 'refuse') : null}
+            state={movingArea === area.id ? 'moving' : drag?.area?.id === area.id ? (drag.area.ok ? 'accept' : 'refuse') : null}
             onClear={area.id === 'battlefield' ? props.onClearBattlefield : undefined}
             onRules={() => props.onAreaRules(area.id)}
           />
         ))}
-        {table.battlefield && (
+        {shownTable.battlefield && (
           <div
             className="enemy-slots"
-            style={{ left: enemyOrigin(table.battlefield).x, top: enemyOrigin(table.battlefield).y, width: ENEMY_COLS * CARD_W }}
+            style={{ left: enemyOrigin(shownTable.battlefield).x, top: enemyOrigin(shownTable.battlefield).y, width: ENEMY_COLS * CARD_W }}
           >
             Enemies
           </div>
@@ -425,13 +445,13 @@ export function TableView(props: Props) {
             )
           })
         })}
-        {allAreas(table).flatMap((area) => {
+        {allAreas(shownTable).flatMap((area) => {
           // The place of a deck lying on the table, shown while it is empty (its pile covers it).
           if (!area.deck) return []
           const spec = DECK_SPECS[area.deck]
           const state = drag?.area?.id === area.id ? (drag.area.ok ? ' accept' : ' refuse') : ''
           return (
-            <div key={`deck-${area.id}`} className={`card-spot${state}`} style={cardBox(deckPlace(table, area.deck).x, deckPlace(table, area.deck).y, false)}>
+            <div key={`deck-${area.id}`} className={`card-spot${state}`} style={cardBox(deckPlace(shownTable, area.deck).x, deckPlace(shownTable, area.deck).y, false)}>
               <span>
                 {spec.label}
                 {spec.emptyHint && <small>{spec.emptyHint}</small>}
@@ -489,7 +509,7 @@ export function TableView(props: Props) {
             sliding={false}
           />
         )}
-        {table.tokens.map((tok) => (
+        {shownTable.tokens.map((tok) => (
           <TokenView
             key={tok.id}
             token={drag?.target.kind === 'token' && drag.target.id === tok.id ? { ...tok, x: drag.x, y: drag.y } : tok}
@@ -525,7 +545,8 @@ function SlotView({ stack, defs, size, dropTarget }: { stack: Stack; defs: Recor
 
 interface AreaViewProps {
   area: Area
-  state: 'accept' | 'refuse' | null
+  /** Cards dragged over it are taken or refused; or it is being moved. */
+  state: 'accept' | 'refuse' | 'moving' | null
   onClear?: () => void
   onRules: () => void
 }
@@ -537,6 +558,9 @@ function AreaView({ area, state, onClear, onRules }: AreaViewProps) {
       style={{ left: area.x, top: area.y, width: area.w, height: area.h }}
     >
       <div className="area-header">
+        <div className="area-grip" data-area-grip={area.id} title="Drag here to move the area">
+          ⠿
+        </div>
         <span>
           {area.id === 'battlefield' ? '⚔ ' : ''}
           {area.label}
