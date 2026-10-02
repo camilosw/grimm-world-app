@@ -884,7 +884,8 @@ button.on {
   justify-content: space-between;
   gap: 20px;
   height: 84px;
-  padding: 0 24px 0 34px;
+  /* Clear of the grip lying over the top border. */
+  padding: 8px 24px 0 34px;
   font-size: 30px;
   line-height: 1.15;
   font-weight: 700;
@@ -900,20 +901,22 @@ button.on {
 /* Growing areas start a card or two wide: what doesn't fit of the line of accepted cards is cut off. */
 .area-header > span {
   min-width: 0;
-  margin-right: auto;
 }
 
-/* Handle for dragging the area, as `.grip` is for a whole pile. */
+/* Handle for dragging the area, as `.grip` is for a whole pile: at the top center, over the area's border. */
 .area-grip {
-  flex: none;
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
   display: flex;
   align-items: center;
-  height: 64px;
-  margin-left: -20px;
-  padding: 0 18px;
-  font-size: 40px;
+  height: 40px;
+  padding: 0 28px;
+  font-size: 30px;
   font-weight: 600;
-  background: rgba(20, 14, 10, 0.6);
+  background: rgba(20, 14, 10, 0.85);
   color: var(--text);
   border: 2px solid #6b5646;
   border-radius: 999px;

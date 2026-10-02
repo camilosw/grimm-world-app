@@ -557,10 +557,10 @@ function AreaView({ area, state, onClear, onRules }: AreaViewProps) {
       className={`area area-${area.id}${state ? ` ${state}` : ''}`}
       style={{ left: area.x, top: area.y, width: area.w, height: area.h }}
     >
+      <div className="area-grip" data-area-grip={area.id} title="Drag here to move the area">
+        ⠿
+      </div>
       <div className="area-header">
-        <div className="area-grip" data-area-grip={area.id} title="Drag here to move the area">
-          ⠿
-        </div>
         <span>
           {area.id === 'battlefield' ? '⚔ ' : ''}
           {area.label}
