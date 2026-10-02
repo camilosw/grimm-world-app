@@ -83,7 +83,7 @@ export function mergeStacks(t: Table, sourceId: string, targetId: string, where:
   return removeStack(setStack(t, { ...dst, cards }), sourceId)
 }
 
-/** Turn the top card over; a card lying turned on its place (Market Prices) stays face up. */
+/** Turn the top card over; a card lying turned on its place stays as it lies (Market Prices face up, the Encounter Bar face down). */
 export function flipTop(t: Table, id: string): Table {
   const s = t.stacks[id]
   if (!s?.cards.length || turnedSpot(t, id)) return t
@@ -100,7 +100,7 @@ export function flipStack(t: Table, id: string): Table {
   return setStack(t, { ...s, cards: s.cards.map((c) => ({ ...c, faceUp: !c.faceUp })).reverse() })
 }
 
-/** Turn a pile on the table; a Region Card in it never turns, nor a card lying turned on its place (Market Prices). */
+/** Turn a pile on the table; a Region Card in it never turns, nor a card lying turned on its place (Market Prices, Encounter Bar). */
 export function rotateStack(t: Table, id: string, delta: number, defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
   if (!s || s.cards.some((c) => isLandscape(defs[c.id])) || turnedSpot(t, id)) return t
@@ -383,7 +383,8 @@ export function putUnderChapter(t: Table, stackId: string, chapter: number, defs
 
 /**
  * Lay the spots out: close the gaps in fanned spots (Money Cards, Goods), their piles lying on the first places in row
- * order, and turn cards on a spot that turns them (Market Prices) face up and straight, as they must lie there.
+ * order, and lay cards on a spot that turns them straight and face up (Market Prices) or face down (Encounter Bar), as
+ * they must lie there.
  */
 export function settleSpots(t: Table): Table {
   let next = t
@@ -398,9 +399,10 @@ export function settleSpots(t: Table): Table {
     })
   }
   for (const spot of spots.filter((s) => s.turn)) {
+    const faceUp = !spot.faceDown
     for (const id of stacksOnSpot(next, spot)) {
       const s = next.stacks[id]
-      if (s.rot || s.cards.some((c) => !c.faceUp)) next = setStack(next, { ...s, rot: 0, cards: s.cards.map((c) => ({ ...c, faceUp: true })) })
+      if (s.rot || s.cards.some((c) => c.faceUp !== faceUp)) next = setStack(next, { ...s, rot: 0, cards: s.cards.map((c) => ({ ...c, faceUp })) })
     }
   }
   return next

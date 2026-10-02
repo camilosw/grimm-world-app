@@ -9,8 +9,8 @@ import {
   enemyOrigin,
   fanHasPlace,
   fanRow,
+  freePlace,
   placement,
-  spotPlaces,
   spotsOf,
   stacksOnSpot,
   turnedSpot,
@@ -273,7 +273,7 @@ export function TableView(props: Props) {
     if (last && last.id === target.id && now - last.time < DOUBLE_TAP_MS) {
       lastTap.current = null
       const fixed = turnedSpot(table, target.id)
-      if (fixed) return props.onRefuse(`The ${fixed.label} card lies face up`)
+      if (fixed) return props.onRefuse(`Cards on the ${fixed.label} place lie face ${fixed.faceDown ? 'down' : 'up'}`)
       update((t) => flipTop(t, target.id))
       return
     }
@@ -370,12 +370,13 @@ export function TableView(props: Props) {
           </div>
         )}
         {spots.map((spot) => {
-          // A fanned spot shows its next free place, none when full (or, unlimited, closing up).
-          const next = spot.fan ? fanRow(shownTable, spot).length : 0
+          // A fanned spot shows its next free place (the Encounter Bar: left of its cards), none when full.
           if (spot.fan && !fanHasPlace(shownTable, spot)) return null
-          const at = spotPlaces(spot, next + 1)[next]
-          // A covered spot only shows the part beside the card lying on it.
-          const side = coveredSide(spot)
+          const at = freePlace(shownTable, spot)
+          // A covered spot only shows the part beside the card lying on it. The Encounter Bar's free place lies under
+          // its first card, though the cards put there go on top.
+          const underRow = !!spot.addsFirst && fanRow(shownTable, spot).length > 0
+          const side = underRow ? 'right' : coveredSide(spot)
           const state = drag?.spot === spot.id ? (drag.area?.ok ? ' accept' : ' refuse') : ''
           const box = cardBox(at.x, at.y, !!spot.landscape)
           const hidden = 1 - (spot.shows ?? 0.5)
@@ -516,7 +517,7 @@ interface StackViewProps {
   lifted: boolean
   /** Part of it lies under another card (the Alignment Card under the Character Card, Money and Goods under the Storage Card). */
   covered: Side | null
-  /** Lies landscape, face up, turned a quarter to this side by its place (Market Prices). */
+  /** Lies landscape, turned a quarter to this side by its place (Market Prices face up, the Encounter Bar face down). */
   turn?: Turn | null
   /** Lies in a row of Money Cards or Goods, whose cards slide when it rearranges. */
   sliding: boolean

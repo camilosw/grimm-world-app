@@ -47,8 +47,20 @@ const map = {
   w: 2 * CARD_H + 2 * marketStrip + AREA_PAD * 2,
   h: 2 * CARD_W + AREA_HEADER + AREA_PAD,
 };
-const bar = { x: map.x + map.w + GAP, y: 0, ...box(6, 2) };
-// Below the Encounter Bar, which is taller than the Map. The Character, Storage and Home areas are drawn only as large
+/**
+ * Part of an Encounter Bar card's width, as it lies landscape, showing right of the card lying over it: about the strip
+ * on the right of its back with its card number, location and chapter, as in rulebook figure 29.
+ */
+const BAR_SHOWS = 0.26;
+// Right of the Map, one landscape card high. Drawn only as large as its cards need (`measure()`): this size, just its
+// free place, places it; it grows right with the cards placed in it (see SPOTS).
+const bar = {
+  x: map.x + map.w + GAP,
+  y: 0,
+  w: CARD_H + AREA_PAD * 2,
+  h: CARD_W + AREA_HEADER + AREA_PAD,
+};
+// Below the Map, which is taller than the Encounter Bar. The Character, Storage and Home areas are drawn only as large
 // as the cards in them need (`measure()`): these sizes just place them, with room around them to grow.
 const character = { x: 0, y: Math.max(map.h, bar.h) + GAP, ...box(5, 3) };
 // Five wide, leaving room right of the Money Cards fanned out from the Storage Card (see SPOTS).
@@ -150,10 +162,18 @@ export interface Spot {
   /** Its card lies landscape across the place (Region Cards, see `cardBox()`). */
   landscape?: boolean;
   /**
-   * A portrait card lies here landscape, turned a quarter to this side, face up (the Encounter Cards giving a region's
-   * market prices): it can't be turned over or rotated there.
+   * A portrait card lies here landscape, turned a quarter to this side, face up unless `faceDown` (the Encounter Cards
+   * giving a region's market prices, the Y-cards in the Encounter Bar): it can't be turned over or rotated there.
    */
   turn?: Turn;
+  /** Its cards lie face down (the Encounter Bar's Y-cards, whose backs show the location they belong to). */
+  faceDown?: boolean;
+  /**
+   * New cards go to the front of the fanned row, on top of the others, and its free place is shown before its first
+   * card, partly under it as the cards are under each other, instead of after its last (the Encounter Bar, a row
+   * running right).
+   */
+  addsFirst?: boolean;
 }
 
 type Point = { x: number; y: number };
@@ -191,6 +211,17 @@ export function spotPlaces(spot: Spot, n = 1): Point[] {
     x: Math.round(spot.x + i * dx),
     y: Math.round(spot.y + i * dy),
   }));
+}
+
+/**
+ * Where a spot's next card goes, shown by its placeholder: its place, the place after the last card of a fanned row,
+ * or, for a row taking new cards first, the place before its first card.
+ */
+export function freePlace(t: Table, spot: Spot): Point {
+  if (spot.addsFirst)
+    return { x: Math.round(spot.x - fanStep(spot)), y: spot.y };
+  const n = spot.fan ? fanRow(t, spot).length : 0;
+  return spotPlaces(spot, n + 1)[n];
 }
 
 /** Whether a fanned spot's row has room for one more card, so its next place can be shown. */
@@ -255,7 +286,7 @@ export function fanRow(
  * Where cards going to a spot land (top-left dropped at x, y), or null when a
  * fanned spot is full. A plain spot: onto the pile lying there. A fanned spot:
  * at the place the card is dropped on, or after the last card when dropped
- * elsewhere. That position may lie half a unit beside a place, which sorts the
+ * elsewhere (before the first, for a row taking new cards first). That position may lie half a unit beside a place, which sorts the
  * card into the row; `settleSpots()` then lays the row out on its places.
  */
 export function spotPlace(
@@ -282,7 +313,9 @@ export function spotPlace(
     along < reach;
   const i = near
     ? Math.max(0, Math.min(others.length, Math.round(along)))
-    : others.length;
+    : spot.addsFirst
+      ? 0
+      : others.length;
   const at = (d: number, id: string) => {
     const shift = d * Math.sign(step);
     return v
@@ -333,6 +366,14 @@ const houseSpot = {
 const GOODS_BELOW_SHOWS = 0.21;
 const goodsX = Math.round(storageSpot.x - GOODS_LEFT_SHOWS * CARD_W);
 const goodsBelowY = Math.round(storageSpot.y + GOODS_BELOW_SHOWS * CARD_H);
+/**
+ * Place of the first Encounter Bar card (a portrait card's, the card lies across it), one place right of the row's
+ * free place.
+ */
+const barSpot = {
+  x: bar.x + AREA_PAD + (CARD_H - CARD_W) / 2 + Math.round(BAR_SHOWS * CARD_H),
+  y: bar.y + AREA_HEADER + (CARD_W - CARD_H) / 2,
+};
 /** Top-left corner of the Region Cards laid out landscape, edge to edge, two by two between the Market Prices strips. */
 const regionGrid = {
   x: map.x + AREA_PAD + marketStrip,
@@ -380,6 +421,26 @@ export const SPOTS: Spot[] = [
       turn: left ? "right" : "left",
     };
   }),
+  // The Y-cards placed in the Encounter Bar (rulebook 5.2), landscape and face down, as in rulebook figure 29: their backs
+  // show the location they belong to, with card number, location and chapter on their right strip. Each lies over the
+  // left part of the one after it, so a new card, which goes first, lies on top of the others. Its free place stays
+  // before them, partly under the first; Y-cards dropped anywhere in the area go into the row. Any number of them: the area grows with it.
+  {
+    id: "bar",
+    label: "Encounter Bar",
+    hint: "Y-Cards, face down",
+    area: "bar",
+    family: "lost-pages",
+    attracts: false,
+    ...barSpot,
+    shows: BAR_SHOWS,
+    fan: { count: Infinity },
+    fillsArea: true,
+    landscape: true,
+    turn: "left",
+    faceDown: true,
+    addsFirst: true,
+  },
   {
     id: "character",
     label: "Character Card",
@@ -586,12 +647,17 @@ export function enemyOrigin(b: Battlefield): { x: number; y: number } {
   };
 }
 
-/** The place of a fanned spot's next card while it has room for one, else that of its last card. */
-function rowEnd(t: Table, spot: Spot): Point {
+/**
+ * The places an area is framed around for a spot: its place, or a fanned row from its first place to the next card's
+ * while it has room for one, else to its last card; a row taking new cards first from its free place to its last card.
+ */
+function framedPlaces(t: Table, spot: Spot): Point[] {
+  if (!spot.fan) return [spot];
   const n = fanRow(t, spot).length;
-  return fanHasPlace(t, spot)
-    ? spotPlaces(spot, n + 1)[n]
-    : spotPlaces(spot, n)[n - 1];
+  const last = spotPlaces(spot, n)[n - 1];
+  if (spot.addsFirst)
+    return n ? [freePlace(t, spot), last] : [freePlace(t, spot)];
+  return [spot, fanHasPlace(t, spot) ? freePlace(t, spot) : last];
 }
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -599,9 +665,9 @@ type Rect = { x: number; y: number; w: number; h: number };
 /**
  * Areas drawn only as large as what lies in them needs: their places (a fanned row as far as its next place) and the
  * piles lying on or overlapping them. Each grows around the cards added to it, pushing the areas right of it and below
- * it away (`settleLayout()`).
+ * it away (`settleLayout()`); the Encounter Bar only grows right, where nothing lies.
  */
-const GROWING = ["character", "storage", "home"];
+const GROWING = ["bar", "character", "storage", "home"];
 
 const NO_SHIFT: Point = { x: 0, y: 0 };
 
@@ -702,19 +768,21 @@ function measure(t: Table): Measured {
     if (area) owner.set(id, area);
     else loose.push(id);
   }
+  // Piles lying landscape on their places (the Encounter Bar's cards).
+  const wide = new Set(
+    spots.filter((s) => s.landscape).flatMap((s) => stacksOnSpot(t, s)),
+  );
   const frame = (area: string) => ({
     id: area,
     ...frameAround([
       ...spots
         .filter((s) => s.area === area)
         .flatMap((s) =>
-          (s.fan ? [s, rowEnd(t, s)] : [s]).map((p) =>
-            cardRect(p.x, p.y, !!s.landscape),
-          ),
+          framedPlaces(t, s).map((p) => cardRect(p.x, p.y, !!s.landscape)),
         ),
       ...loose
         .filter((id) => owner.get(id) === area)
-        .map((id) => cardRect(t.stacks[id].x, t.stacks[id].y)),
+        .map((id) => cardRect(t.stacks[id].x, t.stacks[id].y, wide.has(id))),
     ]),
   });
   /** Give the piles not yet in an area that overlap one of these frames to that area. */
@@ -753,12 +821,17 @@ const rightOf = (r: Rect) => r.x + r.w;
 
 /** How far down the battlefield lies: below the Character, Storage, Storybook and Home areas. */
 function battlefieldTop(areas: Rect[]): number {
-  return Math.max(BATTLEFIELD_ORIGIN.y, ...areas.map(bottomOf).map((b) => b + GAP));
+  return Math.max(
+    BATTLEFIELD_ORIGIN.y,
+    ...areas.map(bottomOf).map((b) => b + GAP),
+  );
 }
 
 /** Where a battlefield built now goes: below the areas as they lie. */
 export function battlefieldOrigin(t: Table): Point {
-  const row = allAreas(t).filter((a) => !["map", "bar", "battlefield"].includes(a.id));
+  const row = allAreas(t).filter(
+    (a) => !["map", "bar", "battlefield"].includes(a.id),
+  );
   return { x: BATTLEFIELD_ORIGIN.x, y: battlefieldTop(row) };
 }
 
@@ -787,7 +860,9 @@ export function settleLayout(t: Table): Table {
     delta.set(id, { x: dx, y: dy });
     return laid.get(id)!;
   };
-  const top = Math.max(bottomOf(now.get("map")!), bottomOf(now.get("bar")!)) + GAP;
+  // Nothing pushes the Encounter Bar: laid out where it lies, for its frame.
+  const bar = put("bar", {});
+  const top = Math.max(bottomOf(now.get("map")!), bottomOf(bar)) + GAP;
   const character = put("character", { y: top });
   const storage = put("storage", { x: rightOf(character) + GAP, y: top });
   const story = put("storybook", { x: rightOf(storage) + GAP, y: top });
@@ -809,7 +884,11 @@ export function settleLayout(t: Table): Table {
   for (const [id, area] of owner) {
     const d = delta.get(area);
     if (d && (d.x || d.y))
-      stacks[id] = { ...stacks[id], x: stacks[id].x + d.x, y: stacks[id].y + d.y };
+      stacks[id] = {
+        ...stacks[id],
+        x: stacks[id].x + d.x,
+        y: stacks[id].y + d.y,
+      };
   }
   const tokens = t.tokens.map((k) => {
     const c = { x: k.x + TOKEN_SIZE / 2, y: k.y + TOKEN_SIZE / 2 };
@@ -823,7 +902,14 @@ export function settleLayout(t: Table): Table {
     shifts[id] = { x: old.x + d.x, y: old.y + d.y };
   }
   const battlefield = b && { ...b, y: b.y + delta.get("battlefield")!.y };
-  return { ...t, stacks, tokens, shifts, frames, ...(b ? { battlefield } : {}) };
+  return {
+    ...t,
+    stacks,
+    tokens,
+    shifts,
+    frames,
+    ...(b ? { battlefield } : {}),
+  };
 }
 
 /** The one area for card families that have a dedicated place. */
@@ -915,12 +1001,14 @@ function spotAt(
   y: number,
   families: (Family | undefined)[] = [],
 ): { spot: Spot; place: Point } | undefined {
-  // An unlimited row reaches one place past its last card.
-  const places = (spot: Spot) =>
-    spotPlaces(
-      spot,
-      fanMax(spot) === Infinity ? fanRow(t, spot).length + 1 : fanMax(spot),
-    );
+  // An unlimited row reaches one place past its last card, or, taking new cards first, its free place.
+  const places = (spot: Spot) => {
+    const n =
+      fanMax(spot) === Infinity ? fanRow(t, spot).length + 1 : fanMax(spot);
+    return spot.addsFirst
+      ? [freePlace(t, spot), ...spotPlaces(spot, n - 1)]
+      : spotPlaces(spot, n);
+  };
   // Laid right on the place, or with its middle over the part of the place left showing beside a covering card.
   const shown = (spot: Spot): Point => {
     const side = coveredSide(spot);

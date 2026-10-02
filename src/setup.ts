@@ -14,7 +14,16 @@ function shuffled<T>(list: T[]): T[] {
 }
 
 /** Current version of the area layout (`Table.layout`). */
-const LAYOUT = 2
+const LAYOUT = 3
+
+/** The Encounter Bar before it became a row of landscape cards (`Table.layout` < 3): six cards wide, two high. */
+const OLD_BAR = { w: 6 * CARD_W + 2 * AREA_PAD, h: 2 * CARD_H + AREA_HEADER + AREA_PAD }
+const area = (id: string) => AREAS.find((a) => a.id === id)!
+/**
+ * How far the areas below the Map and the Encounter Bar moved up when the bar became lower than the Map: older saves
+ * (`Table.layout` < 3) and the migrations for them have everything there this much lower.
+ */
+const RAISE = Math.max(area('map').h, OLD_BAR.h) - Math.max(area('map').h, area('bar').h)
 
 /** Every card used in play: all of them except the title card. */
 export function playableCards(manifest: CardManifest): CardDef[] {
@@ -81,7 +90,8 @@ const OLD_LABELS: Record<string, DeckKind> = {
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
-  return settle(placeOnSpots(shrinkMap(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs)))), defs))
+  const laidOut = raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs)))), defs))
+  return settle(placeOnSpots(laidOut, defs))
 }
 
 /** The hand is gone: cards still held in it go back to their decks. */
@@ -97,14 +107,16 @@ function emptyHand(t: Table, defs: Record<string, CardDef>): Table {
  * old Storage Card place moves to the new one.
  */
 function widenStorage(t: Table): Table {
+  // Since then the storybook moves with its area (`Table.shifts`), so it no longer tells.
+  if ((t.layout ?? 0) >= 1) return t
   const revealed = storySlot(t, 'story-revealed')
   const dx = STORY_SLOTS['story-revealed'].x - (revealed?.x ?? STORY_SLOTS['story-revealed'].x)
   if (!revealed || !dx) return t
   const margin = CARD_W / 4
   const shifted = (p: { x: number; y: number }) =>
-    p.x >= revealed.x - AREA_PAD - margin && p.y >= revealed.y - AREA_HEADER - margin && p.y < BATTLEFIELD_ORIGIN.y - margin
+    p.x >= revealed.x - AREA_PAD - margin && p.y >= revealed.y - AREA_HEADER - margin && p.y < BATTLEFIELD_ORIGIN.y + RAISE - margin
   const spot = SPOTS.find((s) => s.id === 'storage')!
-  const oldSpot = { x: spot.x - dx / 2, y: spot.y }
+  const oldSpot = { x: spot.x - dx / 2, y: spot.y + RAISE }
   const stacks = Object.fromEntries(
     Object.entries(t.stacks).map(([id, s]) => {
       if (!t.z.includes(id)) return [id, s]
@@ -122,9 +134,9 @@ function widenStorage(t: Table): Table {
  */
 function lowerHome(t: Table): Table {
   if ((t.layout ?? 0) >= 1) return t
-  const story = AREAS.find((a) => a.id === 'storybook')!
+  const story = area('storybook')
   // The Home area as it was then: two cards wide, 1.4 high.
-  const home = { ...AREAS.find((a) => a.id === 'home')!, w: 2 * CARD_W + 2 * AREA_PAD, h: 1.4 * CARD_H + AREA_HEADER + AREA_PAD }
+  const home = { ...area('home'), y: area('home').y + RAISE, w: 2 * CARD_W + 2 * AREA_PAD, h: 1.4 * CARD_H + AREA_HEADER + AREA_PAD }
   const dy = story.h - (CARD_H + AREA_HEADER + AREA_PAD)
   const margin = CARD_W / 4
   const inOldHome = (p: { x: number; y: number }) =>
@@ -142,8 +154,8 @@ function lowerHome(t: Table): Table {
  */
 function shrinkMap(t: Table): Table {
   if ((t.layout ?? 0) >= 2) return t
-  const map = AREAS.find((a) => a.id === 'map')!
-  const bar = AREAS.find((a) => a.id === 'bar')!
+  const map = area('map')
+  const bar = { ...area('bar'), ...OLD_BAR }
   const old = { w: 5 * CARD_W + 2 * AREA_PAD, h: 2 * CARD_H + AREA_HEADER + AREA_PAD }
   const gap = bar.x - map.x - map.w
   // The Region Cards lay in the middle of the old Map area, and now lie in the middle of the new one.
@@ -159,7 +171,47 @@ function shrinkMap(t: Table): Table {
   const stacks = Object.fromEntries(
     Object.entries(t.stacks).map(([id, s]) => [id, t.z.includes(id) && !s.slot ? shift(s, CARD_W, CARD_H) : s]),
   )
-  return { ...t, stacks, tokens: t.tokens.map((k) => shift(k, TOKEN_SIZE, TOKEN_SIZE)), layout: LAYOUT }
+  return { ...t, stacks, tokens: t.tokens.map((k) => shift(k, TOKEN_SIZE, TOKEN_SIZE)), layout: 2 }
+}
+
+/**
+ * The Encounter Bar used to be a plain area: the Y-cards lying in it go into its row, left to right as they lay (the
+ * top card of a pile first), and lie face down there (`settleSpots()`).
+ */
+function fillBar(t: Table, defs: Record<string, CardDef>): Table {
+  if ((t.layout ?? 0) >= 3) return t
+  const bar = { ...area('bar'), ...OLD_BAR }
+  const center = (s: Stack) => ({ x: s.x + CARD_W / 2, y: s.y + CARD_H / 2 })
+  const inBar = (s: Stack) => {
+    const c = center(s)
+    return !s.slot && c.x >= bar.x && c.x <= bar.x + bar.w && c.y >= bar.y && c.y <= bar.y + bar.h
+  }
+  const piles = t.z.map((id) => t.stacks[id]).filter(inBar)
+  piles.sort((a, b) => a.x - b.x || a.y - b.y)
+  const cards = piles.flatMap((s) => s.cards.filter((c) => family(defs[c.id]) === 'lost-pages').reverse())
+  let next = cards.reduce((n, c) => takeCard(n, c.id)[0], t)
+  // Each goes first in the row, so the last one first.
+  for (const card of [...cards].reverse()) {
+    const settled = settleSpots(next)
+    const spot = spotsOf(settled).find((s) => s.id === 'bar')!
+    const p = spotPlace(settled, spot, null, -Infinity, -Infinity)!
+    next = addStack(settled, p.x, p.y, [card])[0]
+  }
+  return next
+}
+
+/**
+ * The Encounter Bar used to be taller than the Map: now that it is lower, the areas below them moved up, with the cards,
+ * figures and battlefield lying in them and the frames last laid out.
+ */
+function raiseAreas(t: Table): Table {
+  if ((t.layout ?? 0) >= 3) return t
+  const below = (p: { y: number }) => p.y >= area('character').y + RAISE - CARD_W / 4
+  const up = <P extends { y: number }>(p: P): P => (below(p) ? { ...p, y: p.y - RAISE } : p)
+  const stacks = Object.fromEntries(Object.entries(t.stacks).map(([id, s]) => [id, t.z.includes(id) ? up(s) : s]))
+  const frames = t.frames && Object.fromEntries(Object.entries(t.frames).map(([id, f]) => [id, up(f)]))
+  const battlefield = t.battlefield && up(t.battlefield)
+  return { ...t, stacks, tokens: t.tokens.map(up), frames, battlefield, layout: LAYOUT }
 }
 
 /** Cards with a spot of their own (Character, Alignment, Money and Region Cards) lying elsewhere on the table move onto it. */

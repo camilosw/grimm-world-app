@@ -37,8 +37,8 @@ Use **☰ → Export save** to keep a copy.
 the cards that belong there; while you drag, it lights up green (allowed) or red (refused), and a refused card goes
 back where it came from. Space outside the areas takes any card. **📍 Areas** jumps to an area.
 
-The Map area is just large enough for its places. The Character, Storage and Home areas are only as large as their
-places and the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
+The Map area is just large enough for its places. The Encounter Bar, Character, Storage and Home areas are only as large
+as their places and the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
 overlaps most), and the frame grows around it — there is no limit. A growing area pushes the areas right of it and below
 it away, with everything lying in them (cards, places, figures): Storage stays right of Character, the Storybook and Home
 right of Storage, Home below the Storybook, the battlefield below them all, and all of them below the Map and the
@@ -48,7 +48,7 @@ Pushed areas move back as the area pushing them shrinks. Undo puts everything ba
 | Area          | Takes                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Map           | Region Cards on its four Region Card places, Encounter Cards on the four Market Prices places beside them                |
-| Encounter Bar | Y-Cards                                                                                                                  |
+| Encounter Bar | Y-Cards, in a row (see below)                                                                                             |
 | Character     | Character Card, Alignment Cards, Y-Cards (titles, skills, quests, status upgrades, Damage Card), Encounter Cards (items) |
 | Storage       | Storage Card and other Y-Cards, Encounter Cards (items, goods), Money Cards                                              |
 | Storybook     | the storybook itself, one Encounter Card (see below)                                                                     |
@@ -70,6 +70,14 @@ shows, as in the rulebook: on the left places it is turned a quarter right, so i
 on the Region Card's left edge; on the right places it is turned the other way. A card dropped there face down turns face
 up, and it can't be flipped or rotated while it lies there (double-tap says so; **Flip** and **Rotate** are not
 offered). Dragged away, it is an ordinary upright card again.
+
+**Encounter Bar.** The Y-cards placed in the Encounter Bar (rulebook 5.2) lie in a row, landscape and face down, as in
+the rulebook's figure 29: each card lies over the one right of it, leaving just the strip on the right of its back (card
+number, location, chapter) showing. A Y-card dropped anywhere in the area goes first in the row, on top of the
+others, which slide right; the placeholder always stays left of the cards, partly under the first one. Dropped on the row itself, it goes where you
+drop it. The bar takes Y-cards one at a time and nothing else, any number of them: it grows to the right. A card there
+can't be flipped or rotated (long-press it and tap **Other side** to read it); dragged out, it is an ordinary upright
+card again. Reordering and taking cards away work as for Money Cards (below).
 
 **Character and Alignment Card places.** The Character area has a place for the Character Card at its top center and,
 half under its left side, one for the Alignment Card (dashed outlines). Wherever you drop one of these cards on the

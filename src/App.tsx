@@ -381,7 +381,7 @@ export default function App() {
   const count = selectedStack?.cards.length ?? 0
   const topCard = selectedStack?.cards[count - 1]
   const docked = !!selectedStack && A.isDocked(table, selectedStack.id)
-  // A card lying turned on its place (Market Prices) stays face up and can't be rotated.
+  // A card lying turned on its place stays as it lies (Market Prices face up, Encounter Bar face down) and can't be rotated.
   const fixed = !!selectedStack && !!turnedSpot(table, selectedStack.id)
   /** Decks draw several cards; a pile on the table needs at least two. */
   const many = count > (docked ? 0 : 1)
