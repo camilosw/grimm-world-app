@@ -64,7 +64,7 @@ The Map area is just large enough for its places. The Encounter Bar, Character, 
 as their places and the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
 overlaps most), and the frame grows around it — there is no limit. A growing area pushes the areas right of it and below
 it away, with everything lying in them (cards, places, figures): Storage stays right of Character, the Storybook and Home
-right of Storage, Home below the Storybook, the battlefield below them all, and all of them below the Map and the
+right of Storage, the four deck areas right of the Storybook, Home below the Storybook and the deck areas, the battlefield below them all, and all of them below the Map and the
 Encounter Bar. An area growing toward the one before it (Storage growing left into Character, say) moves itself instead.
 Pushed areas move back as the area pushing them shrinks. Undo puts everything back as it was.
 
@@ -76,6 +76,10 @@ Pushed areas move back as the area pushing them shrinks. Undo puts everything ba
 | Storage       | Storage Card and other Y-Cards, Encounter Cards (items, goods), Money Cards                                              |
 | Storybook     | the storybook itself, one Encounter Card (see below)                                                                     |
 | Home          | Y-Cards (House Card and extensions, on their places), Encounter Cards (stored items and goods)                           |
+| Quest Deck    | the Quest Deck: Quest Cards Y705–Y707 (see below)                                                                        |
+| Enemy Deck    | the Enemy Deck: Y013 and the Enemy Cards Y800–Y849                                                                       |
+| Training Deck | the Training Deck: Y012 and the training cards Y749–Y799                                                                 |
+| Banned Cards  | the Banned Cards pile: Y011 and any banished card                                                                        |
 | Battlefield   | Terrain Cards, Hit Point Cards, Y-Cards (enemies)                                                                        |
 
 Region, Character, Alignment, Money, Storybook, Terrain and Hit Point cards only fit in their own area.
@@ -159,10 +163,19 @@ card, so drop the cards of each chapter together (e.g. select them in the Browse
 edge of the current chapter (about a tenth of it). An Encounter Card dropped anywhere in the Storybook area lands on
 that place; a second one, a pile, or any other card is refused there.
 
-**🂠 Decks sidebar (left).** The other 14 decks of the game, sorted as in the rulebook (chapter 6.1); the table starts
-empty apart from the storybook. The Quest, Enemy and Training Decks and the Banned Cards pile start empty: the
-campaign start builds them (cards Y003 and Y009), and each empty deck says which card fills it. The title card is
-left out; it isn't needed to play.
+**Quest, Enemy and Training Deck, Banned Cards.** The decks built during play (cards Y003 and Y009) lie right of the
+Storybook area, each in its own area on a placeholder that says which card builds it. They start empty. Drop a card,
+or a whole pile, anywhere in one of these areas (from the table, the top of a sidebar deck or the Browse panel) and it
+goes into that deck, face up: on top of the Quest Deck, under the cards of the others, so the Enemy Card Y013, the
+Training Card Y012 and the 'Banned Cards' card Y011, put there first, stay on top. A deck only takes the cards it may
+hold (table below); others are refused. Each works like a sidebar deck: drag it to take its top card, tap it for
+**Draw**, **Browse**, **Shuffle** and the other deck actions, double-tap to flip its top card; it can't be moved, and it
+stays (as its placeholder) when its last card is taken. Cards taken out remember it, so **Return to deck** (or a drop
+on the sidebar) puts a Quest, Enemy or training card back into its deck; banished cards go back to their own decks.
+
+**🂠 Decks sidebar (left).** The other 10 decks of the game, sorted as in the rulebook (chapter 6.1); the table starts
+empty apart from the storybook and the four decks in their areas. The title card is left out; it isn't needed to
+play.
 
 | On a deck  | Action                                             |
 | ---------- | -------------------------------------------------- |
@@ -178,7 +191,7 @@ X-Encounters, Regions and Terrain, under the Encounter Deck, on top of the other
 deck to another.
 
 Moves between decks that the rules ask for use **Put under…** on a card or pile on the table, or on the cards selected
-in the Browse panel, then tap the deck. A deck only accepts the cards it may hold:
+in the Browse panel, then tap the deck (in the sidebar or on the table). A deck only accepts the cards it may hold:
 
 | Deck           | Holds                                                             |
 | -------------- | ----------------------------------------------------------------- |

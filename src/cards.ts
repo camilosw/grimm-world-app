@@ -1,9 +1,17 @@
-import type { CardDef, CardManifest } from './types'
+import type { CardDef, CardManifest, CardType } from './types'
 
 /** Card size in table (world) units. Poker ratio 63.5 x 88.9 mm. */
 export const CARD_W = 250
 export const CARD_H = 350
 export const TOKEN_SIZE = 70
+
+/** Card families used by the area and deck rules (B- and X-Encounter Cards behave the same). */
+export type Family = Exclude<CardType, 'encounter-b' | 'encounter-x'>
+
+export function family(def: CardDef | undefined): Family | undefined {
+  const t = def?.type
+  return t === 'encounter-b' || t === 'encounter-x' ? 'encounter' : t
+}
 
 export const clampScale = (s: number) => Math.min(4, Math.max(0.08, s))
 

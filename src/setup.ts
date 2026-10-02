@@ -1,7 +1,7 @@
 import { addStack, mergeStacks, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
-import { CARD_H, CARD_W, compareCards, TOKEN_SIZE } from './cards'
-import { AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, family, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
-import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, type DeckKind } from './decks'
+import { CARD_H, CARD_W, compareCards, family, TOKEN_SIZE } from './cards'
+import { allAreas, AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, deckPlace, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
+import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, TABLE_DECKS, type DeckKind } from './decks'
 import type { CardDef, CardManifest, CardRef, Stack, Table } from './types'
 
 function shuffled<T>(list: T[]): T[] {
@@ -14,7 +14,7 @@ function shuffled<T>(list: T[]): T[] {
 }
 
 /** Current version of the area layout (`Table.layout`). */
-const LAYOUT = 3
+const LAYOUT = 4
 
 /** The Encounter Bar before it became a row of landscape cards (`Table.layout` < 3): six cards wide, two high. */
 const OLD_BAR = { w: 6 * CARD_W + 2 * AREA_PAD, h: 2 * CARD_H + AREA_HEADER + AREA_PAD }
@@ -61,7 +61,8 @@ function deckContents(cards: CardDef[]): Record<DeckKind, CardDef[]> {
 
 /**
  * Sort the cards into decks as described in the rulebook, chapter 6.1
- * "Game Setup". All decks start in the sidebar; the table itself is empty.
+ * "Game Setup". The storybook and the (empty) decks built during play lie in
+ * their areas; all other decks start in the sidebar; the table itself is empty.
  */
 export function initialTable(manifest: CardManifest): Table {
   const contents = deckContents(playableCards(manifest))
@@ -72,7 +73,7 @@ export function initialTable(manifest: CardManifest): Table {
   }
   table = { ...table, dock: table.z, z: [] }
   const story = contents.storybook.map((c) => ({ id: c.id, faceUp: false }))
-  return settle(addStorySlots(table, story))
+  return settle(layDecks(addStorySlots(table, story)))
 }
 
 /** The storybook's two fixed places in its area: the face-down deck (right) and the revealed cards (left). */
@@ -90,7 +91,7 @@ const OLD_LABELS: Record<string, DeckKind> = {
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
-  const laidOut = raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs)))), defs))
+  const laidOut = clearDeckAreas(layDecks(raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs)))), defs))))
   return settle(placeOnSpots(laidOut, defs))
 }
 
@@ -211,7 +212,51 @@ function raiseAreas(t: Table): Table {
   const stacks = Object.fromEntries(Object.entries(t.stacks).map(([id, s]) => [id, t.z.includes(id) ? up(s) : s]))
   const frames = t.frames && Object.fromEntries(Object.entries(t.frames).map(([id, f]) => [id, up(f)]))
   const battlefield = t.battlefield && up(t.battlefield)
-  return { ...t, stacks, tokens: t.tokens.map(up), frames, battlefield, layout: LAYOUT }
+  return { ...t, stacks, tokens: t.tokens.map(up), frames, battlefield, layout: 3 }
+}
+
+/**
+ * The decks built during play lie on their places in their own areas (`TABLE_DECKS`): those still in the sidebar move
+ * there with their cards, missing ones are added empty.
+ */
+function layDecks(t: Table): Table {
+  let next = t
+  for (const kind of TABLE_DECKS) {
+    const s = deckStack(next, kind)
+    if (s && next.z.includes(s.id)) continue
+    const p = deckPlace(next, kind)
+    if (!s) {
+      next = addStack(next, p.x, p.y, [], { label: DECK_SPECS[kind].label, deck: kind })[0]
+      continue
+    }
+    const stacks = { ...next.stacks, [s.id]: { ...s, x: p.x, y: p.y, rot: 0 as const } }
+    next = { ...next, stacks, dock: next.dock?.filter((id) => id !== s.id), z: [...next.z, s.id] }
+  }
+  return next
+}
+
+/**
+ * The table decks' areas right of the Storybook area are new (`Table.layout` < 4): the piles and figures lying where
+ * they now are move right, past the last of them.
+ */
+function clearDeckAreas(t: Table): Table {
+  if ((t.layout ?? 0) >= LAYOUT) return t
+  const laid = settle(t)
+  const areas = allAreas(laid).filter((a) => a.deck)
+  const left = Math.min(...areas.map((a) => a.x))
+  const right = Math.max(...areas.map((a) => a.x + a.w))
+  const top = Math.min(...areas.map((a) => a.y))
+  const bottom = Math.max(...areas.map((a) => a.y + a.h))
+  const dx = right - left + CARD_W
+  const inRow = (x: number, y: number) => x >= left && x <= right && y >= top && y <= bottom
+  const stacks = Object.fromEntries(
+    Object.entries(laid.stacks).map(([id, s]) => {
+      const loose = laid.z.includes(id) && !s.deck && !s.slot && inRow(s.x + CARD_W / 2, s.y + CARD_H / 2)
+      return [id, loose ? { ...s, x: s.x + dx } : s]
+    }),
+  )
+  const tokens = laid.tokens.map((k) => (inRow(k.x + TOKEN_SIZE / 2, k.y + TOKEN_SIZE / 2) ? { ...k, x: k.x + dx } : k))
+  return { ...laid, stacks, tokens, layout: LAYOUT }
 }
 
 /** Cards with a spot of their own (Character, Alignment, Money and Region Cards) lying elsewhere on the table move onto it. */
@@ -247,12 +292,15 @@ function migrateDecks(t: Table, defs: Record<string, CardDef>): Table {
     const isDeck = (id: string) => !!next.stacks[id].label
     next = { ...next, dock: next.z.filter(isDeck), z: next.z.filter((id) => !isDeck(id)) }
   }
-  const sidebarOk = SIDEBAR_DECKS.every((spec, i) => next.stacks[next.dock![i]]?.deck === spec.kind) && next.dock!.length === SIDEBAR_DECKS.length
+  // The table decks may still be in the sidebar of older saves: `layDecks` moves them to the table.
+  const inSidebar = next.dock!.filter((id) => !TABLE_DECKS.some((kind) => next.stacks[id].deck === kind))
+  const sidebarOk = SIDEBAR_DECKS.every((spec, i) => next.stacks[inSidebar[i]]?.deck === spec.kind) && inSidebar.length === SIDEBAR_DECKS.length
   const storyOk = !!storySlot(next, 'story') && !!storySlot(next, 'story-revealed')
   if (sidebarOk && storyOk) return next
 
-  // 2. The sidebar holds exactly the fixed decks, in order. Cards of any other
-  //    (home-made) deck go back where they belong.
+  // 2. The sidebar holds exactly the fixed decks, in order (the table decks
+  //    after them, until `layDecks`). Cards of any other (home-made) deck go
+  //    back where they belong.
   const stacks = { ...next.stacks }
   let nextId = next.nextId
   const strays: CardRef[] = []
@@ -269,7 +317,13 @@ function migrateDecks(t: Table, defs: Record<string, CardDef>): Table {
     stacks[s.id] = { ...s, label: spec.label, deck: spec.kind }
     return s.id
   })
-  next = { ...next, stacks, dock, nextId }
+  const tableDecks = TABLE_DECKS.flatMap((kind) => {
+    const s = known.get(kind)
+    if (!s) return []
+    stacks[s.id] = { ...s, label: DECK_SPECS[kind].label, deck: kind }
+    return [s.id]
+  })
+  next = { ...next, stacks, dock: [...dock, ...tableDecks], nextId }
 
   // 3. The storybook moves from the sidebar into its area; storybook cards lying
   //    on the table count as revealed.
@@ -296,7 +350,7 @@ function migrateDecks(t: Table, defs: Record<string, CardDef>): Table {
     ...next,
     stacks: Object.fromEntries(Object.entries(next.stacks).map(([id, s]) => [id, { ...s, cards: s.cards.filter(playable) }])),
   }
-  const empty = new Set(next.z.filter((id) => !next.stacks[id].cards.length && !next.stacks[id].slot))
+  const empty = new Set(next.z.filter((id) => !next.stacks[id].cards.length && !next.stacks[id].slot && !next.stacks[id].deck))
   const stacks3 = Object.fromEntries(Object.entries(next.stacks).filter(([id]) => !empty.has(id)))
   return { ...next, stacks: stacks3, z: next.z.filter((id) => !empty.has(id)) }
 }

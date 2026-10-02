@@ -142,7 +142,7 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
                 const at = dropAt(chosen)
                 if (!at) return
                 const indices = chosen.map((id) => stack.cards.findIndex((c) => c.id === id))
-                update((t) => playCards(t, stackId, indices, at.x, at.y, null))
+                update((t) => playCards(t, stackId, indices, at.x, at.y, null, defs))
               }}
             >
               Take out ({chosen.length})
@@ -225,8 +225,8 @@ export function FindDialog({ table, defs, dropAt, onShow, onInspect, onClose }: 
           const where = locateCard(table, def.id)
           if (!where) return null
           const { stack, index } = where
-          // Storybook cards stay in the storybook.
-          const inPile = stack.cards.length > 1 && !stack.slot
+          // Storybook cards stay in the storybook; a deck is a pile even with one card left.
+          const inPile = (stack.cards.length > 1 || !!stack.deck) && !stack.slot
           return (
             <div key={def.id} className="grid-card">
               <button className="thumb" onClick={() => onInspect({ id: def.id, faceUp: true })}>

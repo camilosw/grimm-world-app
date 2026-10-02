@@ -1,13 +1,6 @@
-import { CARD_H, CARD_W, cardBox, TOKEN_SIZE, type Turn } from "./cards";
-import type { Battlefield, CardDef, CardType, StorySlot, Table } from "./types";
-
-/** Card families used by the area rules (B- and X-Encounter Cards behave the same). */
-type Family = Exclude<CardType, "encounter-b" | "encounter-x">;
-
-export function family(def: CardDef | undefined): Family | undefined {
-  const t = def?.type;
-  return t === "encounter-b" || t === "encounter-x" ? "encounter" : t;
-}
+import { CARD_H, CARD_W, cardBox, family, TOKEN_SIZE, type Family, type Turn } from "./cards";
+import { DECK_SPECS, TABLE_DECKS, type DeckKind } from "./decks";
+import type { Battlefield, CardDef, StorySlot, Table } from "./types";
 
 /** A framed part of the table reserved for certain cards (rulebook chapters 4 and 10). */
 export interface Area {
@@ -18,6 +11,8 @@ export interface Area {
   w: number;
   h: number;
   accepts: Family[];
+  /** The deck lying on its place in this area (`TABLE_DECKS`): cards dropped anywhere in the area go into it. */
+  deck?: DeckKind;
 }
 
 export const AREA_PAD = 40;
@@ -73,6 +68,13 @@ const story = {
   y: character.y,
   ...box(2, 2 - STORY_COVERED),
 };
+// Right of the Storybook area, one card each: the decks built during play, each on its place (see `deckPlace()`).
+const deckBox = box(1, 1);
+const deckArea = (i: number) => ({
+  x: story.x + story.w + GAP + i * (deckBox.w + GAP),
+  y: character.y,
+  ...deckBox,
+});
 /** Part of the house extension's height showing above the House Card (the rest lies under it). */
 const HOUSE_ABOVE_SHOWS = 0.27;
 /** Part of the house extension's height showing below the House Card. */
@@ -124,6 +126,15 @@ export const AREAS: Area[] = [
     accepts: ["lost-pages", "encounter", "money"],
   },
   { id: "storybook", label: "Storybook", ...story, accepts: ["storybook"] },
+  ...TABLE_DECKS.map(
+    (kind, i): Area => ({
+      id: kind,
+      label: DECK_SPECS[kind].label,
+      ...deckArea(i),
+      accepts: [],
+      deck: kind,
+    }),
+  ),
   { id: "home", label: "Home", ...home, accepts: ["lost-pages", "encounter"] },
 ];
 
@@ -629,6 +640,13 @@ export const STORY_SLOTS = {
   story: { x: story.x + AREA_PAD + CARD_W, y: story.y + AREA_HEADER },
 };
 
+/** Place of a table deck in its area (`TABLE_DECKS`), as it lies on this table: where its pile lies, or its placeholder. */
+export function deckPlace(t: Table, kind: DeckKind): Point {
+  const area = AREAS.find((a) => a.deck === kind)!;
+  const d = shiftOf(t, area.id);
+  return { x: area.x + AREA_PAD + d.x, y: area.y + AREA_HEADER + d.y };
+}
+
 /** Where the battlefield is laid out: below the other areas. */
 export const BATTLEFIELD_ORIGIN = { x: 0, y: character.y + character.h + GAP };
 /** Columns to the right of the Terrain Cards for Enemy Cards with their Hit Point Cards. */
@@ -846,8 +864,8 @@ export function battlefieldOrigin(t: Table): Point {
 
 /**
  * Lay the areas out after a change, so that they keep apart however they grew: the Character, Storage and Storybook
- * areas below the Map and the Encounter Bar, each right of the one before, the Home area below the Storybook area and
- * right of the Storage area, and the battlefield below them all. An area pushed away moves right or down from its place
+ * areas and the table decks' areas below the Map and the Encounter Bar, each right of the one before, the Home area
+ * below the Storybook and deck areas and right of the Storage area, and the battlefield below them all. An area pushed away moves right or down from its place
  * in `AREAS` with everything lying in it (its spots, piles and figures, see `Table.shifts`), and moves back as the area
  * pushing it shrinks. Returns the same table when nothing moves.
  */
@@ -875,7 +893,14 @@ export function settleLayout(t: Table): Table {
   const character = put("character", { y: top });
   const storage = put("storage", { x: rightOf(character) + GAP, y: top });
   const story = put("storybook", { x: rightOf(storage) + GAP, y: top });
-  put("home", { x: rightOf(storage) + GAP, y: bottomOf(story) + GAP });
+  let last = story;
+  for (const kind of TABLE_DECKS)
+    last = put(kind, { x: rightOf(last) + GAP, y: top });
+  const above = Math.max(
+    bottomOf(story),
+    ...TABLE_DECKS.map((kind) => bottomOf(laid.get(kind)!)),
+  );
+  put("home", { x: rightOf(storage) + GAP, y: above + GAP });
   const b = t.battlefield;
   if (b) {
     const y = battlefieldTop([...laid.values()]);
@@ -960,8 +985,9 @@ const SHORT_NAMES: Record<Family, string> = {
   "lost-pages": "Y-Cards",
 };
 
-/** "Regions · Encounter Cards · Y-Cards" */
+/** "Regions · Encounter Cards · Y-Cards", or what a table deck holds. */
 export function acceptsText(area: Area): string {
+  if (area.deck) return DECK_SPECS[area.deck].holdsText ?? "";
   return area.accepts.map((f) => SHORT_NAMES[f]).join(" · ");
 }
 
@@ -1093,7 +1119,8 @@ export interface Placement {
 
 /**
  * Where cards dropped with their top-left corner at (x, y), or onto pile `onto`,
- * end up. Cards with an attracting spot go there whatever the drop point, cards
+ * end up. Cards dropped in a table deck's area go into that deck (onto its pile),
+ * cards with an attracting spot go there whatever the drop point, cards
  * dropped on a spot snap onto it; `moving` is the pile being moved as a whole,
  * which doesn't count as lying on the spot.
  */
@@ -1106,6 +1133,10 @@ export function placement(
   onto: string | null,
   moving: string | null = null,
 ): Placement {
+  const target = onto ? t.stacks[onto] : null;
+  const at = { x: target?.x ?? x, y: target?.y ?? y };
+  const area = areaForCard(t, at.x, at.y);
+  if (area?.deck) return intoDeck(t, area, area.deck, cardIds, defs);
   const families = cardIds.map((id) => family(defs[id]));
   const own = ownSpot(
     t,
@@ -1127,9 +1158,6 @@ export function placement(
       refused: mixed ?? oneEach(own, cardIds) ?? (place ? null : full(own)),
     };
   }
-  const target = onto ? t.stacks[onto] : null;
-  const at = { x: target?.x ?? x, y: target?.y ?? y };
-  const area = areaForCard(t, at.x, at.y);
   // Nothing stacks onto a card in a fanned row, so dropped on one, the cards go to the place they are dropped on
   // (e.g. the Storage Card place, which the first Goods card overlaps until a Storage Card covers it).
   const fanned =
@@ -1163,6 +1191,28 @@ export function placement(
     area,
     spot,
     refused: refused ?? oneEach(spot, cardIds) ?? (inRow ? null : full(spot)),
+  };
+}
+
+/** Cards dropped in a table deck's area go onto its pile (into the deck, `dropOnto()`), if it may hold them all. */
+function intoDeck(
+  t: Table,
+  area: Area,
+  kind: DeckKind,
+  cardIds: string[],
+  defs: Record<string, CardDef>,
+): Placement {
+  const spec = DECK_SPECS[kind];
+  const onto = t.z.find((id) => t.stacks[id].deck === kind) ?? null;
+  const bad = cardIds.map((id) => defs[id]).find((d) => d && !spec.holds(d));
+  return {
+    ...deckPlace(t, kind),
+    onto,
+    area,
+    spot: null,
+    refused: bad
+      ? `${bad.code ?? bad.name ?? "This card"} can't go into the ${spec.label}`
+      : null,
   };
 }
 

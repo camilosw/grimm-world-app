@@ -178,8 +178,10 @@ export default function App() {
       const cx = (el.clientWidth / 2 - view.x) / view.scale - CARD_W / 2
       const cy = (el.clientHeight / 2 - view.y) / view.scale - CARD_H / 2
       if (!table) return { x: cx, y: cy }
-      // Cards with a place of their own (Character, Alignment, Money Cards) always go there.
-      const own = placement(table, cardIds, defs, cx, cy, null)
+      // Cards with a place of their own (Character, Alignment, Money Cards) always go there. Dropped in a table deck's
+      // area they would go into that deck instead: none is put there on its own.
+      const centered = placement(table, cardIds, defs, cx, cy, null)
+      const own = centered.area?.deck ? placement(table, cardIds, defs, -Infinity, -Infinity, null) : centered
       if (own.spot?.attracts) {
         if (own.refused) notify(own.refused)
         return own.refused ? null : { x: own.x, y: own.y }
@@ -269,10 +271,11 @@ export default function App() {
   }
 
   /** A table pile (or its top card) was dropped on the sidebar. */
-  const dropOnZone = (stackId: string, whole: boolean) => {
-    // Wherever it lands on the sidebar, a card goes back to its own deck.
+  const dropOnZone = (zone: Zone, stackId: string, whole: boolean) => {
+    // Wherever it lands on the sidebar, a card goes back to its own deck; one taken off a deck on the table stays there.
     const s = table?.stacks[stackId]
     if (!s) return
+    if (s.deck) return zone.kind === 'deck' && notify("Cards can't move from one deck to another")
     notify(`Back to ${homeNames(whole ? s.cards : s.cards.slice(-1))}`, true)
     update((t) => A.stackToDecks(t, stackId, whole ? 'all' : 'top', defs))
   }
@@ -284,7 +287,7 @@ export default function App() {
     if (!table || !indices.length) return
     const zone = zoneAt(clientX, clientY)
     if (zone) {
-      if (!A.isDocked(table, stackId)) {
+      if (!stack?.deck) {
         notify(`Back to ${homeNames(cardIds.map((id) => ({ id, faceUp: true })))}`, true)
         return update((t) => A.cardsToDecks(t, stackId, indices, defs))
       }
@@ -296,7 +299,7 @@ export default function App() {
     if (onStory(at, cardIds)) return setDialog({ kind: 'chapter', stackId, cardIds })
     const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
     const p = placeAt(cardIds, at.x, at.y, target)
-    if (p) update((t) => A.playCards(t, stackId, indices, p.x, p.y, p.onto))
+    if (p) update((t) => A.playCards(t, stackId, indices, p.x, p.y, p.onto, defs))
   }
 
 
@@ -356,7 +359,7 @@ export default function App() {
     if (!p) return
     update((t) => {
       const [t2, newId] = A.takeTop(t, deckId, p.x, p.y)
-      return newId && p.onto ? A.mergeStacks(t2, newId, p.onto, 'top') : t2
+      return newId && p.onto ? A.dropOnto(t2, newId, p.onto, defs) : t2
     })
   }
 
@@ -400,10 +403,12 @@ export default function App() {
   const count = selectedStack?.cards.length ?? 0
   const topCard = selectedStack?.cards[count - 1]
   const docked = !!selectedStack && A.isDocked(table, selectedStack.id)
+  // Decks, in the sidebar or on the table, stay where they are and keep their cards.
+  const isDeck = !!selectedStack?.deck
   // A card lying turned on its place stays as it lies (Market Prices face up, Encounter Bar face down) and can't be rotated.
   const fixed = !!selectedStack && !!turnedSpot(table, selectedStack.id)
   /** Decks draw several cards; a pile on the table needs at least two. */
-  const many = count > (docked ? 0 : 1)
+  const many = count > (isDeck ? 0 : 1)
 
   return (
     <div className="app">
@@ -477,7 +482,7 @@ export default function App() {
               setHomeHover(DECKS_IN_SIDEBAR(table).filter((d) => d.deck && kinds.has(d.deck)).map((d) => d.id))
             }
           }}
-          onZoneDrop={(_, stackId, whole) => dropOnZone(stackId, whole)}
+          onZoneDrop={dropOnZone}
           onClearBattlefield={() => update((t) => A.clearBattlefield(t, defs))}
           onRefuse={notify}
           onSlotTap={(slot) => {
@@ -520,7 +525,7 @@ export default function App() {
           {many && (
             <button
               onClick={() => {
-                const at = docked && topCard ? dropAt([topCard.id]) : undefined
+                const at = isDeck && topCard ? dropAt([topCard.id]) : undefined
                 if (at !== null) act((t, id) => A.drawTop(t, id, at))
               }}
             >
@@ -540,14 +545,14 @@ export default function App() {
           {count > 1 && <button onClick={() => act(A.shuffleStack)}>⤮ Shuffle</button>}
           {count > 1 && <button onClick={() => act((t, id) => A.sortStack(t, id, defs))}>⇅ Sort</button>}
           {topCard && <button onClick={() => setDialog({ kind: 'inspect', card: topCard })}>🔍 View</button>}
-          {!docked && !fixed && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
+          {!isDeck && !fixed && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
             <button onClick={() => act((t, id) => A.rotateStack(t, id, 90, defs))}>↻ Rotate</button>
           )}
-          {!docked && <button onClick={() => setPutUnder({ stackId: selectedStack.id })}>⤵ Put under…</button>}
+          {!isDeck && <button onClick={() => setPutUnder({ stackId: selectedStack.id })}>⤵ Put under…</button>}
           {count > 1 && <button onClick={() => act(A.flipStack)}>⇵ Turn pile over</button>}
-          {!docked && <button onClick={() => act(A.bringToFront)}>▲ Front</button>}
-          {!docked && <button onClick={() => act(A.sendToBack)}>▼ Back</button>}
-          {!docked && (
+          {!isDeck && <button onClick={() => act(A.bringToFront)}>▲ Front</button>}
+          {!isDeck && <button onClick={() => act(A.sendToBack)}>▼ Back</button>}
+          {!isDeck && (
             <button
               onClick={() => {
                 notify(`Back to ${homeNames(selectedStack.cards)}`, true)
@@ -557,7 +562,7 @@ export default function App() {
               ↩ Return to deck
             </button>
           )}
-          {!docked && <button onClick={() => setDialog({ kind: 'rename', stackId: selectedStack.id })}>✎ Name</button>}
+          {!isDeck && <button onClick={() => setDialog({ kind: 'rename', stackId: selectedStack.id })}>✎ Name</button>}
           <button onClick={() => openRules(selectedStack.deck ? DECK_RULES[selectedStack.deck] : cardRule(topCard && defs[topCard.id]))}>
             📖 Rules
           </button>

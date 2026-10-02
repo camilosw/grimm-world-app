@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { flipTop, mergeStacks, moveStack, moveToken, notHeldBy, settleSpots, stackTargetAt, storyAt, takeTop } from './actions'
+import { dropOnto, flipTop, isFixed, moveStack, moveToken, notHeldBy, settleSpots, stackTargetAt, storyAt, takeTop } from './actions'
 import {
   acceptsText,
   allAreas,
   coveredSide,
+  deckPlace,
   drawOrder,
   ENEMY_COLS,
   enemyOrigin,
@@ -19,7 +20,7 @@ import {
 } from './areas'
 import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, TOKEN_SIZE, turnedClass, type Turn } from './cards'
 import { CardGhost } from './CardGhost'
-import { storySlot } from './decks'
+import { DECK_SPECS, storySlot } from './decks'
 import { update } from './store'
 import type { CardDef, CardRef, Stack, StorySlot, Table as TableState, Token, View } from './types'
 import { useFlip } from './useFlip'
@@ -182,7 +183,8 @@ export function TableView(props: Props) {
     else if (stackEl) {
       const id = stackEl.dataset.stack!
       const slot = table.stacks[id]?.slot
-      const whole = !!el.closest('[data-grip]') || (table.stacks[id]?.cards.length ?? 0) <= 1
+      // A deck lying on the table stays: dragging it takes its top card.
+      const whole = !table.stacks[id]?.deck && (!!el.closest('[data-grip]') || (table.stacks[id]?.cards.length ?? 0) <= 1)
       target = slot ? { kind: 'slot', id, slot } : { kind: 'stack', id, whole }
     }
     const timer = window.setTimeout(() => {
@@ -250,7 +252,8 @@ export function TableView(props: Props) {
       }
       if (JSON.stringify(zone) !== JSON.stringify(drag?.zone ?? null) && g2.target.kind === 'stack') {
         const s = table.stacks[g2.target.id]
-        onZoneHover(zone, (g2.target.whole ? s.cards : s.cards.slice(-1)).map((c) => c.id))
+        // A card taken off a deck doesn't go back to the sidebar (App refuses it), so no deck lights up.
+        onZoneHover(zone, s.deck ? [] : (g2.target.whole ? s.cards : s.cards.slice(-1)).map((c) => c.id))
       }
       let area: Drag['area'] = null
       let spot: string | null = null
@@ -315,12 +318,15 @@ export function TableView(props: Props) {
     const dest = destination(target, x, y, dropOn)
     if (dest.refused) return props.onRefuse(dest.refused)
     const onto = dest.onto
+    // Put back where it came from (a card dropped back on its deck).
+    if (onto === target.id) return
     update((t) => {
-      if (target.whole) return onto ? mergeStacks(t, target.id, onto, 'top') : moveStack(t, target.id, dest.x, dest.y)
+      if (target.whole) return onto ? dropOnto(t, target.id, onto, defs) : moveStack(t, target.id, dest.x, dest.y)
       const [t2, newId] = takeTop(t, target.id, dest.x, dest.y)
-      return onto && newId ? mergeStacks(t2, newId, onto, 'top') : t2
+      return onto && newId ? dropOnto(t2, newId, onto, defs) : t2
     })
-    if (!onto && (target.whole || table.stacks[target.id]?.cards.length === 1)) onSelect({ kind: 'stack', id: target.id })
+    const source = table.stacks[target.id]
+    if (!onto && !isFixed(source) && (target.whole || source.cards.length === 1)) onSelect({ kind: 'stack', id: target.id })
     else if (onto) onSelect({ kind: 'stack', id: onto })
   }
 
@@ -419,6 +425,20 @@ export function TableView(props: Props) {
             )
           })
         })}
+        {allAreas(table).flatMap((area) => {
+          // The place of a deck lying on the table, shown while it is empty (its pile covers it).
+          if (!area.deck) return []
+          const spec = DECK_SPECS[area.deck]
+          const state = drag?.area?.id === area.id ? (drag.area.ok ? ' accept' : ' refuse') : ''
+          return (
+            <div key={`deck-${area.id}`} className={`card-spot${state}`} style={cardBox(deckPlace(table, area.deck).x, deckPlace(table, area.deck).y, false)}>
+              <span>
+                {spec.label}
+                {spec.emptyHint && <small>{spec.emptyHint}</small>}
+              </span>
+            </div>
+          )
+        })}
         {drawOrder(shownTable).map((id) => {
           const s = shownTable.stacks[id]
           let shown = s
@@ -441,6 +461,7 @@ export function TableView(props: Props) {
               covered={covered.get(id) ?? null}
               turn={turned.get(id) ?? null}
               sliding={sliding.has(id)}
+              fixed={!!s.deck}
             />
           )
         })}
@@ -547,9 +568,11 @@ interface StackViewProps {
   turn?: Turn | null
   /** Lies in a row of Money Cards or Goods, whose cards slide when it rearranges. */
   sliding: boolean
+  /** A deck lying on its place in its area, named by it: it shows how many cards it holds but can't be moved as a whole. */
+  fixed?: boolean
 }
 
-function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding }: StackViewProps) {
+function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding, fixed }: StackViewProps) {
   const top = stack.cards[stack.cards.length - 1]
   const count = stack.cards.length
   const landscape = isLandscape(defs[top.id]) || !!turn
@@ -572,12 +595,16 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
       >
         <img src={cardImage(top.id, faceUp, size)} alt={cardLabel(defs[top.id])} draggable={false} />
       </div>
-      {count > 1 && (
-        <div className="grip" data-grip title="Drag here to move the whole pile">
-          ⠿ {count}
-        </div>
+      {fixed ? (
+        count > 1 && <div className="slot-count">{count}</div>
+      ) : (
+        count > 1 && (
+          <div className="grip" data-grip title="Drag here to move the whole pile">
+            ⠿ {count}
+          </div>
+        )
       )}
-      {stack.label && <div className="stack-label">{stack.label}</div>}
+      {stack.label && !fixed && <div className="stack-label">{stack.label}</div>}
     </div>
   )
 }

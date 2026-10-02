@@ -1,5 +1,5 @@
-import { AREA_HEADER, AREA_PAD, family, fanRow, settleLayout, spotPlace, spotPlaces, spotsOf, stacksOnSpot, turnedSpot } from './areas'
-import { CARD_H, CARD_W, compareCards, isLandscape } from './cards'
+import { AREA_HEADER, AREA_PAD, fanRow, settleLayout, spotPlace, spotPlaces, spotsOf, stacksOnSpot, turnedSpot } from './areas'
+import { CARD_H, CARD_W, compareCards, family, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
 
@@ -24,6 +24,11 @@ export function isDocked(t: Table, id: string): boolean {
   return !!t.dock?.includes(id)
 }
 
+/** A deck (in the sidebar or on the table) or a storybook place: it stays where it is, even when empty. */
+export function isFixed(s: Stack): boolean {
+  return !!s.deck || !!s.slot
+}
+
 /** Every stack, on the table or in the sidebar. */
 function allStacks(t: Table): Stack[] {
   return [...t.z, ...(t.dock ?? [])].map((id) => t.stacks[id])
@@ -38,23 +43,23 @@ export function addStack(t: Table, x: number, y: number, cards: CardRef[], extra
 
 /**
  * Replace a stack's cards. A pile on the table disappears when it becomes
- * empty; a sidebar deck stays as an empty slot so cards can go back into it.
+ * empty; a deck stays as an empty slot so cards can go back into it.
  */
 function withCards(t: Table, s: Stack, cards: CardRef[]): Table {
   let next = t
   // Remember which deck the cards came out of, so they can find their way back.
-  if (s.deck && isDocked(t, s.id)) {
+  if (s.deck && !s.slot) {
     const kept = new Set(cards.map((c) => c.id))
     const left = s.cards.filter((c) => !kept.has(c.id))
     if (left.length) next = { ...t, origin: { ...t.origin, ...Object.fromEntries(left.map((c) => [c.id, s.deck!])) } }
   }
-  return cards.length || isDocked(t, s.id) || s.slot ? setStack(next, { ...s, cards }) : removeStack(next, s.id)
+  return cards.length || isFixed(s) ? setStack(next, { ...s, cards }) : removeStack(next, s.id)
 }
 
 
 export function moveStack(t: Table, id: string, x: number, y: number): Table {
   const s = t.stacks[id]
-  if (!s || s.slot || (s.x === x && s.y === y)) return t
+  if (!s || isFixed(s) || (s.x === x && s.y === y)) return t
   return bringToFront(setStack(t, { ...s, x, y }), id)
 }
 
@@ -62,9 +67,20 @@ export function moveStack(t: Table, id: string, x: number, y: number): Table {
 export function takeTop(t: Table, id: string, x: number, y: number): [Table, string | null] {
   const s = t.stacks[id]
   if (!s?.cards.length) return [t, null]
-  if (s.cards.length === 1 && !isDocked(t, id) && !s.slot) return [moveStack(t, id, x, y), id]
+  if (s.cards.length === 1 && !isFixed(s)) return [moveStack(t, id, x, y), id]
   const top = s.cards[s.cards.length - 1]
   return addStack(withCards(t, s, s.cards.slice(0, -1)), x, y, [top], { rot: s.rot })
+}
+
+/**
+ * Put a pile on top of another, or into a deck lying on the table at the place its rules say (`insertIntoDeck()`: on
+ * top of the Quest Deck, under the Enemy, Training and Banned Cards).
+ */
+export function dropOnto(t: Table, sourceId: string, targetId: string, defs: Record<string, CardDef>): Table {
+  const dst = t.stacks[targetId]
+  if (!dst?.deck || sourceId === targetId) return mergeStacks(t, sourceId, targetId, 'top')
+  const [t2, cards] = takeCards(t, sourceId)
+  return insertIntoDeck(t2, dst.deck, cards, defs)
 }
 
 /** Move all cards of `sourceId` onto (or under) `targetId`. */
@@ -136,11 +152,11 @@ export function topToBottom(t: Table, id: string): Table {
 
 /**
  * Draw the top card face up next to the pile (onto a pile already lying there).
- * Decks in the sidebar draw to `at` instead.
+ * Decks draw to `at` instead.
  */
 export function drawTop(t: Table, id: string, at?: { x: number; y: number }): Table {
   const s = t.stacks[id]
-  if (!s || s.cards.length < (isDocked(t, id) ? 1 : 2)) return t
+  if (!s || s.cards.length < (s.deck ? 1 : 2)) return t
   const x = at?.x ?? s.x + CARD_W + 40
   const y = at?.y ?? s.y
   const top = { ...s.cards[s.cards.length - 1], faceUp: true }
@@ -161,10 +177,18 @@ export function extractCard(t: Table, id: string, index: number, x: number, y: n
 
 /**
  * Pull cards (by index, bottom = 0) out of a pile, face up and in their pile
- * order, onto the table at (x, y) or onto the pile `ontoId`; onto their own
- * pile they move to its top.
+ * order, onto the table at (x, y) or onto the pile `ontoId` (into a table deck:
+ * `dropOnto()`); onto their own pile they move to its top.
  */
-export function playCards(t: Table, id: string, indices: number[], x: number, y: number, ontoId: string | null): Table {
+export function playCards(
+  t: Table,
+  id: string,
+  indices: number[],
+  x: number,
+  y: number,
+  ontoId: string | null,
+  defs: Record<string, CardDef>,
+): Table {
   const s = t.stacks[id]
   const set = new Set(indices)
   const picked = s?.cards.filter((_, i) => set.has(i)).map((c) => ({ ...c, faceUp: true })) ?? []
@@ -172,7 +196,7 @@ export function playCards(t: Table, id: string, indices: number[], x: number, y:
   const rest = s.cards.filter((_, i) => !set.has(i))
   if (ontoId === id) return setStack(t, { ...s, cards: [...rest, ...picked] })
   const [t2, newId] = addStack(withCards(t, s, rest), x, y, picked)
-  return ontoId && t2.stacks[ontoId] ? mergeStacks(t2, newId, ontoId, 'top') : t2
+  return ontoId && t2.stacks[ontoId] ? dropOnto(t2, newId, ontoId, defs) : t2
 }
 
 export function bringToFront(t: Table, id: string): Table {
@@ -286,7 +310,7 @@ export function clearBattlefield(t: Table, defs: Record<string, CardDef>): Table
 
 // ---------- decks ----------
 
-/** Put cards (bottom → top, kept in that order) into a sidebar deck, at the place its rules say. */
+/** Put cards (bottom → top, kept in that order) into a deck, at the place its rules say. */
 function insertIntoDeck(t: Table, kind: DeckKind, cards: CardRef[], defs: Record<string, CardDef>, under = false): Table {
   const deck = deckStack(t, kind)
   if (!deck || !cards.length) return t
@@ -314,7 +338,7 @@ export function returnToDecks(t: Table, cards: CardRef[], defs: Record<string, C
 /** A table pile (or its top card) goes back to the decks its cards belong to. */
 export function stackToDecks(t: Table, id: string, which: 'top' | 'all', defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
-  if (!s?.cards.length || isDocked(t, id)) return t
+  if (!s?.cards.length || s.deck) return t
   const moved = which === 'top' ? s.cards.slice(-1) : s.cards
   return returnToDecks(withCards(t, s, which === 'top' ? s.cards.slice(0, -1) : []), moved, defs)
 }
@@ -322,7 +346,7 @@ export function stackToDecks(t: Table, id: string, which: 'top' | 'all', defs: R
 /** Some cards (by index) of a table pile go back to their decks. */
 export function cardsToDecks(t: Table, id: string, indices: number[], defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
-  if (!s || isDocked(t, id)) return t
+  if (!s || s.deck) return t
   const set = new Set(indices)
   return returnToDecks(withCards(t, s, s.cards.filter((_, i) => !set.has(i))), s.cards.filter((_, i) => set.has(i)), defs)
 }
@@ -352,7 +376,7 @@ export function notHeldBy(t: Table, stackId: string, kind: DeckKind, defs: Recor
 }
 
 /**
- * Slide a table pile, or cards picked out of any pile, under a sidebar deck, as the rules ask (X-cards under the
+ * Slide a table pile, or cards picked out of any pile, under a deck, as the rules ask (X-cards under the
  * Encounter Deck, enemies under the Enemy Card, banished cards under Banned Cards).
  */
 export function putUnderDeck(t: Table, stackId: string, kind: DeckKind, defs: Record<string, CardDef>, cardIds?: string[]): Table {

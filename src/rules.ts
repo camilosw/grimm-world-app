@@ -45,6 +45,10 @@ export const AREA_RULES: Record<string, string> = {
   storybook: '4.6',
   home: '10',
   battlefield: '8.1.2',
+  quest: '6.2.1',
+  enemy: '6.2.2',
+  training: '6.2.3',
+  banned: '4.7.10',
 }
 
 /** Rulebook sections explaining each deck. */
