@@ -9,7 +9,7 @@ import {
   enemyOrigin,
   fanHasPlace,
   fanRow,
-  freePlace,
+  freePlaces,
   placement,
   spotsOf,
   stacksOnSpot,
@@ -388,29 +388,36 @@ export function TableView(props: Props) {
             Enemies
           </div>
         )}
-        {spots.map((spot) => {
-          // A fanned spot shows its next free place (the Encounter Bar: left of its cards), none when full.
-          if (spot.fan && !fanHasPlace(shownTable, spot)) return null
-          const at = freePlace(shownTable, spot)
-          // A covered spot only shows the part beside the card lying on it. The Encounter Bar's free place lies under
-          // its first card, though the cards put there go on top.
-          const underRow = !!spot.addsFirst && fanRow(shownTable, spot).length > 0
-          const side = underRow ? 'right' : coveredSide(spot)
-          const state = drag?.spot === spot.id ? (drag.area?.ok ? ' accept' : ' refuse') : ''
-          const box = cardBox(at.x, at.y, !!spot.landscape)
-          const hidden = 1 - (spot.shows ?? 0.5)
-          if (side === 'left') box.left += hidden * box.width
-          if (side === 'top') box.top += hidden * box.height
-          if (side === 'left' || side === 'right') box.width *= 1 - hidden
-          if (side === 'top' || side === 'bottom') box.height *= 1 - hidden
-          return (
-            <div key={spot.id} className={`card-spot${side ? ` covered covered-${side}` : ''}${box.width > box.height ? ' wide' : ''}${Math.min(box.width, box.height) < NARROW_SPOT ? ' narrow' : ''}${state}`} style={box}>
-              <span>
-                {spot.label}
-                {spot.hint && <small>{spot.hint}</small>}
-              </span>
-            </div>
-          )
+        {spots.flatMap((spot) => {
+          // A fanned spot shows its next free place, none when full. The Encounter Bar: left of its cards, and once it
+          // has cards, also right of its last one.
+          if (spot.fan && !fanHasPlace(shownTable, spot)) return []
+          const row = spot.addsFirst ? fanRow(shownTable, spot) : []
+          // Where the dragged card goes: after the row's last card (not counting the card itself), else before its first.
+          const others = row.filter((id) => id !== dragStack?.id)
+          const toEnd = !!drag?.to && others.length > 0 && drag.to.x > table.stacks[others[others.length - 1]].x
+          return freePlaces(shownTable, spot).map((at, i) => {
+            const end = i > 0
+            // A covered spot only shows the part beside the card lying on it. The Encounter Bar's free place lies under
+            // its first card, though the cards put there go on top; its place after the last card lies under that card.
+            const side = end ? 'left' : row.length ? 'right' : coveredSide(spot)
+            const hover = drag?.spot === spot.id && (!spot.addsFirst || end === toEnd)
+            const state = hover ? (drag.area?.ok ? ' accept' : ' refuse') : ''
+            const box = cardBox(at.x, at.y, !!spot.landscape)
+            const hidden = 1 - (spot.shows ?? 0.5)
+            if (side === 'left') box.left += hidden * box.width
+            if (side === 'top') box.top += hidden * box.height
+            if (side === 'left' || side === 'right') box.width *= 1 - hidden
+            if (side === 'top' || side === 'bottom') box.height *= 1 - hidden
+            return (
+              <div key={end ? `${spot.id}-end` : spot.id} className={`card-spot${side ? ` covered covered-${side}` : ''}${box.width > box.height ? ' wide' : ''}${Math.min(box.width, box.height) < NARROW_SPOT ? ' narrow' : ''}${state}`} style={box}>
+                <span>
+                  {spot.label}
+                  {spot.hint && <small>{spot.hint}</small>}
+                </span>
+              </div>
+            )
+          })
         })}
         {drawOrder(shownTable).map((id) => {
           const s = shownTable.stacks[id]

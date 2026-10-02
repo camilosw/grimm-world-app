@@ -74,8 +74,9 @@ offered). Dragged away, it is an ordinary upright card again.
 **Encounter Bar.** The Y-cards placed in the Encounter Bar (rulebook 5.2) lie in a row, landscape and face down, as in
 the rulebook's figure 29: each card lies over the one right of it, leaving just the strip on the right of its back (card
 number, location, chapter) showing. A Y-card dropped anywhere in the area goes first in the row, on top of the
-others, which slide right; the placeholder always stays left of the cards, partly under the first one. Dropped on the row itself, it goes where you
-drop it. The bar takes Y-cards one at a time and nothing else, any number of them: it grows to the right. A card there
+others, which slide right; the placeholder always stays left of the cards, partly under the first one. Once the bar has
+cards, a second placeholder shows right of the last one, partly under it: a Y-card dropped there (or anywhere in line to
+the right of the row) goes last. Dropped on the row itself, it goes where you drop it. The bar takes Y-cards one at a time and nothing else, any number of them: it grows to the right. A card there
 can't be flipped or rotated (long-press it and tap **Other side** to read it); dragged out, it is an ordinary upright
 card again. Reordering and taking cards away work as for Money Cards (below).
 

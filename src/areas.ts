@@ -224,6 +224,16 @@ export function freePlace(t: Table, spot: Spot): Point {
   return spotPlaces(spot, n + 1)[n];
 }
 
+/**
+ * The places a spot's placeholders show: its free place and, for a row taking new cards first that has cards, also the
+ * place after its last card, partly under it, to add a card at the end of the row.
+ */
+export function freePlaces(t: Table, spot: Spot): Point[] {
+  const first = freePlace(t, spot);
+  const n = spot.addsFirst ? fanRow(t, spot).length : 0;
+  return n ? [first, spotPlaces(spot, n + 1)[n]] : [first];
+}
+
 /** Whether a fanned spot's row has room for one more card, so its next place can be shown. */
 export function fanHasPlace(t: Table, spot: Spot): boolean {
   return fanRow(t, spot).length < fanMax(spot);
@@ -286,7 +296,8 @@ export function fanRow(
  * Where cards going to a spot land (top-left dropped at x, y), or null when a
  * fanned spot is full. A plain spot: onto the pile lying there. A fanned spot:
  * at the place the card is dropped on, or after the last card when dropped
- * elsewhere (before the first, for a row taking new cards first). That position may lie half a unit beside a place, which sorts the
+ * elsewhere (before the first, for a row taking new cards first, unless dropped in line beyond its last card). That
+ * position may lie half a unit beside a place, which sorts the
  * card into the row; `settleSpots()` then lays the row out on its places.
  */
 export function spotPlace(
@@ -307,13 +318,11 @@ export function spotPlace(
   const [length, breadth] = v ? [CARD_H, CARD_W] : [CARD_W, CARD_H];
   const along = (pos * Math.sign(step)) / Math.abs(step);
   const reach = others.length + length / 2 / Math.abs(step);
-  const near =
-    Math.abs(off) < breadth / 2 &&
-    along > -length / 2 / Math.abs(step) &&
-    along < reach;
+  const inLine = Math.abs(off) < breadth / 2;
+  const near = inLine && along > -length / 2 / Math.abs(step) && along < reach;
   const i = near
     ? Math.max(0, Math.min(others.length, Math.round(along)))
-    : spot.addsFirst
+    : spot.addsFirst && !(inLine && along >= reach)
       ? 0
       : others.length;
   const at = (d: number, id: string) => {
@@ -649,14 +658,14 @@ export function enemyOrigin(b: Battlefield): { x: number; y: number } {
 
 /**
  * The places an area is framed around for a spot: its place, or a fanned row from its first place to the next card's
- * while it has room for one, else to its last card; a row taking new cards first from its free place to its last card.
+ * while it has room for one, else to its last card; a row taking new cards first from its free place to the place after
+ * its last card.
  */
 function framedPlaces(t: Table, spot: Spot): Point[] {
   if (!spot.fan) return [spot];
+  if (spot.addsFirst) return freePlaces(t, spot);
   const n = fanRow(t, spot).length;
   const last = spotPlaces(spot, n)[n - 1];
-  if (spot.addsFirst)
-    return n ? [freePlace(t, spot), last] : [freePlace(t, spot)];
   return [spot, fanHasPlace(t, spot) ? freePlace(t, spot) : last];
 }
 
@@ -1001,13 +1010,13 @@ function spotAt(
   y: number,
   families: (Family | undefined)[] = [],
 ): { spot: Spot; place: Point } | undefined {
-  // An unlimited row reaches one place past its last card, or, taking new cards first, its free place.
+  // An unlimited row reaches one place past its last card; taking new cards first, also its free place before them.
   const places = (spot: Spot) => {
+    if (spot.addsFirst)
+      return [...freePlaces(t, spot), ...spotPlaces(spot, fanRow(t, spot).length)];
     const n =
       fanMax(spot) === Infinity ? fanRow(t, spot).length + 1 : fanMax(spot);
-    return spot.addsFirst
-      ? [freePlace(t, spot), ...spotPlaces(spot, n - 1)]
-      : spotPlaces(spot, n);
+    return spotPlaces(spot, n);
   };
   // Laid right on the place, or with its middle over the part of the place left showing beside a covering card.
   const shown = (spot: Spot): Point => {
