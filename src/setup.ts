@@ -1,6 +1,6 @@
-import { addStack, mergeStacks, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
+import { addStack, isFixed, mergeStacks, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
 import { CARD_H, CARD_W, compareCards, family, TOKEN_SIZE } from './cards'
-import { allAreas, AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, deckPlace, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
+import { allAreas, AREA_HEADER, AREA_PAD, areaForCard, AREAS, BATTLEFIELD_ORIGIN, deckPlace, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, TABLE_DECKS, type DeckKind } from './decks'
 import type { CardDef, CardManifest, CardRef, Stack, Table } from './types'
 
@@ -14,7 +14,7 @@ function shuffled<T>(list: T[]): T[] {
 }
 
 /** Current version of the area layout (`Table.layout`). */
-const LAYOUT = 4
+const LAYOUT = 5
 
 /** The Encounter Bar before it became a row of landscape cards (`Table.layout` < 3): six cards wide, two high. */
 const OLD_BAR = { w: 6 * CARD_W + 2 * AREA_PAD, h: 2 * CARD_H + AREA_HEADER + AREA_PAD }
@@ -91,7 +91,7 @@ const OLD_LABELS: Record<string, DeckKind> = {
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
-  const laidOut = clearDeckAreas(layDecks(raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs)))), defs))))
+  const laidOut = packAreas(clearDeckAreas(layDecks(raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs)))), defs)))))
   return settle(placeOnSpots(laidOut, defs))
 }
 
@@ -240,7 +240,7 @@ function layDecks(t: Table): Table {
  * they now are move right, past the last of them.
  */
 function clearDeckAreas(t: Table): Table {
-  if ((t.layout ?? 0) >= LAYOUT) return t
+  if ((t.layout ?? 0) >= 4) return t
   const laid = settle(t)
   const areas = allAreas(laid).filter((a) => a.deck)
   const left = Math.min(...areas.map((a) => a.x))
@@ -256,6 +256,35 @@ function clearDeckAreas(t: Table): Table {
     }),
   )
   const tokens = laid.tokens.map((k) => (inRow(k.x + TOKEN_SIZE / 2, k.y + TOKEN_SIZE / 2) ? { ...k, x: k.x + dx } : k))
+  return { ...laid, stacks, tokens, layout: 4 }
+}
+
+/**
+ * The areas used to lie near places leaving room for them to grow, far apart (`Table.layout` < 5); now each lies next
+ * to the one before it (`settleLayout()`), moving with its cards. The piles and figures lying outside the areas that an
+ * area now lies on move right, past the areas.
+ */
+function packAreas(t: Table): Table {
+  if ((t.layout ?? 0) >= LAYOUT) return t
+  const outside = (x: number, y: number) => !allAreas(t).some((a) => x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h)
+  const piles = t.z.filter((id) => !isFixed(t.stacks[id]) && !areaForCard(t, t.stacks[id].x, t.stacks[id].y))
+  const figures = t.tokens.filter((k) => outside(k.x + TOKEN_SIZE / 2, k.y + TOKEN_SIZE / 2)).map((k) => k.id)
+  const laid = settle(t)
+  const areas = allAreas(laid)
+  const covered = (x: number, y: number, w: number, h: number) =>
+    areas.some((a) => x < a.x + a.w && x + w > a.x && y < a.y + a.h && y + h > a.y)
+  const moved = new Set([
+    ...piles.filter((id) => covered(laid.stacks[id].x, laid.stacks[id].y, CARD_W, CARD_H)),
+    ...figures.filter((id) => {
+      const k = laid.tokens.find((k) => k.id === id)!
+      return covered(k.x, k.y, TOKEN_SIZE, TOKEN_SIZE)
+    }),
+  ])
+  if (!moved.size) return { ...laid, layout: LAYOUT }
+  const left = Math.min(...[...Object.values(laid.stacks), ...laid.tokens].filter((p) => moved.has(p.id)).map((p) => p.x))
+  const dx = Math.max(...areas.map((a) => a.x + a.w)) + CARD_W / 2 - left
+  const stacks = Object.fromEntries(Object.entries(laid.stacks).map(([id, s]) => [id, moved.has(id) ? { ...s, x: s.x + dx } : s]))
+  const tokens = laid.tokens.map((k) => (moved.has(k.id) ? { ...k, x: k.x + dx } : k))
   return { ...laid, stacks, tokens, layout: LAYOUT }
 }
 

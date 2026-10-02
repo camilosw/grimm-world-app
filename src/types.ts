@@ -86,7 +86,7 @@ export interface Table {
   hand?: CardRef[]
   /** Version of the area layout the cards lie in (missing: before the Storybook area grew for its Encounter Card). */
   layout?: number
-  /** How far each area pushed by a growing one lies from its place in `AREAS`, with its spots (missing: not moved). */
+  /** How far each area lies from its place in `AREAS`, with its spots, as `settleLayout()` laid it out (missing: not moved). */
   shifts?: Record<string, { x: number; y: number }>
   /** Frames of the growing areas as last laid out: a card dropped on one belongs to that area (`settleLayout()`). */
   frames?: Record<string, { x: number; y: number; w: number; h: number }>

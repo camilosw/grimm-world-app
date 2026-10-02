@@ -62,11 +62,14 @@ back where it came from. Space outside the areas takes any card. **📍 Areas** 
 
 The Map area is just large enough for its places. The Encounter Bar, Character, Storage and Home areas are only as large
 as their places and the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
-overlaps most), and the frame grows around it — there is no limit. A growing area pushes the areas right of it and below
-it away, with everything lying in them (cards, places, figures): Storage stays right of Character, the Storybook and Home
-right of Storage, the four deck areas right of the Storybook, Home below the Storybook and the deck areas, the battlefield below them all, and all of them below the Map and the
-Encounter Bar. An area growing toward the one before it (Storage growing left into Character, say) moves itself instead.
-Pushed areas move back as the area pushing them shrinks. Undo puts everything back as it was.
+overlaps most), and the frame grows around it — there is no limit.
+
+The areas lie close together, a small gap apart, in three rows: the Map with the Encounter Bar right of it; below them
+Character, Storage, the Storybook and the four deck areas, two by two (Quest and Enemy Deck above Training Deck and Banned
+Cards); and Home below Character and Storage. The battlefield goes below them all. A growing area pushes the areas right
+of it and below it away, with everything lying in them (cards, places, figures), and Home moves down below any area it
+grows under. An area growing toward the one before it (Storage or Home growing left with their Goods, say) moves itself
+instead. Pushed areas move back as the area pushing them shrinks. Undo puts everything back as it was.
 
 | Area          | Takes                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -144,8 +147,8 @@ dropped on or near it, one at a time, and nothing else; reordering and taking ca
 Left of the extensions is a row of up to 16 Goods, right of them a row of up to 4 Equipment cards (Encounter Cards). The
 first card of each row is slid under the outer extension, each further one under the one before: Goods show their left
 third, as in the Storage area, Equipment only a narrow strip. The Home area grows to the left as Goods are added and to
-the right as Equipment is added, always leaving room for the next card; the House Card stays where it is (unless the
-Storage area pushes the Home area away). A 17th Goods card or a 5th Equipment card is refused.
+the right as Equipment is added, always leaving room for the next card; since the area keeps its left edge in line with
+the Character area, the House Card moves right as Goods are added. A 17th Goods card or a 5th Equipment card is refused.
 
 **Storybook area.** The storybook lies face down on the right; the revealed cards lie on the left, the top one being
 the current chapter. Tap the storybook to turn over its next card; tap the revealed cards to put the top one back on
