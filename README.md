@@ -29,7 +29,11 @@ npm install
 npm run dev -- --host      # open http://<your-pc-ip>:5173 on the tablet
 ```
 
-On the tablet, use _Add to Home Screen_ for a full-screen app. The table saves automatically in the browser.
+On the tablet, use _Add to Home Screen_ (or _Install_) for a full-screen app. The table saves automatically in the browser.
+Once deployed (`npm run build` / step 3; the service worker is off in `npm run dev`), the app works offline: its files, card
+images and rules pages are cached as you use them, so open what you need once while online. When you deploy a new
+version, it shows up on the next online launch. Bump `CACHE` in `public/sw.js` to drop cached files that changed
+under the same name. Icons: `uv run scripts/make_icons.py`.
 Use **☰ → Export save** to keep a copy.
 
 ## 3. Deploy to Vercel
