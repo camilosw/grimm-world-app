@@ -1,6 +1,6 @@
-import { addStack, mergeStacks, returnToDecks, settleSpots, sortStack, takeCard } from './actions'
-import { CARD_H, CARD_W, compareCards } from './cards'
-import { AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, family, SPOTS, spotPlace, stacksOnSpot, STORY_SLOTS } from './areas'
+import { addStack, mergeStacks, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
+import { CARD_H, CARD_W, compareCards, TOKEN_SIZE } from './cards'
+import { AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, family, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardManifest, CardRef, Stack, Table } from './types'
 
@@ -14,7 +14,7 @@ function shuffled<T>(list: T[]): T[] {
 }
 
 /** Current version of the area layout (`Table.layout`). */
-const LAYOUT = 1
+const LAYOUT = 2
 
 /** Every card used in play: all of them except the title card. */
 export function playableCards(manifest: CardManifest): CardDef[] {
@@ -63,7 +63,7 @@ export function initialTable(manifest: CardManifest): Table {
   }
   table = { ...table, dock: table.z, z: [] }
   const story = contents.storybook.map((c) => ({ id: c.id, faceUp: false }))
-  return addStorySlots(table, story)
+  return settle(addStorySlots(table, story))
 }
 
 /** The storybook's two fixed places in its area: the face-down deck (right) and the revealed cards (left). */
@@ -81,7 +81,7 @@ const OLD_LABELS: Record<string, DeckKind> = {
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
-  return settleSpots(placeOnSpots(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs))), defs))
+  return settle(placeOnSpots(shrinkMap(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs)))), defs))
 }
 
 /** The hand is gone: cards still held in it go back to their decks. */
@@ -121,7 +121,7 @@ function widenStorage(t: Table): Table {
  * the cards and figures lying in it.
  */
 function lowerHome(t: Table): Table {
-  if (t.layout === LAYOUT) return t
+  if ((t.layout ?? 0) >= 1) return t
   const story = AREAS.find((a) => a.id === 'storybook')!
   // The Home area as it was then: two cards wide, 1.4 high.
   const home = { ...AREAS.find((a) => a.id === 'home')!, w: 2 * CARD_W + 2 * AREA_PAD, h: 1.4 * CARD_H + AREA_HEADER + AREA_PAD }
@@ -132,15 +132,43 @@ function lowerHome(t: Table): Table {
   const stacks = Object.fromEntries(
     Object.entries(t.stacks).map(([id, s]) => [id, t.z.includes(id) && !s.slot && inOldHome(s) ? { ...s, y: s.y + dy } : s]),
   )
-  return { ...t, stacks, tokens: t.tokens.map((k) => (inOldHome(k) ? { ...k, y: k.y + dy } : k)), layout: LAYOUT }
+  return { ...t, stacks, tokens: t.tokens.map((k) => (inOldHome(k) ? { ...k, y: k.y + dy } : k)), layout: 1 }
+}
+
+/**
+ * The Map area used to be five cards wide and two high, with the Region Cards
+ * in its middle: it shrank around their places, and the Encounter Bar right of
+ * it moved left as far. The cards and figures lying in them move with them.
+ */
+function shrinkMap(t: Table): Table {
+  if ((t.layout ?? 0) >= 2) return t
+  const map = AREAS.find((a) => a.id === 'map')!
+  const bar = AREAS.find((a) => a.id === 'bar')!
+  const old = { w: 5 * CARD_W + 2 * AREA_PAD, h: 2 * CARD_H + AREA_HEADER + AREA_PAD }
+  const gap = bar.x - map.x - map.w
+  // The Region Cards lay in the middle of the old Map area, and now lie in the middle of the new one.
+  const mapShift = { x: (map.w - old.w) / 2, y: (map.h - old.h) / 2 }
+  const barShift = { x: map.w - old.w, y: 0 }
+  const shift = <P extends { x: number; y: number }>(p: P, w: number, h: number): P => {
+    const cx = p.x + w / 2
+    const cy = p.y + h / 2
+    const inRow = cx > map.x - gap / 2 && cy > map.y - gap / 2 && cy < map.y + Math.max(old.h, bar.h) + gap / 2
+    const d = !inRow ? null : cx < map.x + old.w + gap / 2 ? mapShift : cx < map.x + old.w + gap + bar.w + gap / 2 ? barShift : null
+    return d ? { ...p, x: p.x + d.x, y: p.y + d.y } : p
+  }
+  const stacks = Object.fromEntries(
+    Object.entries(t.stacks).map(([id, s]) => [id, t.z.includes(id) && !s.slot ? shift(s, CARD_W, CARD_H) : s]),
+  )
+  return { ...t, stacks, tokens: t.tokens.map((k) => shift(k, TOKEN_SIZE, TOKEN_SIZE)), layout: LAYOUT }
 }
 
 /** Cards with a spot of their own (Character, Alignment, Money and Region Cards) lying elsewhere on the table move onto it. */
 function placeOnSpots(t: Table, defs: Record<string, CardDef>): Table {
   let next = t
-  for (const spot of SPOTS.filter((s) => s.attracts)) {
+  const spots = spotsOf(t)
+  for (const spot of spots.filter((s) => s.attracts)) {
     // A card on any of its family's places (the four Region Card places) is in place.
-    const placed = new Set(SPOTS.filter((s) => s.attracts && s.family === spot.family).flatMap((s) => stacksOnSpot(next, s)))
+    const placed = new Set(spots.filter((s) => s.attracts && s.family === spot.family).flatMap((s) => stacksOnSpot(next, s)))
     for (const id of t.z) {
       const s = next.stacks[id]
       if (!s || s.slot) continue

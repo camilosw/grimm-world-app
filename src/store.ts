@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { settleSpots } from './actions'
+import { settle } from './actions'
 import type { Table } from './types'
 
 const STORAGE_KEY = 'grimm-world:table:v1'
@@ -46,8 +46,8 @@ export function resetTable(next: Table) {
 /** Apply a pure change. Returning the same object means "nothing happened". */
 export function update(fn: (t: Table) => Table) {
   if (!table) return
-  // However cards got there or left, a row of Money Cards stays without gaps.
-  const next = settleSpots(fn(table))
+  // However cards got there or left, a row of Money Cards stays without gaps and the areas keep apart.
+  const next = settle(fn(table))
   if (next === table) return
   past.push(table)
   if (past.length > HISTORY_LIMIT) past.shift()

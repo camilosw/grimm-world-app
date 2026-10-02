@@ -1,4 +1,4 @@
-import { CARD_H, CARD_W, cardBox, type Turn } from "./cards";
+import { CARD_H, CARD_W, cardBox, TOKEN_SIZE, type Turn } from "./cards";
 import type { Battlefield, CardDef, CardType, StorySlot, Table } from "./types";
 
 /** Card families used by the area rules (B- and X-Encounter Cards behave the same). */
@@ -32,9 +32,25 @@ function box(cols: number, rows: number) {
   };
 }
 
-const map = { x: 0, y: 0, ...box(5, 2) };
+/**
+ * Part of a Market Prices card's width, as it lies landscape, showing beside its Region Card; the rest lies under it.
+ * Just its price strip, as in rulebook figure 63.
+ */
+const MARKET_SHOWS = 0.17;
+/** Width of a Market Prices card's price strip showing beside its Region Card. */
+const marketStrip = Math.round(MARKET_SHOWS * CARD_H);
+// Just large enough for the Region Card places, landscape, two by two, with the Market Prices strips beside them (see
+// SPOTS).
+const map = {
+  x: 0,
+  y: 0,
+  w: 2 * CARD_H + 2 * marketStrip + AREA_PAD * 2,
+  h: 2 * CARD_W + AREA_HEADER + AREA_PAD,
+};
 const bar = { x: map.x + map.w + GAP, y: 0, ...box(6, 2) };
-const character = { x: 0, y: map.h + GAP, ...box(5, 3) };
+// Below the Encounter Bar, which is taller than the Map. The Character, Storage and Home areas are drawn only as large
+// as the cards in them need (`measure()`): these sizes just place them, with room around them to grow.
+const character = { x: 0, y: Math.max(map.h, bar.h) + GAP, ...box(5, 3) };
 // Five wide, leaving room right of the Money Cards fanned out from the Storage Card (see SPOTS).
 const storage = { x: character.w + GAP, y: character.y, ...box(5, 3) };
 /** Part of the revealed storybook card's height covered by the Encounter Card lying on its bottom edge. */
@@ -68,7 +84,7 @@ const HOME_LEFT =
 const HOME_RIGHT =
   HOUSE_SIDE_CARDS * HOUSE_SIDE_SHOWS + EQUIPMENT_CARDS * EQUIPMENT_SHOWS;
 // The House Card with its extensions around it, and room for all the Goods to their left and the Equipment to their
-// right (see SPOTS). Drawn only as wide as the Goods and Equipment laid out need (`homeArea()`).
+// right (see SPOTS).
 const home = {
   x: story.x,
   y: story.y + story.h + GAP,
@@ -123,10 +139,10 @@ export interface Spot {
   shows?: number;
   /**
    * One card per place, in a row growing away from the `under` card, each slid under the one before as far as the
-   * first lies under that card: at most `count` of them, or any number, closer together once they fill `room`.
+   * first lies under that card: at most `count` of them (`Infinity`: any number, the area growing with the row).
    * With `count: 1`, the spot holds a single card.
    */
-  fan?: { count: number } | { room: number };
+  fan?: { count: number };
   /** The storybook place whose top card this spot's card lies on. */
   over?: StorySlot;
   /** Cards of the family dropped anywhere in its area go here. */
@@ -144,7 +160,7 @@ type Point = { x: number; y: number };
 
 /** Most cards a fanned spot holds. */
 function fanMax(spot: Spot): number {
-  return spot.fan && "count" in spot.fan ? spot.fan.count : Infinity;
+  return spot.fan?.count ?? 1;
 }
 
 /** Whether a spot lies below or above the card covering it, so its row runs down or up. */
@@ -159,30 +175,17 @@ function lyingSize(spot: Spot): { w: number; h: number } {
   return { w: width, h: height };
 }
 
-/** Signed distance between the places of a fanned spot holding `n` cards (negative: the row grows to the left or up). */
-function fanStep(spot: Spot, n: number): number {
+/** Signed distance between the places of a fanned spot (negative: the row grows to the left or up). */
+function fanStep(spot: Spot): number {
   const side = coveredSide(spot);
   const dir = side === "right" || side === "bottom" ? -1 : 1;
   const size = lyingSize(spot);
-  const full = (spot.shows ?? 0.5) * (vertical(spot) ? size.h : size.w);
-  const room = spot.fan && "room" in spot.fan ? spot.fan.room : Infinity;
-  return dir * Math.min(full, n > 1 ? room / (n - 1) : full);
+  return dir * (spot.shows ?? 0.5) * (vertical(spot) ? size.h : size.w);
 }
 
-/** How far a fanned spot's row may reach from its first place. */
-function fanReach(spot: Spot): number {
-  if (!spot.fan) return 0;
-  return "room" in spot.fan
-    ? spot.fan.room
-    : Math.abs(fanStep(spot, spot.fan.count)) * (spot.fan.count - 1);
-}
-
-/** Top-left corners of a spot's places: one, or a row of them for a fanned spot holding `n` cards (default: all). */
-export function spotPlaces(
-  spot: Spot,
-  n = spot.fan ? fanMax(spot) : 1,
-): Point[] {
-  const step = fanStep(spot, n);
+/** Top-left corners of a spot's places: one, or the first `n` of a fanned spot's row. */
+export function spotPlaces(spot: Spot, n = 1): Point[] {
+  const step = fanStep(spot);
   const [dx, dy] = vertical(spot) ? [0, step] : [step, 0];
   return Array.from({ length: spot.fan ? n : 1 }, (_, i) => ({
     x: Math.round(spot.x + i * dx),
@@ -190,13 +193,9 @@ export function spotPlaces(
   }));
 }
 
-/** Whether a fanned spot's row has room for one more card at full spacing, so its next place can be shown. */
+/** Whether a fanned spot's row has room for one more card, so its next place can be shown. */
 export function fanHasPlace(t: Table, spot: Spot): boolean {
-  const n = fanRow(t, spot).length + 1;
-  return (
-    n <= fanMax(spot) &&
-    Math.abs(fanStep(spot, n)) === Math.abs(fanStep(spot, 1))
-  );
+  return fanRow(t, spot).length < fanMax(spot);
 }
 
 /** Table pile lying exactly at a place (other than `exclude`). */
@@ -217,22 +216,39 @@ export function stacksOnSpot(t: Table, spot: Spot): string[] {
   );
 }
 
-/** Piles lying in a fanned spot's row (on a place, or just dropped between two), from its first place on. */
+/** Most places in a row between two of its cards: the gap left by cards just taken away, until `settleSpots()`. */
+const FAN_GAP = 3;
+
+/**
+ * Piles lying in a fanned spot's row (on a place, or just dropped between two), from its first place on: the first and
+ * each further one at most `FAN_GAP` places beyond the one before, at most `count` of them.
+ */
 export function fanRow(
   t: Table,
   spot: Spot,
   exclude: string | null = null,
 ): string[] {
-  const dir = Math.sign(fanStep(spot, 1));
+  const step = Math.abs(fanStep(spot));
   const v = vertical(spot);
   const along = (id: string) =>
-    (v ? t.stacks[id].y - spot.y : t.stacks[id].x - spot.x) * dir;
-  const inRow = (id: string) =>
-    id !== exclude &&
-    (v ? t.stacks[id].x === spot.x : t.stacks[id].y === spot.y) &&
-    along(id) >= -1 &&
-    along(id) <= fanReach(spot) + 1;
-  return t.z.filter(inRow).sort((a, b) => along(a) - along(b));
+    (v ? t.stacks[id].y - spot.y : t.stacks[id].x - spot.x) *
+    Math.sign(fanStep(spot));
+  const inLine = t.z
+    .filter(
+      (id) =>
+        id !== exclude &&
+        (v ? t.stacks[id].x === spot.x : t.stacks[id].y === spot.y) &&
+        along(id) >= -1,
+    )
+    .sort((a, b) => along(a) - along(b));
+  const row: string[] = [];
+  let reach = FAN_GAP * step + 1;
+  for (const id of inLine) {
+    if (along(id) > reach || row.length >= fanMax(spot)) break;
+    row.push(id);
+    reach = along(id) + FAN_GAP * step + 1;
+  }
+  return row;
 }
 
 /**
@@ -255,7 +271,7 @@ export function spotPlace(
   if (others.length >= fanMax(spot)) return null;
   // Measured along the row, in places as spaced once the card is in it.
   const v = vertical(spot);
-  const step = fanStep(spot, others.length + 1);
+  const step = fanStep(spot);
   const [pos, off] = v ? [y - spot.y, x - spot.x] : [x - spot.x, y - spot.y];
   const [length, breadth] = v ? [CARD_H, CARD_W] : [CARD_W, CARD_H];
   const along = (pos * Math.sign(step)) / Math.abs(step);
@@ -284,13 +300,15 @@ export type Side = "left" | "right" | "top" | "bottom";
 
 /** The spot turning the card lying on it (Market Prices) that pile `id` lies on, if any. */
 export function turnedSpot(t: Table, id: string): Spot | undefined {
-  return SPOTS.find((s) => s.turn && stacksOnSpot(t, s).includes(id));
+  return spotsOf(t).find((s) => s.turn && stacksOnSpot(t, s).includes(id));
 }
 
 /** Which side of a spot's card is covered by the card of the spot it lies under. */
 export function coveredSide(spot: Spot): Side | null {
+  // Where they lie in `SPOTS`: moved with their area, they lie the same way side by side.
   const cover = SPOTS.find((s) => s.id === spot.under);
   if (!cover) return null;
+  spot = SPOTS.find((s) => s.id === spot.id) ?? spot;
   if (cover.x !== spot.x) return cover.x > spot.x ? "right" : "left";
   return cover.y > spot.y ? "bottom" : "top";
 }
@@ -315,23 +333,16 @@ const houseSpot = {
 const GOODS_BELOW_SHOWS = 0.21;
 const goodsX = Math.round(storageSpot.x - GOODS_LEFT_SHOWS * CARD_W);
 const goodsBelowY = Math.round(storageSpot.y + GOODS_BELOW_SHOWS * CARD_H);
-/** Top-left corner of the Region Cards laid out landscape, edge to edge, two by two in the middle of the Map area. */
+/** Top-left corner of the Region Cards laid out landscape, edge to edge, two by two between the Market Prices strips. */
 const regionGrid = {
-  x: map.x + (map.w - 2 * CARD_H) / 2,
-  y: map.y + AREA_HEADER + (map.h - AREA_HEADER - AREA_PAD - 2 * CARD_W) / 2,
+  x: map.x + AREA_PAD + marketStrip,
+  y: map.y + AREA_HEADER,
 };
 /** Place of the i-th Region Card (left to right, top to bottom): a portrait card's, the Region Card lies across it. */
 const regionPlace = (i: number) => ({
   x: regionGrid.x + (i % 2) * CARD_H + (CARD_H - CARD_W) / 2,
   y: regionGrid.y + Math.floor(i / 2) * CARD_W + (CARD_W - CARD_H) / 2,
 });
-/**
- * Part of a Market Prices card's width, as it lies landscape, showing beside its Region Card; the rest lies under it.
- * Just its price strip, as in rulebook figure 63. At most about 0.79: the room between a Region Card and the edge of
- * the Map area, `(regionGrid.x - map.x - AREA_PAD) / CARD_H`.
- */
-const MARKET_SHOWS = 0.17;
-
 export const SPOTS: Spot[] = [
   // Four places, one Region Card each. A spot's place is a portrait card's; the Region Card lies across it.
   ...[0, 1, 2, 3].map(
@@ -352,7 +363,7 @@ export const SPOTS: Spot[] = [
   ...[0, 1, 2, 3].map((i): Spot => {
     const left = i % 2 === 0;
     // Both lie landscape, so the shown part of the card is as wide as its place is away from the Region Card's.
-    const offset = (left ? -1 : 1) * Math.round(MARKET_SHOWS * CARD_H);
+    const offset = (left ? -1 : 1) * marketStrip;
     return {
       id: `market-${i + 1}`,
       label: "Market Prices",
@@ -412,7 +423,7 @@ export const SPOTS: Spot[] = [
     fan: { count: 3 },
   },
   // Slid under the left side of the Storage Card so only their left third shows, and each further one likewise under
-  // the one before (rulebook 4.7.4). Any number of them: once they reach the left edge of the area they close up.
+  // the one before (rulebook 4.7.4). Any number of them: the area grows with the row.
   {
     id: "goods",
     label: "Goods",
@@ -424,10 +435,9 @@ export const SPOTS: Spot[] = [
     y: storageSpot.y,
     under: "storage",
     shows: GOODS_LEFT_SHOWS,
-    fan: { room: goodsX - (storage.x + AREA_PAD) },
+    fan: { count: Infinity },
   },
-  // The same below the Storage Card: only their bottom part shows, each further one under the one before, closing up
-  // once they reach the bottom edge of the area.
+  // The same below the Storage Card: only their bottom part shows, each further one under the one before.
   {
     id: "goods-below",
     label: "Goods",
@@ -439,7 +449,7 @@ export const SPOTS: Spot[] = [
     y: goodsBelowY,
     under: "storage",
     shows: GOODS_BELOW_SHOWS,
-    fan: { room: storage.y + storage.h - AREA_PAD - CARD_H - goodsBelowY },
+    fan: { count: Infinity },
   },
   // Below the revealed storybook cards, lying over the bottom edge of the top one. A single card: it takes the
   // Storybook area's only Encounter Card.
@@ -576,25 +586,244 @@ export function enemyOrigin(b: Battlefield): { x: number; y: number } {
   };
 }
 
-/**
- * The Home area as wide as its rows need: from the place of the last Goods card (or the next one, while there is room)
- * to that of the last Equipment card. The House Card keeps its place; the area grows left and right around it.
- */
-export function homeArea(t: Table): Area {
-  const last = (id: string): Point => {
-    const spot = SPOTS.find((s) => s.id === id)!;
-    const n = Math.min(fanRow(t, spot).length, fanMax(spot) - 1);
-    return spotPlaces(spot, n + 1)[n];
-  };
-  const x = last("home-goods").x - AREA_PAD;
-  const right = last("home-equipment").x + CARD_W + AREA_PAD;
-  return { ...AREAS.find((a) => a.id === "home")!, x, w: right - x };
+/** The place of a fanned spot's next card while it has room for one, else that of its last card. */
+function rowEnd(t: Table, spot: Spot): Point {
+  const n = fanRow(t, spot).length;
+  return fanHasPlace(t, spot)
+    ? spotPlaces(spot, n + 1)[n]
+    : spotPlaces(spot, n)[n - 1];
 }
 
-/** The areas as laid out on the table: the Home area fitted to its rows, and the battlefield if there is one. */
+type Rect = { x: number; y: number; w: number; h: number };
+
+/**
+ * Areas drawn only as large as what lies in them needs: their places (a fanned row as far as its next place) and the
+ * piles lying on or overlapping them. Each grows around the cards added to it, pushing the areas right of it and below
+ * it away (`settleLayout()`).
+ */
+const GROWING = ["character", "storage", "home"];
+
+const NO_SHIFT: Point = { x: 0, y: 0 };
+
+/** How far an area and everything in it lies from its place in `AREAS` / `SPOTS`, pushed by the areas before it. */
+function shiftOf(t: Table, area: string): Point {
+  return t.shifts?.[area] ?? NO_SHIFT;
+}
+
+const shiftedSpots = new WeakMap<Table, Spot[]>();
+
+/** The spots as they lie on this table: moved with their areas (`Table.shifts`). Use these, not `SPOTS`, for positions. */
+export function spotsOf(t: Table): Spot[] {
+  let spots = shiftedSpots.get(t);
+  if (!spots) {
+    spots = SPOTS.map((s) => {
+      const d = shiftOf(t, s.area);
+      return d.x || d.y ? { ...s, x: s.x + d.x, y: s.y + d.y } : s;
+    });
+    shiftedSpots.set(t, spots);
+  }
+  return spots;
+}
+
+function inRect(r: Rect, x: number, y: number): boolean {
+  return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+}
+
+/** Area in which two rectangles overlap. */
+function overlap(a: Rect, b: Rect): number {
+  const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+  const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+  return w > 0 && h > 0 ? w * h : 0;
+}
+
+function cardRect(x: number, y: number, landscape = false): Rect {
+  const b = cardBox(x, y, landscape);
+  return { x: b.left, y: b.top, w: b.width, h: b.height };
+}
+
+/** The frame of an area around the cards lying in it. */
+function frameAround(boxes: Rect[]): Rect {
+  const x = Math.min(...boxes.map((b) => b.x)) - AREA_PAD;
+  const y = Math.min(...boxes.map((b) => b.y)) - AREA_HEADER;
+  const right = Math.max(...boxes.map((b) => b.x + b.w)) + AREA_PAD;
+  const bottom = Math.max(...boxes.map((b) => b.y + b.h)) + AREA_PAD;
+  return { x, y, w: right - x, h: bottom - y };
+}
+
+/** The growing area a card at (x, y) belongs to, if any: the one it overlaps most. */
+function mostOverlapped<R extends Rect & { id: string }>(
+  frames: R[],
+  x: number,
+  y: number,
+): R | undefined {
+  const box = cardRect(x, y);
+  let best: R | undefined;
+  let most = 0;
+  for (const f of frames) {
+    const o = overlap(f, box);
+    if (o > most) [best, most] = [f, o];
+  }
+  return best;
+}
+
+interface Measured {
+  /** The areas where they lie on this table. */
+  areas: Area[];
+  /** The area each table pile belongs to (none: it lies outside the areas). */
+  owner: Map<string, string>;
+}
+
+const measured = new WeakMap<Table, Measured>();
+
+/**
+ * The areas as they lie on this table, and the area each table pile belongs to: the area of fixed size containing its
+ * center (the storybook places: the Storybook area), else the growing area it overlaps most. The growing areas start
+ * as framed when last laid out (`Table.frames`), so a card dropped on a frame belongs to that area; then each is framed
+ * around its places and piles, taking in any further pile it comes to overlap.
+ */
+function measure(t: Table): Measured {
+  const known = measured.get(t);
+  if (known) return known;
+  const spots = spotsOf(t);
+  const fixed: Area[] = AREAS.filter((a) => !GROWING.includes(a.id)).map(
+    (a) => {
+      const d = shiftOf(t, a.id);
+      return { ...a, x: a.x + d.x, y: a.y + d.y };
+    },
+  );
+  if (t.battlefield) fixed.push(battlefieldArea(t.battlefield));
+  const owner = new Map<string, string>();
+  const loose: string[] = [];
+  for (const id of t.z) {
+    const s = t.stacks[id];
+    const area = s.slot
+      ? "storybook"
+      : fixed.find((a) => inRect(a, s.x + CARD_W / 2, s.y + CARD_H / 2))?.id;
+    if (area) owner.set(id, area);
+    else loose.push(id);
+  }
+  const frame = (area: string) => ({
+    id: area,
+    ...frameAround([
+      ...spots
+        .filter((s) => s.area === area)
+        .flatMap((s) =>
+          (s.fan ? [s, rowEnd(t, s)] : [s]).map((p) =>
+            cardRect(p.x, p.y, !!s.landscape),
+          ),
+        ),
+      ...loose
+        .filter((id) => owner.get(id) === area)
+        .map((id) => cardRect(t.stacks[id].x, t.stacks[id].y)),
+    ]),
+  });
+  /** Give the piles not yet in an area that overlap one of these frames to that area. */
+  const takeIn = (frames: (Rect & { id: string })[]) => {
+    let taken = false;
+    for (const id of loose) {
+      const f =
+        !owner.has(id) &&
+        mostOverlapped(frames, t.stacks[id].x, t.stacks[id].y);
+      if (!f) continue;
+      owner.set(id, f.id);
+      taken = true;
+    }
+    return taken;
+  };
+  takeIn(GROWING.map((id) => ({ id, ...(t.frames?.[id] ?? frame(id)) })));
+  let frames = GROWING.map(frame);
+  while (takeIn(frames)) frames = GROWING.map(frame);
+  const areas = AREAS.map((a) => {
+    const f = frames.find((f) => f.id === a.id);
+    return f ? { ...a, ...f } : fixed.find((b) => b.id === a.id)!;
+  });
+  if (t.battlefield) areas.push(fixed[fixed.length - 1]);
+  const m = { areas, owner };
+  measured.set(t, m);
+  return m;
+}
+
+/** The areas as they lie on the table, and the battlefield if there is one. Use these, not `AREAS`. */
 export function allAreas(t: Table): Area[] {
-  const areas = AREAS.map((a) => (a.id === "home" ? homeArea(t) : a));
-  return t.battlefield ? [...areas, battlefieldArea(t.battlefield)] : areas;
+  return measure(t).areas;
+}
+
+const bottomOf = (r: Rect) => r.y + r.h;
+const rightOf = (r: Rect) => r.x + r.w;
+
+/** How far down the battlefield lies: below the Character, Storage, Storybook and Home areas. */
+function battlefieldTop(areas: Rect[]): number {
+  return Math.max(BATTLEFIELD_ORIGIN.y, ...areas.map(bottomOf).map((b) => b + GAP));
+}
+
+/** Where a battlefield built now goes: below the areas as they lie. */
+export function battlefieldOrigin(t: Table): Point {
+  const row = allAreas(t).filter((a) => !["map", "bar", "battlefield"].includes(a.id));
+  return { x: BATTLEFIELD_ORIGIN.x, y: battlefieldTop(row) };
+}
+
+/**
+ * Lay the areas out after a change, so that they keep apart however they grew: the Character, Storage and Storybook
+ * areas below the Map and the Encounter Bar, each right of the one before, the Home area below the Storybook area and
+ * right of the Storage area, and the battlefield below them all. An area pushed away moves right or down from its place
+ * in `AREAS` with everything lying in it (its spots, piles and figures, see `Table.shifts`), and moves back as the area
+ * pushing it shrinks. Returns the same table when nothing moves.
+ */
+export function settleLayout(t: Table): Table {
+  const { areas, owner } = measure(t);
+  const now = new Map(areas.map((a) => [a.id, a]));
+  const laid = new Map<string, Rect>();
+  const delta = new Map<string, Point>();
+  /** Put an area as near its own place as it may lie: at least at `min` (right of / below the areas before it). */
+  const put = (id: string, min: { x?: number; y?: number }) => {
+    const a = now.get(id)!;
+    const d = shiftOf(t, id);
+    // In whole units, so that the spots moved with it stay on the grid their rows are laid out on (less than half a
+    // unit too close is close enough).
+    const by = (to: number, from: number) => Math.ceil(to - from - 0.5);
+    const dx = by(Math.max(a.x - d.x, min.x ?? -Infinity), a.x);
+    const dy = by(Math.max(a.y - d.y, min.y ?? -Infinity), a.y);
+    laid.set(id, { x: a.x + dx, y: a.y + dy, w: a.w, h: a.h });
+    delta.set(id, { x: dx, y: dy });
+    return laid.get(id)!;
+  };
+  const top = Math.max(bottomOf(now.get("map")!), bottomOf(now.get("bar")!)) + GAP;
+  const character = put("character", { y: top });
+  const storage = put("storage", { x: rightOf(character) + GAP, y: top });
+  const story = put("storybook", { x: rightOf(storage) + GAP, y: top });
+  put("home", { x: rightOf(storage) + GAP, y: bottomOf(story) + GAP });
+  const b = t.battlefield;
+  if (b) {
+    const y = battlefieldTop([...laid.values()]);
+    delta.set("battlefield", { x: 0, y: Math.ceil(y - b.y - 0.5) });
+  }
+
+  const moves = [...delta].filter(([, d]) => d.x || d.y);
+  const frames = Object.fromEntries(GROWING.map((id) => [id, laid.get(id)!]));
+  const same = (a?: Rect, c?: Rect) =>
+    !!a && !!c && a.x === c.x && a.y === c.y && a.w === c.w && a.h === c.h;
+  if (!moves.length && GROWING.every((id) => same(t.frames?.[id], frames[id])))
+    return t;
+
+  const stacks = { ...t.stacks };
+  for (const [id, area] of owner) {
+    const d = delta.get(area);
+    if (d && (d.x || d.y))
+      stacks[id] = { ...stacks[id], x: stacks[id].x + d.x, y: stacks[id].y + d.y };
+  }
+  const tokens = t.tokens.map((k) => {
+    const c = { x: k.x + TOKEN_SIZE / 2, y: k.y + TOKEN_SIZE / 2 };
+    const move = moves.find(([id]) => inRect(now.get(id)!, c.x, c.y));
+    return move ? { ...k, x: k.x + move[1].x, y: k.y + move[1].y } : k;
+  });
+  const shifts = { ...t.shifts };
+  for (const [id, d] of moves) {
+    if (id === "battlefield") continue;
+    const old = shiftOf(t, id);
+    shifts[id] = { x: old.x + d.x, y: old.y + d.y };
+  }
+  const battlefield = b && { ...b, y: b.y + delta.get("battlefield")!.y };
+  return { ...t, stacks, tokens, shifts, frames, ...(b ? { battlefield } : {}) };
 }
 
 /** The one area for card families that have a dedicated place. */
@@ -641,18 +870,24 @@ export function acceptsText(area: Area): string {
   return area.accepts.map((f) => SHORT_NAMES[f]).join(" · ");
 }
 
-/** The area containing a table point (card center). */
-export function areaAt(t: Table, x: number, y: number): Area | null {
-  return (
-    allAreas(t).find(
-      (a) => x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h,
-    ) ?? null
-  );
-}
-
-/** Area containing the center of a card whose top-left corner is at (x, y). */
+/**
+ * The area a card whose top-left corner is at (x, y) lies in: the area of fixed size containing its center, else the
+ * growing area it overlaps most (as `measure()` decides for the piles on the table).
+ */
 export function areaForCard(t: Table, x: number, y: number): Area | null {
-  return areaAt(t, x + CARD_W / 2, y + CARD_H / 2);
+  const areas = allAreas(t);
+  return (
+    areas.find(
+      (a) =>
+        !GROWING.includes(a.id) && inRect(a, x + CARD_W / 2, y + CARD_H / 2),
+    ) ??
+    mostOverlapped(
+      areas.filter((a) => GROWING.includes(a.id)),
+      x,
+      y,
+    ) ??
+    null
+  );
 }
 
 /** Why these cards may not be placed in `area` (null = allowed; free table space takes anything). */
@@ -684,7 +919,7 @@ function spotAt(
   const places = (spot: Spot) =>
     spotPlaces(
       spot,
-      fanMax(spot) === Infinity ? fanRow(t, spot).length + 1 : undefined,
+      fanMax(spot) === Infinity ? fanRow(t, spot).length + 1 : fanMax(spot),
     );
   // Laid right on the place, or with its middle over the part of the place left showing beside a covering card.
   const shown = (spot: Spot): Point => {
@@ -695,7 +930,7 @@ function spotAt(
     const { w, h } = lyingSize(spot);
     return { x: (dx * hidden * w) / 2, y: (dy * hidden * h) / 2 };
   };
-  const near = SPOTS.flatMap((spot) =>
+  const near = spotsOf(t).flatMap((spot) =>
     places(spot).map((place) => ({
       spot,
       place,
@@ -723,19 +958,20 @@ function spotAt(
  */
 export function drawOrder(t: Table): string[] {
   let z = t.z;
-  for (const spot of SPOTS) {
+  const spots = spotsOf(t);
+  for (const spot of spots) {
     if (!spot.under && !spot.fan) continue;
     const below = stacksOnSpot(t, spot).reverse();
     if (!below.length) continue;
     // Under the lowest card of the covering spot (the last of a fanned row, e.g. the outer house extension).
-    const cover = SPOTS.find((s) => s.id === spot.under);
+    const cover = spots.find((s) => s.id === spot.under);
     const covering = cover ? stacksOnSpot(t, cover) : [];
     const first = Math.min(...below.map((id) => z.indexOf(id)));
     z = z.filter((id) => !below.includes(id));
     const above = Math.min(...covering.map((id) => z.indexOf(id)));
     z.splice(covering.length ? above : first, 0, ...below);
   }
-  for (const spot of SPOTS) {
+  for (const spot of spots) {
     if (!spot.over) continue;
     const on = stacksOnSpot(t, spot);
     const slot = z.find((id) => t.stacks[id].slot === spot.over);
@@ -776,13 +1012,13 @@ export function placement(
   const families = cardIds.map((id) => family(defs[id]));
   const own = ownSpot(
     t,
-    SPOTS.filter((s) => s.attracts && families.includes(s.family)),
+    spotsOf(t).filter((s) => s.attracts && families.includes(s.family)),
     moving,
     x,
     y,
   );
   if (own) {
-    const area = AREAS.find((a) => a.id === own.area)!;
+    const area = allAreas(t).find((a) => a.id === own.area)!;
     const mixed = families.every((f) => f === own.family)
       ? null
       : `The ${own.label} lies alone on its place in the ${area.label} area`;
@@ -800,11 +1036,11 @@ export function placement(
   // Nothing stacks onto a card in a fanned row, so dropped on one, the cards go to the place they are dropped on
   // (e.g. the Storage Card place, which the first Goods card overlaps until a Storage Card covers it).
   const fanned =
-    !!onto && SPOTS.some((s) => s.fan && fanRow(t, s).includes(onto));
+    !!onto && spotsOf(t).some((s) => s.fan && fanRow(t, s).includes(onto));
   const taken =
     (fanned && spotAt(t, x, y, families)) ||
     spotAt(t, at.x, at.y, families) ||
-    areaSpot(area, families);
+    areaSpot(t, area, families);
   if (!taken)
     return {
       x,
@@ -857,10 +1093,11 @@ function ownSpot(
 
 /** The spot taking cards of these families dropped anywhere in `area`, if any. */
 function areaSpot(
+  t: Table,
   area: Area | null,
   families: (Family | undefined)[],
 ): { spot: Spot; place: Point } | undefined {
-  const spot = SPOTS.find(
+  const spot = spotsOf(t).find(
     (s) =>
       s.fillsArea &&
       s.area === area?.id &&

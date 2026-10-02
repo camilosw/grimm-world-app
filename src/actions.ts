@@ -1,4 +1,4 @@
-import { AREA_HEADER, AREA_PAD, fanRow, SPOTS, spotPlaces, stacksOnSpot, turnedSpot } from './areas'
+import { AREA_HEADER, AREA_PAD, fanRow, settleLayout, spotPlaces, spotsOf, stacksOnSpot, turnedSpot } from './areas'
 import { CARD_H, CARD_W, compareCards, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
@@ -387,20 +387,26 @@ export function putUnderChapter(t: Table, stackId: string, chapter: number, defs
  */
 export function settleSpots(t: Table): Table {
   let next = t
-  for (const spot of SPOTS.filter((s) => s.fan)) {
+  const spots = spotsOf(t)
+  for (const spot of spots.filter((s) => s.fan)) {
     const row = fanRow(next, spot)
-    const places = spotPlaces(spot, Math.min(row.length, spot.fan && 'count' in spot.fan ? spot.fan.count : Infinity))
+    const places = spotPlaces(spot, row.length)
     row.forEach((id, i) => {
       const s = next.stacks[id]
       const p = places[Math.min(i, places.length - 1)]
       if (s.x !== p.x || s.y !== p.y) next = setStack(next, { ...s, x: p.x, y: p.y })
     })
   }
-  for (const spot of SPOTS.filter((s) => s.turn)) {
+  for (const spot of spots.filter((s) => s.turn)) {
     for (const id of stacksOnSpot(next, spot)) {
       const s = next.stacks[id]
       if (s.rot || s.cards.some((c) => !c.faceUp)) next = setStack(next, { ...s, rot: 0, cards: s.cards.map((c) => ({ ...c, faceUp: true })) })
     }
   }
   return next
+}
+
+/** Bring the table in order after any change: the spots laid out (`settleSpots()`), then the areas (`settleLayout()`). */
+export function settle(t: Table): Table {
+  return settleLayout(settleSpots(t))
 }

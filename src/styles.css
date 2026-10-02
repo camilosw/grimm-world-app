@@ -886,8 +886,15 @@ button.on {
   color: rgba(255, 245, 225, 0.8);
 }
 
+/* Growing areas start a card or two wide: what doesn't fit of the line of accepted cards is cut off. */
+.area-header > span {
+  min-width: 0;
+}
+
 .area-header small {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 20px;
   font-weight: 500;
   color: rgba(255, 245, 225, 0.4);

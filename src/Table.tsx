@@ -10,8 +10,8 @@ import {
   fanHasPlace,
   fanRow,
   placement,
-  SPOTS,
   spotPlaces,
+  spotsOf,
   stacksOnSpot,
   turnedSpot,
   type Area,
@@ -334,11 +334,12 @@ export function TableView(props: Props) {
   // Over the sidebar the table can't show the card, so it floats above everything.
   const ghost = drag?.zone && dragStack ? table.stacks[dragStack.id]?.cards.at(-1) : null
   // While a card is dragged along a row of Money Cards, the others make room for it.
-  const fanTo = dragStack?.whole && drag?.to && drag.area?.ok && SPOTS.some((s) => s.fan && s.id === drag.spot) ? drag.to : null
+  const spots = spotsOf(table)
+  const fanTo = dragStack?.whole && drag?.to && drag.area?.ok && spots.some((s) => s.fan && s.id === drag.spot) ? drag.to : null
   const shownTable = fanTo && dragStack ? settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y)) : table
-  const sliding = new Set(SPOTS.filter((s) => s.fan).flatMap((s) => fanRow(shownTable, s)))
-  const covered = new Map(SPOTS.filter((s) => s.under).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
-  const turned = new Map(SPOTS.flatMap((s) => (s.turn ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const) : [])))
+  const sliding = new Set(spots.filter((s) => s.fan).flatMap((s) => fanRow(shownTable, s)))
+  const covered = new Map(spots.filter((s) => s.under).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
+  const turned = new Map(spots.flatMap((s) => (s.turn ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const) : [])))
 
   return (
     <div
@@ -368,7 +369,7 @@ export function TableView(props: Props) {
             Enemies
           </div>
         )}
-        {SPOTS.map((spot) => {
+        {spots.map((spot) => {
           // A fanned spot shows its next free place, none when full (or, unlimited, closing up).
           const next = spot.fan ? fanRow(shownTable, spot).length : 0
           if (spot.fan && !fanHasPlace(shownTable, spot)) return null

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, TOKEN_SIZE } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
-import { allAreas, AREAS, areaForCard, BATTLEFIELD_ORIGIN, battlefieldArea, placement, turnedSpot, type Area } from './areas'
+import { allAreas, areaForCard, battlefieldArea, battlefieldOrigin, placement, turnedSpot, type Area } from './areas'
 import { DECK_SPECS, homeDeck } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
@@ -231,7 +231,7 @@ export default function App() {
     const el = areaRef.current
     if (!s || !el || !table) return
     if (s.slot) {
-      const area = AREAS.find((a) => a.id === 'storybook')!
+      const area = allAreas(table).find((a) => a.id === 'storybook')!
       return showArea(area)
     }
     if (A.isDocked(table, stackId)) {
@@ -342,7 +342,9 @@ export default function App() {
   }
 
   const buildBattlefield = (rows: (A.TerrainSlot | null)[][]) => {
-    const { x, y } = BATTLEFIELD_ORIGIN
+    if (!table) return
+    // Below the areas as they lie, without the battlefield being replaced.
+    const { x, y } = battlefieldOrigin({ ...table, battlefield: null })
     update((t) => A.buildBattlefield(t, rows, defs, x, y))
     setSelection(null)
     showArea(battlefieldArea({ x, y, cols: Math.max(1, ...rows.map((r) => r.length)), rows: rows.length }))

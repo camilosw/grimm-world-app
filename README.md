@@ -37,6 +37,14 @@ Use **☰ → Export save** to keep a copy.
 the cards that belong there; while you drag, it lights up green (allowed) or red (refused), and a refused card goes
 back where it came from. Space outside the areas takes any card. **📍 Areas** jumps to an area.
 
+The Map area is just large enough for its places. The Character, Storage and Home areas are only as large as their
+places and the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
+overlaps most), and the frame grows around it — there is no limit. A growing area pushes the areas right of it and below
+it away, with everything lying in them (cards, places, figures): Storage stays right of Character, the Storybook and Home
+right of Storage, Home below the Storybook, the battlefield below them all, and all of them below the Map and the
+Encounter Bar. An area growing toward the one before it (Storage growing left into Character, say) moves itself instead.
+Pushed areas move back as the area pushing them shrinks. Undo puts everything back as it was.
+
 | Area          | Takes                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Map           | Region Cards on its four Region Card places, Encounter Cards on the four Market Prices places beside them                |
@@ -87,8 +95,7 @@ beside the Storage Card, each under a "Goods" placeholder. Left of it, the first
 Storage Card so that only its left part shows. Below it, the first is slid under its bottom edge so that only its
 bottom part shows. In both rows each further card lies likewise under the one before. Drop an Encounter Card on or near
 a placeholder, or on a row, to add it there (where you drop it, or at the end); other cards are refused on it. There is
-no limit: once a row reaches the edge of the Storage area its cards close up to stay inside it (the placeholder then
-disappears — drop on the row). Unlike Money Cards, Encounter Cards are not pulled into a row from elsewhere on the
+no limit: the Storage area grows with the rows. Unlike Money Cards, Encounter Cards are not pulled into a row from elsewhere on the
 table. Reordering and taking cards away work as for Money Cards. Money Cards and Goods go into their rows one card at a
 time; a whole pile dropped there is refused.
 
@@ -100,9 +107,9 @@ dropped on or near it, one at a time, and nothing else; reordering and taking ca
 
 Left of the extensions is a row of up to 16 Goods, right of them a row of up to 4 Equipment cards (Encounter Cards). The
 first card of each row is slid under the outer extension, each further one under the one before: Goods show their left
-third, as in the Storage area, Equipment only a narrow strip. The Home area is only as wide as these rows: it grows to
-the left as Goods are added and to the right as Equipment is added, always leaving room for the next card; the House
-Card stays where it is. A 17th Goods card or a 5th Equipment card is refused.
+third, as in the Storage area, Equipment only a narrow strip. The Home area grows to the left as Goods are added and to
+the right as Equipment is added, always leaving room for the next card; the House Card stays where it is (unless the
+Storage area pushes the Home area away). A 17th Goods card or a 5th Equipment card is refused.
 
 **Storybook area.** The storybook lies face down on the right; the revealed cards lie on the left, the top one being
 the current chapter. Tap the storybook to turn over its next card; tap the revealed cards to put the top one back on
