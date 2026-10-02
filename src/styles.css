@@ -145,6 +145,7 @@ input:not([type]) {
 }
 
 .main {
+  position: relative;
   display: flex;
   flex: 1;
   min-height: 0;
@@ -1126,6 +1127,17 @@ button.on {
   z-index: 3;
   /* Its toolbar adapts to the panel's width (see .rules-bar). */
   container-type: inline-size;
+}
+
+/* Widened beyond the room beside the table: over the table and sidebar, leaving a strip at the left. */
+@media (min-width: 901px) {
+  .rules.overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    max-width: calc(100% - 48px);
+  }
 }
 
 /* Portrait tablets and phones: the rules cover the table. */

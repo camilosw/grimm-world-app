@@ -18,6 +18,8 @@ const LAYOUT_KEY = 'grimm-world:booklet-layout'
 const MIN_WIDTH = 320
 /** Table space that always stays visible next to the panel. */
 const MIN_TABLE = 200
+/** Strip left uncovered at the left edge when the panel is widened over the sidebar. */
+const MIN_EDGE = 48
 const ZOOMS = [1, 1.5, 2, 2.5]
 const GAP = 12
 
@@ -84,6 +86,8 @@ export function RulesPanel({ rules, target, onClose }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLElement>(null)
   const [width, setWidth] = useState(savedWidth)
+  /** Wider than the room beside the table: the panel then lies over the table and the sidebar. */
+  const [overlay, setOverlay] = useState(false)
   const resizing = useRef(false)
   const [mode, setMode] = useState<'read' | 'contents'>('read')
   const [query, setQuery] = useState('')
@@ -150,6 +154,16 @@ export function RulesPanel({ rules, target, onClose }: Props) {
     else if (section) jump(section.page, section.y)
   }
 
+  // A saved width may not fit beside the table on this screen.
+  useLayoutEffect(() => {
+    const panel = panelRef.current
+    const main = panel?.parentElement
+    const table = panel?.previousElementSibling
+    if (!width || !main || !table) return
+    setOverlay(width > main.getBoundingClientRect().right - table.getBoundingClientRect().left - MIN_TABLE)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const reading = book === 'rulebook' && mode === 'read' && !query.trim()
   useLayoutEffect(() => {
     const el = pageRefs.current.get(jumpTo.page)
@@ -199,12 +213,15 @@ export function RulesPanel({ rules, target, onClose }: Props) {
     },
     onPointerMove: (e: React.PointerEvent) => {
       const panel = panelRef.current
+      const main = panel?.parentElement
       const table = panel?.previousElementSibling
-      if (!resizing.current || !panel || !table) return
-      const right = panel.getBoundingClientRect().right
-      // The table (whatever the sidebar leaves of it) keeps at least MIN_TABLE.
-      const max = table.getBoundingClientRect().width + panel.getBoundingClientRect().width - MIN_TABLE
-      setWidth(Math.round(Math.max(MIN_WIDTH, Math.min(max, right - e.clientX))))
+      if (!resizing.current || !panel || !main || !table) return
+      const mainBox = main.getBoundingClientRect()
+      // Beside the table, which keeps at least MIN_TABLE; beyond that over it, up to MIN_EDGE from the left.
+      const room = mainBox.right - table.getBoundingClientRect().left - MIN_TABLE
+      const next = Math.round(Math.max(MIN_WIDTH, Math.min(mainBox.width - MIN_EDGE, mainBox.right - e.clientX)))
+      setWidth(next)
+      setOverlay(next > room)
     },
     onPointerUp: () => {
       resizing.current = false
@@ -226,7 +243,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
   return (
     <aside
       ref={panelRef}
-      className="rules"
+      className={overlay ? 'rules overlay' : 'rules'}
       aria-label="Rulebook"
       style={width ? ({ '--rules-width': `${width}px` } as React.CSSProperties) : undefined}
     >

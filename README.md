@@ -186,7 +186,7 @@ deck, e.g. X-cards under the Encounter Deck), **Rotate**, **Front/Back** (overla
 deck** and **Name**.
 
 **📖 Rules** opens the rulebook beside the table (over it in portrait): the real pages, a contents list, search
-(e.g. "fate number", "banish") and zoom. Drag its left edge to make it wider or narrower. It remembers the page you
+(e.g. "fate number", "banish") and zoom. Drag its left edge to make it wider or narrower — as far as almost the left edge of the screen, over the table and sidebar. It remembers the page you
 were reading and its width. The **ⓘ** next to an area's name,
 **📖 Rules** in the action bar of a selected deck or card, in the card viewer and in the Battle dialog open the rulebook
 at the section that explains it. **Booklets** at the top of the panel switches to the six rule booklets
