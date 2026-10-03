@@ -75,7 +75,7 @@ export interface Token {
   shape: 'pawn' | 'cube'
 }
 
-/** Framed area on the table where Terrain Cards form the battlefield. */
+/** Where a battlefield was built, in older saves (`Table.battlefield`): now the Battlefield is an area like the others. */
 export interface Battlefield {
   x: number
   y: number
@@ -91,6 +91,7 @@ export interface Table {
   dock?: string[]
   /** Ids of the piles set aside in the right sidebar (e.g. the setup cards), top to bottom. */
   tray?: string[]
+  /** The battlefield built, only in older saves: `migrateTable` lays its Terrain Cards out in the Battlefield area. */
   battlefield?: Battlefield | null
   /** The sidebar deck each card last came out of, so it can go back there. */
   origin?: Record<string, DeckKind>

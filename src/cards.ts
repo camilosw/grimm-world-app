@@ -38,11 +38,11 @@ export function cardImage(
 }
 
 /**
- * Region Cards are printed sideways: they always lie landscape, never rotate, and turn over about their horizontal
- * axis.
+ * Region and Terrain Cards are printed sideways: they always lie landscape and turn over about their horizontal axis.
+ * Region Cards never rotate; Terrain Cards only turn around, their triangles pointing up or down (`rotateStack()`).
  */
 export function isLandscape(def: CardDef | undefined): boolean {
-  return def?.type === "region";
+  return def?.type === "region" || def?.type === "terrain";
 }
 
 /** Side a card's image is turned to, a quarter, to lie landscape. */

@@ -67,13 +67,13 @@ overlaps most), and the frame grows around it — there is no limit.
 The areas lie close together, a small gap apart, in rows: the Encounter Bar on top, growing right; below it the Map,
 the Encounter Deck and the Storybook (taller, so it reaches up beside the bar, until the bar grows that far and it moves
 down in line with the Map); below them Storage, Character and Actions, with the four deck areas two by two right of
-Actions (Banned Cards and Enemy Deck above Quest and Training Deck); and Home below Storage and Character. The battlefield
-goes right of Home, below the areas it reaches under. A growing area pushes the areas right of it and below it away,
+Actions (Banned Cards and Enemy Deck above Quest and Training Deck); and Home below Storage and Character, with the
+Battlefield right of it, below the areas it reaches under. A growing area pushes the areas right of it and below it away,
 with everything lying in them (cards, places, figures), and Home and the battlefield move down below any area they
 grow under. An area growing toward the one before it (Storage or Home growing left with their Goods, say) moves itself
 instead. Pushed areas move back as the area pushing them shrinks. Undo puts everything back as it was.
 
-**Rearranging the areas.** Drag the `⠿` tab in the top-right corner of an area (the battlefield's too) to move the area, with
+**Rearranging the areas.** Drag the `⠿` tab in the top-right corner of an area to move the area, with
 everything lying in it, wherever you like; the table shows where it will go while you drag. It snaps into line with the
 edge of another area, or a gap beside it, when it comes close. Areas in its way are pushed aside to their nearest free
 side and stay there. Loose cards it would cover move off to the right, past the areas (figures stay where they are). From then on each
@@ -81,8 +81,9 @@ area stays where you put it: a growing area still pushes the areas in its way as
 places as it shrinks. **📍 Areas → ↺ Reset layout** packs the areas together again in the rows above.
 
 **⤢ Fit** zooms to the areas used every round: the Encounter Bar, Map, Encounter Deck, Storybook, Storage, Character,
-Actions, Banned Cards and the Enemy Deck, and the battlefield while there is one. Tap it again to see the whole table
-(also **📍 Areas → ⤢ Whole table**).
+Actions, Banned Cards and the Enemy Deck. While Terrain Cards lie on the Battlefield, it zooms to the combat instead:
+Character, Actions, the Enemy Deck and the Battlefield. Tap it again to see the whole table (also **📍 Areas → ⤢ Whole
+table**).
 
 | Area          | Takes                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -343,8 +344,18 @@ cards (or those picked at random) appear in a row of their own below the bar.
 | Drag `⠿ n cards`    | Put all the selected cards where you drop it, like dragging a selected card's grip |
 | Drag its `⠿` grip   | Put it (with the other selected cards, if it is selected) where you drop it, showing the side the panel shows: on the table or a pile, with the same area rules as any drop, or on the sidebar to send a table pile's cards back to their decks |
 
-**⚔ Battle** builds the battlefield of a Conflict Card in its own framed area. Type the Terrain Cards row by row, adding
-`v` to cards whose arrows point down and `-` for empty cells, e.g. `01 07v 15v` / `19 30 31`. Check the preview, then
-_Lay out_: the cards are taken from the Terrain deck and placed edge to edge in the Battlefield area right of Home,
-with room for the Enemy Cards and their Hit Point Cards on the right. When the combat is over, tap
-**↩ Return to deck** on the battlefield to put all Terrain Cards back into the Terrain deck in order.
+**Battlefield.** The Battlefield area, right of Home, is where a combat's Terrain Cards (rulebook 4.8, 8.1.2) are laid
+out, with room for the Enemy Cards and their Hit Point Cards on the right. Terrain Cards always lie landscape, like
+Region Cards, and face up there: one put on the Battlefield turns face up, however it came, and can't be turned over; **↻ Turn around** turns one half a turn, so that its triangles point down instead of up (they can't be
+rotated otherwise). While the Battlefield is empty it shows one place for a Terrain Card. Once a card lies there, a
+narrow strip marked + runs along each of its sides: a Terrain Card dropped on a strip lies right beside that card, edge
+to edge, and gets strips of its own on its free sides. A strip only shows where nothing lies yet (a card in the way,
+an Enemy Card say, hides it). A Terrain Card dropped anywhere else in the Battlefield goes to the nearest strip; one at
+a time, and nothing else goes on top of a Terrain Card. A card on the battlefield moves to another strip by dragging it
+there. The area grows with its cards in every direction.
+
+**⚔ Battle** builds the battlefield of a Conflict Card for you. Type the Terrain Cards row by row, adding `v` to cards
+whose arrows point down and `-` for empty cells, e.g. `01 07v 15v` / `19 30 31`. Check the preview, then _Lay out_: the
+cards are taken from the Terrain deck and laid out edge to edge in the Battlefield area, from its first place. When the
+combat is over, tap **↩ Return to deck** on the battlefield to put all Terrain Cards back into the Terrain deck in
+order.

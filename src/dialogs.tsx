@@ -470,20 +470,18 @@ export function BattlefieldDialog({ table, defs, onBuild, onClear, onRules, onCl
       {unknown.length > 0 && (
         <p className="dialog-note warn">Unknown terrain: {unknown.map((s) => s!.code.slice(1)).join(', ')}</p>
       )}
-      <div className="battle-preview" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 110px))` }}>
+      <div className="battle-preview" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 154px))` }}>
         {rows.flatMap((row, r) =>
           Array.from({ length: cols }, (_, c) => {
             const slot = row[c]
             const def = slot && byCode.get(slot.code)
             return (
               <div key={`${r}-${c}`} className="battle-cell">
+                {/* Landscape, as on the battlefield; a card pointing down turned around. */}
                 {def && (
-                  <img
-                    src={cardImage(def.id, true, 'sm')}
-                    alt={def.name}
-                    style={{ transform: slot!.down ? 'rotate(180deg)' : undefined }}
-                    draggable={false}
-                  />
+                  <div className={landscapeClass(true, true).trim()} style={{ rotate: slot!.down ? '180deg' : undefined }}>
+                    <img src={cardImage(def.id, true, 'sm')} alt={def.name} draggable={false} />
+                  </div>
                 )}
                 {slot && <span className="battle-label">{slot.code.slice(1) + (slot.down ? '↓' : '')}</span>}
               </div>

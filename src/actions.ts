@@ -1,4 +1,4 @@
-import { allAreas, anchorsAfterMove, AREA_HEADER, AREA_PAD, areaForCard, fanRow, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, turnedSpot, upsideDownSpot } from './areas'
+import { allAreas, anchorsAfterMove, areaForCard, battlefieldPiles, onGrid, fanRow, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, terrainPlace, turnedSpot, upsideDownSpot } from './areas'
 import { CARD_H, CARD_W, compareCards, family, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, returnsCards, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
@@ -160,7 +160,7 @@ export function mergeStacks(t: Table, sourceId: string, targetId: string, where:
 /** Turn the top card over; a card lying turned on its place stays as it lies (Market Prices face up, the Encounter Bar face down). */
 export function flipTop(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!s?.cards.length || turnedSpot(t, id)) return t
+  if (!s?.cards.length || turnedSpot(t, id) || onGrid(t, id)) return t
   const cards = [...s.cards]
   const top = cards[cards.length - 1]
   cards[cards.length - 1] = { ...top, faceUp: !top.faceUp }
@@ -170,18 +170,22 @@ export function flipTop(t: Table, id: string): Table {
 /** Turn the whole pile over, like flipping a real deck (but its pinned cards). */
 export function flipStack(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!s || !unpinned(s).length || turnedSpot(t, id)) return t
+  if (!s || !unpinned(s).length || turnedSpot(t, id) || onGrid(t, id)) return t
   return setStack(t, { ...s, cards: abovePinned(s, (cards) => cards.map((c) => ({ ...c, faceUp: !c.faceUp })).reverse()) })
 }
 
 /**
  * Turn a pile on the table; a Region Card in it never turns, nor a card lying turned on its place (Market Prices,
- * Encounter Bar) or upside down on it (Actions area, Titles, Skills).
+ * Encounter Bar) or upside down on it (Actions area, Titles, Skills). Terrain Cards lie landscape: they only turn
+ * around, half a turn, so that their triangles point up or down.
  */
 export function rotateStack(t: Table, id: string, delta: number, defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
-  if (!s || s.cards.some((c) => isLandscape(defs[c.id])) || turnedSpot(t, id) || upsideDownSpot(t, id)) return t
-  return setStack(t, { ...s, rot: ((((s.rot + delta) % 360) + 360) % 360) as Rotation })
+  if (!s || turnedSpot(t, id) || upsideDownSpot(t, id)) return t
+  const terrain = s.cards.every((c) => defs[c.id]?.type === 'terrain')
+  if (!terrain && s.cards.some((c) => isLandscape(defs[c.id]))) return t
+  const by = terrain ? 180 : delta
+  return setStack(t, { ...s, rot: ((((s.rot + by) % 360) + 360) % 360) as Rotation })
 }
 
 /** Whether a pile has at least two cards to reorder (between its pinned ones). */
@@ -376,37 +380,29 @@ export interface TerrainSlot {
 }
 
 /**
- * Lay out Terrain Cards edge to edge as drawn on a Conflict Card, inside a
- * battlefield area at (x, y). `rows` holds card codes like "T07" (null = empty
- * cell); down-facing cards are turned 180°. Replaces any earlier battlefield.
+ * Lay out Terrain Cards edge to edge on the battlefield grid as drawn on a Conflict Card, from its first place.
+ * `rows` holds card codes like "T07" (null = empty place); down-facing cards are turned 180°. Replaces the Terrain
+ * Cards lying on the table.
  */
-export function buildBattlefield(
-  t: Table,
-  rows: (TerrainSlot | null)[][],
-  defs: Record<string, CardDef>,
-  x: number,
-  y: number,
-): Table {
+export function buildBattlefield(t: Table, rows: (TerrainSlot | null)[][], defs: Record<string, CardDef>): Table {
   const idByCode = new Map(Object.values(defs).map((d) => [d.code, d.id]))
-  const battlefield = { x, y, cols: Math.max(1, ...rows.map((r) => r.length)), rows: rows.length }
-  const x0 = x + AREA_PAD
-  const y0 = y + AREA_HEADER
-  let next: Table = { ...clearBattlefield(t, defs), battlefield }
+  let next = clearBattlefield(t, defs)
   rows.forEach((row, r) =>
     row.forEach((slot, c) => {
       const id = slot && idByCode.get(slot.code)
       if (!id) return
       const [t2, card] = takeCard(next, id)
       if (!card) return
-      next = addStack(t2, x0 + c * CARD_W, y0 + r * CARD_H, [{ ...card, faceUp: true }], { rot: slot.down ? 180 : 0 })[0]
+      const at = terrainPlace(t2, c, r)
+      next = addStack(t2, at.x, at.y, [{ ...card, faceUp: true }], { rot: slot.down ? 180 : 0 })[0]
     }),
   )
   return next
 }
 
-/** Put every Terrain Card lying on the table back into the Terrain deck and remove the battlefield. */
+/** Put every Terrain Card lying on the table back into the Terrain deck. */
 export function clearBattlefield(t: Table, defs: Record<string, CardDef>): Table {
-  let next: Table = { ...t, battlefield: null }
+  let next = t
   for (const id of t.z) {
     const s = next.stacks[id]
     if (s?.cards.some((c) => defs[c.id]?.type === 'terrain')) {
@@ -590,7 +586,7 @@ export function storyAt(t: Table, x: number, y: number): boolean {
 /**
  * Lay the spots out: spread out piles dropped on the hand, close the gaps in fanned spots (Money Cards, Goods), their
  * piles lying on the first places in row order, and lay cards on a spot that turns them straight and face up (Market Prices) or face down (Encounter Bar), or
- * upside down (Actions area, Titles, Skills), as they must lie there.
+ * upside down (Actions area, Titles, Skills), as they must lie there; Terrain Cards on the battlefield lie face up.
  */
 export function settleSpots(t: Table): Table {
   let next = t
@@ -628,6 +624,10 @@ export function settleSpots(t: Table): Table {
       const s = next.stacks[id]
       if (s.rot || s.cards.some((c) => c.faceUp !== faceUp)) next = setStack(next, { ...s, rot: 0, cards: s.cards.map((c) => ({ ...c, faceUp })) })
     }
+  }
+  for (const id of battlefieldPiles(next)) {
+    const s = next.stacks[id]
+    if (s.cards.some((c) => !c.faceUp)) next = setStack(next, { ...s, cards: s.cards.map((c) => ({ ...c, faceUp: true })) })
   }
   for (const spot of spots.filter((s) => s.upsideDown)) {
     for (const id of stacksOnSpot(next, spot)) {
