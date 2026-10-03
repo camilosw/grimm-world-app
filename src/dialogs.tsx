@@ -83,6 +83,9 @@ interface BrowseProps {
   onClose: () => void
 }
 
+/** The cards a Browse panel's group grip drags: those picked at random, or the selected ones. */
+type Group = 'unseen' | 'chosen'
+
 /**
  * Look through a pile and pull cards out. Sits in the bottom half of the
  * screen so the table stays in use: tap cards to select them, then take them
@@ -90,6 +93,7 @@ interface BrowseProps {
  * Selected cards move in the order they were selected, the first one on top.
  * Random picks some of the shown cards unseen, in random order: nothing marks
  * them, they move face down by the bar's own grip, and the panel shows backs.
+ * The selected cards have such a grip too, in the same row of actions.
  */
 export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, onDragHover, onPutUnder, onClose }: BrowseProps) {
   const stack = table.stacks[stackId]
@@ -122,11 +126,13 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
     onDrop: (cardId, x, y) => onDrop(draggedWith(cardId), x, y, true),
     onHover: (d) => onDragHover(d ? draggedWith(d.item) : [], d),
   })
-  // The cards picked at random go by the bar's grip, so the grid doesn't show which they are.
-  const blindGrip = useDragOut<null>({
+  // The cards picked at random go by the bar's grip, so the grid doesn't show which they are
+  // (face down); the selected ones may go by a grip of their own too (face up).
+  const group = (kind: Group) => (kind === 'unseen' ? unseen : chosen)
+  const groupGrip = useDragOut<Group>({
     onTap: () => {},
-    onDrop: (_, x, y) => onDrop(unseen, x, y, false),
-    onHover: (d) => onDragHover(d ? unseen : [], d),
+    onDrop: (kind, x, y) => onDrop(group(kind), x, y, kind === 'chosen'),
+    onHover: (d) => onDragHover(d ? group(d.item) : [], d),
   })
   /** Take cards out onto the table, as one pile. */
   const takeOut = (cardIds: string[], faceUp: boolean) => {
@@ -149,7 +155,16 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
   // The shown cards Random may pick, and how many it picks.
   const pickable = entries.map((e) => e.card.id).filter((id) => !pinnedIds.has(id))
   const randomCount = Math.min(count ?? pickable.length, pickable.length)
-  const dragged = new Set(grip.drag ? draggedWith(grip.drag.item) : [])
+  /** Select every shown card not selected yet, after the ones already selected, top first (so they keep the pile's order). */
+  const selectAll = () => {
+    setBlind([])
+    setPicked((p) => [...p, ...pickable.filter((id) => !p.includes(id))])
+  }
+  const dragged = new Set(grip.drag ? draggedWith(grip.drag.item) : groupGrip.drag?.item === 'chosen' ? chosen : [])
+  // The group dragged by its grip, and the card its ghost shows (the top one).
+  const groupDragged = groupGrip.drag ? group(groupGrip.drag.item) : []
+  const groupTop = groupDragged[groupDragged.length - 1]
+  const groupFaceUp = groupGrip.drag?.item === 'chosen' && fronts
 
   return (
     <section className="browse" aria-label={`Browse ${stack.label ?? 'pile'}`}>
@@ -159,7 +174,8 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
         </h2>
         <input
           type="search"
-          placeholder="Filter: Y003, B12, Terrain…"
+          placeholder="Filter…"
+          title="Filter: Y003, B12, Terrain…"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value)
@@ -174,6 +190,11 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
             Backs
           </button>
         </div>
+        {pickable.length > 0 && (
+          <button disabled={pickable.every((id) => picked.includes(id))} onClick={selectAll}>
+            Select all
+          </button>
+        )}
         {pickable.length > 1 && (
           <div className="random-pick" role="group" aria-label="Pick at random">
             <input
@@ -197,31 +218,44 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
             </button>
           </div>
         )}
-        {unseen.length > 0 && (
-          <>
-            <span className={`blind-pick${blindGrip.drag ? ' dragging' : ''}`} aria-label="Drag the cards picked at random" {...blindGrip.bind(null)}>
-              ⠿ {unseen.length} random card{unseen.length > 1 ? 's' : ''}
-            </span>
-            <button className="primary" onClick={() => takeOut(unseen, false)}>
-              Take out face down
-            </button>
-            <button onClick={() => onPutUnder(unseen, false)}>⤵ Put under…</button>
-            <button onClick={() => setBlind([])}>Clear</button>
-          </>
-        )}
-        {chosen.length > 0 && (
-          <>
-            <button className="primary" onClick={() => takeOut(chosen, true)}>
-              Take out ({chosen.length})
-            </button>
-            <button onClick={() => onPutUnder(chosen, true)}>⤵ Put under…</button>
-            <button onClick={() => setPicked([])}>Clear</button>
-          </>
-        )}
         <button className="icon" onClick={onClose} aria-label="Close">
           ✕
         </button>
       </header>
+      {(unseen.length > 0 || chosen.length > 0) && (
+        <div className="browse-actions">
+          {unseen.length > 0 && (
+            <>
+              <span
+                className={`group-grip${groupGrip.drag ? ' dragging' : ''}`}
+                aria-label="Drag the cards picked at random"
+                {...groupGrip.bind('unseen')}
+              >
+                ⠿ {unseen.length} random card{unseen.length > 1 ? 's' : ''}
+              </span>
+              <button onClick={() => takeOut(unseen, false)}>Take out face down</button>
+              <button onClick={() => takeOut(unseen, true)}>Take out face up</button>
+              <button onClick={() => onPutUnder(unseen, false)}>⤵ Put under…</button>
+              <button onClick={() => setBlind([])}>Clear</button>
+            </>
+          )}
+          {chosen.length > 0 && (
+            <>
+              <span
+                className={`group-grip${groupGrip.drag ? ' dragging' : ''}`}
+                aria-label="Drag the selected cards"
+                {...groupGrip.bind('chosen')}
+              >
+                ⠿ {chosen.length} card{chosen.length > 1 ? 's' : ''}
+              </span>
+              <button onClick={() => takeOut(chosen, false)}>Take out face down</button>
+              <button onClick={() => takeOut(chosen, true)}>Take out face up</button>
+              <button onClick={() => onPutUnder(chosen, true)}>⤵ Put under…</button>
+              <button onClick={() => setPicked([])}>Clear</button>
+            </>
+          )}
+        </div>
+      )}
       <div className="card-grid">
         {entries.map(({ card, def }) => (
           <div
@@ -262,13 +296,13 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
           frame={landscapeClass(isLandscape(defs[grip.drag.item]), fronts)}
         />
       )}
-      {blindGrip.drag && unseen.length > 0 && (
+      {groupGrip.drag && groupTop && (
         <CardGhost
-          src={cardImage(unseen[unseen.length - 1], false, 'sm')}
-          x={blindGrip.drag.x}
-          y={blindGrip.drag.y}
-          count={unseen.length}
-          frame={landscapeClass(isLandscape(defs[unseen[unseen.length - 1]]), false)}
+          src={cardImage(groupTop, groupFaceUp, 'sm')}
+          x={groupGrip.drag.x}
+          y={groupGrip.drag.y}
+          count={groupDragged.length}
+          frame={landscapeClass(isLandscape(defs[groupTop]), groupFaceUp)}
         />
       )}
     </section>

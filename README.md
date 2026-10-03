@@ -313,15 +313,18 @@ beside any figure already there, and can be dragged anywhere. A figure lying in 
 **☰ Browse** opens a panel over the bottom half of the screen with the pile's cards, top card first. The table above
 stays in use (pan, zoom, move cards) until you close the panel with ✕ or tap **Browse** again. Filter by number or
 name, switch between **Fronts** and **Backs** (it opens on the backs), and swipe up and down to scroll. Selected cards
-move in their numbered order, card 1 on top; the pile they come from keeps its order.
+move in their numbered order, card 1 on top; the pile they come from keeps its order. The actions for the selected
+cards (or those picked at random) appear in a row of their own below the bar.
 
 | In the Browse panel | Action                                                                              |
 | ------------------- | ----------------------------------------------------------------------------------- |
 | Tap a card          | Select / unselect it (✓; with several selected, numbered in the order you tapped them) |
-| **⚄ Random**        | Pick that many of the shown cards at random, unseen, in random order (by default all of them: shuffle them). Nothing marks them and the panel turns to the backs; drag them by the `⠿ n random cards` grip in the bar, or **Take out face down** / **Put under…**: they stay face down. E.g. filter `Y705`, 2, **⚄ Random**, then drag them onto the Quest Deck (Y009). Tapping a card drops the random pick |
+| **Select all**      | Select all the shown cards (those the filter leaves), after any already selected, top first, so they keep the pile's order |
+| **⚄ Random**        | Pick that many of the shown cards at random, unseen, in random order (by default all of them: shuffle them). Nothing marks them and the panel turns to the backs; drag them by the `⠿ n random cards` grip below the bar, or **Take out face down** / **Put under…**: they stay face down (**Take out face up** turns them face up). E.g. filter `Y705`, 2, **⚄ Random**, then drag them onto the Quest Deck (Y009). Tapping a card drops the random pick |
 | 🔍 or long-press    | Read it at full size                                                                |
-| **Take out (n)**    | Put the selected cards face up on the table as one pile                             |
+| **Take out face up** | Put the selected cards face up on the table as one pile (**Take out face down**: face down) |
 | **Put under…**      | Then tap a pile, a deck or the storybook to slide the selected cards under it       |
+| Drag `⠿ n cards`    | Put all the selected cards where you drop it, face up, like dragging a selected card's grip |
 | Drag its `⠿` grip   | Put it (with the other selected cards, if it is selected) where you drop it: on the table or a pile, with the same area rules as any drop, or on the sidebar to send a table pile's cards back to their decks |
 
 **⚔ Battle** builds the battlefield of a Conflict Card in its own framed area. Type the Terrain Cards row by row, adding

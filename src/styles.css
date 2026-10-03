@@ -658,8 +658,11 @@ button.on {
   white-space: nowrap;
 }
 
+/* Narrow, so the bar's buttons fit on one line. */
 .browse-bar input[type="search"] {
-  width: 240px;
+  flex: none;
+  width: 150px;
+  min-width: 0;
 }
 
 /* How many cards ⚄ Random picks, joined to its button. */
@@ -680,8 +683,19 @@ button.on {
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
-/* The cards picked at random: dragged from here, as the grid doesn't show which they are. */
-.blind-pick {
+/* The actions for the selected cards or those picked at random, in a row of their own. */
+.browse-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 max(8px, env(safe-area-inset-right)) 8px
+    max(16px, env(safe-area-inset-left));
+}
+
+/* The cards picked at random or selected, dragged together from here
+   (the grid doesn't show which were picked at random). */
+.group-grip {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -695,7 +709,7 @@ button.on {
   -webkit-user-select: none;
 }
 
-.blind-pick.dragging {
+.group-grip.dragging {
   opacity: 0.4;
 }
 
