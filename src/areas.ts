@@ -223,6 +223,18 @@ export interface Spot {
    * With `count: 1`, the spot holds a single card.
    */
   fan?: { count: number };
+  /**
+   * Its row starts beyond the last card of this spot's row, under it, and moves out as that row grows (the Skills beyond
+   * the Titles, `spotsOf()`). It runs on a line one unit beside that row's, as `fanRow()` takes the piles on its own line
+   * only.
+   */
+  after?: string;
+  /**
+   * Its placeholder, beyond the last card of both rows, is shared with the `after` row: cards dropped on its left half
+   * join that row, on its right half this one (`splitBox()`), so that row's free place, under this row, isn't shown on
+   * its own. A pile moved within either row stays in it (`placement()`).
+   */
+  split?: boolean;
   /** The storybook place whose top card this spot's card lies on. */
   over?: StorySlot;
   /** Cards of the family dropped anywhere in its area go here. */
@@ -330,6 +342,32 @@ export function freePlaces(t: Table, spot: Spot): Point[] {
   return n ? [first, spotPlaces(spot, n + 1)[n]] : [first];
 }
 
+/** Least part of a card's height a split placeholder shows: room for the two lines of text on each half. */
+const SPLIT_SHOWS = 0.3;
+
+/**
+ * Where a split placeholder lies (`Spot.split`, a row running up): right above the last card of both rows, the card's
+ * width, as high as the larger strip of the two rows shows, at least `SPLIT_SHOWS`. Its left half takes cards into the
+ * `after` row, its right half into this one.
+ */
+export function splitBox(
+  t: Table,
+  spot: Spot,
+): { x: number; y: number; w: number; h: number } {
+  const partner = spotsOf(t).find((s) => s.id === spot.after);
+  const { w, h } = lyingSize(spot);
+  const edge = freePlace(t, spot).y + Math.round((spot.shows ?? 0.5) * h);
+  const high = Math.round(
+    Math.max(spot.shows ?? 0.5, partner?.shows ?? 0.5, SPLIT_SHOWS) * h,
+  );
+  return { x: partner?.x ?? spot.x, y: edge - high, w, h: high };
+}
+
+/** The row sharing its placeholder with the row beyond it (the Titles, with the Skills'), if `spot` is one. */
+function sharesPlaceholder(t: Table, spot: Spot): boolean {
+  return spotsOf(t).some((s) => s.split && s.after === spot.id);
+}
+
 /** Whether a fanned spot's row has room for one more card, so its next place can be shown. */
 export function fanHasPlace(t: Table, spot: Spot): boolean {
   return fanRow(t, spot).length < fanMax(spot);
@@ -375,7 +413,8 @@ export function fanRow(
       (id) =>
         id !== exclude &&
         (v ? t.stacks[id].x === spot.x : t.stacks[id].y === spot.y) &&
-        along(id) >= -1,
+        // A row `after` another moves out as that one grows: its cards lie before its first place until `settleSpots()`.
+        (!!spot.after || along(id) >= -1),
     )
     .sort((a, b) => along(a) - along(b));
   const row: string[] = [];
@@ -468,14 +507,20 @@ export function freeCovered(t: Table, spot: Spot): Side | null {
 /** Which side of a spot's card is covered by the card of the spot it lies under. */
 export function coveredSide(spot: Spot): Side | null {
   // Where they lie in `SPOTS`: moved with their area, they lie the same way side by side.
-  const cover = SPOTS.find((s) => s.id === spot.under);
+  // A row `after` another lies there as if that row had no cards: beside that row's covering card (`spotsOf()`).
+  const before = spot.after && SPOTS.find((s) => s.id === spot.after);
+  const cover = SPOTS.find(
+    (s) => s.id === (before ? before.under : spot.under),
+  );
   if (!cover) return null;
   spot = SPOTS.find((s) => s.id === spot.id) ?? spot;
-  if (cover.x !== spot.x) return cover.x > spot.x ? "right" : "left";
+  // Side by side, or one above the other (a row `after` another lies a unit beside it).
+  if (Math.abs(cover.x - spot.x) > Math.abs(cover.y - spot.y))
+    return cover.x > spot.x ? "right" : "left";
   return cover.y > spot.y ? "bottom" : "top";
 }
 
-// Top center, so titles/skills can go above-left/right and items to its right (rulebook 4.1).
+// Top center, so titles/skills can go above it and items to its right (rulebook 4.1).
 const characterSpot = {
   x: character.x + AREA_PAD + 2 * CARD_W,
   y: character.y + AREA_HEADER,
@@ -493,6 +538,13 @@ const houseSpot = {
 };
 /** Part of a Quest Card's height showing below the Character Card (or the card before it) on top of it. */
 const QUESTS_SHOWS = 0.26;
+/**
+ * Part of a title card's height showing above the Character Card (or the card before it) on top of it: the bottom of
+ * the card, printed upside down, so it reads the right way up with the card turned.
+ */
+const TITLES_SHOWS = 0.21;
+/** Part of a skill card's height showing above the title (or skill) card on top of it: the skill's name banner. */
+const SKILLS_SHOWS = 0.14;
 /** Part of a Goods card's height showing below the card on top of it. */
 const GOODS_BELOW_SHOWS = 0.21;
 const goodsX = Math.round(storageSpot.x - GOODS_LEFT_SHOWS * CARD_W);
@@ -592,6 +644,41 @@ export const SPOTS: Spot[] = [
     x: characterSpot.x - CARD_W / 2,
     y: characterSpot.y,
     under: "character",
+  },
+  // Above it, the titles and skills received (rulebook 4.1), upside down ("Attach this card above your Character Card"),
+  // so the strip printed upside down at their bottom reads the right way up. First the titles, slid under its top edge,
+  // each further one likewise under the one before; then the skills, the first slid under the last title (or the
+  // Character Card), showing only their name banner. One placeholder above them both, split: Titles left, Skills right.
+  // Any number of each: the area grows up with the column.
+  {
+    id: "titles",
+    label: "Titles",
+    hint: "Y-Cards",
+    area: "character",
+    family: "lost-pages",
+    attracts: false,
+    x: characterSpot.x,
+    y: characterSpot.y - Math.round(TITLES_SHOWS * CARD_H),
+    under: "character",
+    shows: TITLES_SHOWS,
+    fan: { count: Infinity },
+    upsideDown: true,
+  },
+  {
+    id: "skills",
+    label: "Skills",
+    hint: "Y-Cards",
+    area: "character",
+    family: "lost-pages",
+    attracts: false,
+    x: characterSpot.x + 1,
+    y: characterSpot.y - Math.round(SKILLS_SHOWS * CARD_H),
+    under: "titles",
+    after: "titles",
+    split: true,
+    shows: SKILLS_SHOWS,
+    fan: { count: Infinity },
+    upsideDown: true,
   },
   // Below it, the Quest Cards (Y-cards) slid under its bottom edge so only their bottom quarter shows, each further one
   // likewise under the one before. Any number of them: the area grows with the column.
@@ -890,7 +977,9 @@ function framedPlaces(t: Table, spot: Spot): Point[] {
   if (spot.addsFirst) return freePlaces(t, spot);
   const n = fanRow(t, spot).length;
   const last = spotPlaces(spot, n)[n - 1];
-  return [spot, fanHasPlace(t, spot) ? freePlace(t, spot) : last];
+  const places = [spot, fanHasPlace(t, spot) ? freePlace(t, spot) : last];
+  // A split placeholder reaches further than the free place it lies over.
+  return spot.split ? [...places, splitBox(t, spot)] : places;
 }
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -918,6 +1007,18 @@ export function spotsOf(t: Table): Spot[] {
     spots = SPOTS.map((s) => {
       const d = shiftOf(t, s.area);
       return d.x || d.y ? { ...s, x: s.x + d.x, y: s.y + d.y } : s;
+    });
+    // A row after another starts beyond that row's last card: as far from it as from that row's covering card while it
+    // has none.
+    spots = spots.map((s, _, all) => {
+      const before = s.after && all.find((b) => b.id === s.after);
+      const cover = before && all.find((b) => b.id === before.under);
+      if (!before || !cover) return s;
+      const n = fanRow(t, before).length;
+      const last = n ? spotPlaces(before, n)[n - 1] : cover;
+      return vertical(before)
+        ? { ...s, y: s.y + last.y - cover.y }
+        : { ...s, x: s.x + last.x - cover.x };
     });
     shiftedSpots.set(t, spots);
   }
@@ -1080,7 +1181,12 @@ export function battlefieldOrigin(
 }
 
 /** Lowest point of the areas reaching under an area from `x`, `w` wide (closer than `GAP` beside it), or `top`. */
-function bottomUnder(areas: Iterable<Rect>, x: number, w: number, top: number): number {
+function bottomUnder(
+  areas: Iterable<Rect>,
+  x: number,
+  w: number,
+  top: number,
+): number {
   let bottom = top;
   for (const r of areas)
     if (r.x < x + w + GAP && rightOf(r) + GAP > x)
@@ -1093,7 +1199,15 @@ function battlefieldPlace(laid: Map<string, Rect>, w: number): Point {
   const home = laid.get("home")!;
   const x = rightOf(home) + GAP;
   const below = [...laid].filter(([id]) => !ABOVE_PLAY.includes(id));
-  return { x, y: bottomUnder(below.map(([, r]) => r), x, w, home.y) };
+  return {
+    x,
+    y: bottomUnder(
+      below.map(([, r]) => r),
+      x,
+      w,
+      home.y,
+    ),
+  };
 }
 
 /** The areas of the two top rows, above the character's areas: the battlefield and the Home area lie below them. */
@@ -1150,7 +1264,8 @@ function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
     x,
     y: crowd(bar, { ...story, x, y: raised }) ? top : raised,
   });
-  const row = Math.max(bottomOf(map), bottomOf(encounter), bottomOf(storybook)) + GAP;
+  const row =
+    Math.max(bottomOf(map), bottomOf(encounter), bottomOf(storybook)) + GAP;
   const storage = put("storage", { x: 0, y: row });
   const character = put("character", { x: rightOf(storage) + GAP, y: row });
   const hand = put("hand", { x: rightOf(character) + GAP, y: row });
@@ -1477,8 +1592,24 @@ function spotAt(
   x: number,
   y: number,
   families: (Family | undefined)[] = [],
-): { spot: Spot; place: Point } | undefined {
-  // An unlimited row reaches one place past its last card; taking new cards first, also its free place before them.
+  pointer?: Point,
+): { spot: Spot; place: Point; split?: boolean } | undefined {
+  // Dropped on a split placeholder (pointing at it, or just above it; else with the card's middle there): its left half
+  // takes the cards into the row before, its right half into its own.
+  const cx = pointer?.x ?? x + CARD_W / 2;
+  const cy = pointer?.y ?? y + CARD_H / 2;
+  for (const spot of spotsOf(t).filter((s) => s.split)) {
+    const box = splitBox(t, spot);
+    if (cx < box.x || cx > box.x + box.w) continue;
+    if (cy < box.y - CARD_W * 0.4 || cy > box.y + box.h) continue;
+    const into =
+      cx < box.x + box.w / 2
+        ? (spotsOf(t).find((s) => s.id === spot.after) ?? spot)
+        : spot;
+    return { spot: into, place: freePlace(t, into), split: true };
+  }
+  // An unlimited row reaches one place past its last card (unless it takes new cards through a split placeholder);
+  // taking new cards first, also its free place before them.
   const places = (spot: Spot) => {
     if (spot.addsFirst)
       return [
@@ -1486,7 +1617,9 @@ function spotAt(
         ...spotPlaces(spot, fanRow(t, spot).length),
       ];
     const n =
-      fanMax(spot) === Infinity ? fanRow(t, spot).length + 1 : fanMax(spot);
+      fanMax(spot) === Infinity
+        ? fanRow(t, spot).length + (sharesPlaceholder(t, spot) ? 0 : 1)
+        : fanMax(spot);
     return spotPlaces(spot, n);
   };
   // Laid right on the place, or with its middle over the part of the place left showing beside a covering card.
@@ -1533,9 +1666,15 @@ export function drawOrder(t: Table): string[] {
     const row = stacksOnSpot(t, spot);
     const below = spot.overlaps ? row : row.reverse();
     if (!below.length) continue;
-    // Under the lowest card of the covering spot (the last of a fanned row, e.g. the outer house extension).
-    const cover = spots.find((s) => s.id === spot.under);
-    const covering = cover ? stacksOnSpot(t, cover) : [];
+    // Under the lowest card of the covering spot (the last of a fanned row, e.g. the outer house extension); while that
+    // has none, of the spot covering it (the Skills under the Character Card while there are no Titles).
+    let cover = spots.find((s) => s.id === spot.under);
+    let covering = cover ? stacksOnSpot(t, cover) : [];
+    while (cover && !covering.length) {
+      const next: string | undefined = cover.under;
+      cover = spots.find((s) => s.id === next);
+      covering = cover ? stacksOnSpot(t, cover) : [];
+    }
     const first = Math.min(...below.map((id) => z.indexOf(id)));
     z = z.filter((id) => !below.includes(id));
     const above = Math.min(...covering.map((id) => z.indexOf(id)));
@@ -1569,7 +1708,8 @@ export interface Placement {
  * end up. Cards dropped in a table deck's area go into that deck (onto its pile),
  * in the Encounter Deck area onto the nearest of its places, cards with an attracting spot go there whatever the drop point, cards
  * dropped on a spot snap onto it; `moving` is the pile being moved as a whole,
- * which doesn't count as lying on the spot.
+ * which doesn't count as lying on the spot. `pointer`, where the dragged card is held (it may lie offset from it),
+ * picks the half of a split placeholder; else the card's middle does.
  */
 export function placement(
   t: Table,
@@ -1579,6 +1719,7 @@ export function placement(
   y: number,
   onto: string | null,
   moving: string | null = null,
+  pointer?: Point,
 ): Placement {
   const target = onto ? t.stacks[onto] : null;
   const at = { x: target?.x ?? x, y: target?.y ?? y };
@@ -1611,8 +1752,8 @@ export function placement(
   const fanned =
     !!onto && spotsOf(t).some((s) => s.fan && fanRow(t, s).includes(onto));
   const taken =
-    (fanned && spotAt(t, x, y, families)) ||
-    spotAt(t, at.x, at.y, families) ||
+    (fanned && spotAt(t, x, y, families, pointer)) ||
+    spotAt(t, at.x, at.y, families, pointer) ||
     areaSpot(t, area, families);
   if (!taken)
     return {
@@ -1623,7 +1764,21 @@ export function placement(
       spot: null,
       refused: refusal(area, cardIds, defs),
     };
-  const { spot, place } = taken;
+  let { spot } = taken;
+  const { place } = taken;
+  // A pile moved within one of two rows sharing a split placeholder (the Titles below the Skills) is only reordered in
+  // it, dropped where it may; only through the placeholder does it go to the other.
+  let to = at;
+  const from = moving ? pairedRow(t, moving) : undefined;
+  if (
+    from &&
+    !("split" in taken && taken.split) &&
+    from.id !== spot.id &&
+    (from.after === spot.id || spot.after === from.id)
+  ) {
+    spot = from;
+    to = withinRow(t, from, at);
+  }
   const fits = families.every((f) => f === spot.family);
   const other = spot.attracts
     ? `Only the ${spot.label} goes on its place`
@@ -1633,12 +1788,30 @@ export function placement(
   if (!spot.fan)
     return { ...place, onto: pileAt(t, place, moving), area, spot, refused };
   // A card joins a fanned row at the place it is dropped on, never on top of another card.
-  const inRow = spotPlace(t, spot, moving, at.x, at.y);
+  const inRow = spotPlace(t, spot, moving, to.x, to.y);
   return {
     ...(inRow ?? { ...place, onto: null }),
     area,
     spot,
     refused: refused ?? oneEach(spot, cardIds) ?? (inRow ? null : full(spot)),
+  };
+}
+
+/** The row pile `id` lies in, if it is one of two rows sharing a split placeholder (the Titles, the Skills). */
+function pairedRow(t: Table, id: string): Spot | undefined {
+  return spotsOf(t).find(
+    (s) =>
+      (s.split || sharesPlaceholder(t, s)) && fanRow(t, s).includes(id),
+  );
+}
+
+/** The point of a row (running up or down) nearest to (x, y): on its line, between its first and last places. */
+function withinRow(t: Table, spot: Spot, p: Point): Point {
+  const n = fanRow(t, spot).length;
+  const ends = [spot.y, spotPlaces(spot, Math.max(1, n))[Math.max(1, n) - 1].y];
+  return {
+    x: spot.x,
+    y: Math.max(Math.min(...ends), Math.min(Math.max(...ends), p.y)),
   };
 }
 

@@ -175,7 +175,7 @@ export function flipStack(t: Table, id: string): Table {
 
 /**
  * Turn a pile on the table; a Region Card in it never turns, nor a card lying turned on its place (Market Prices,
- * Encounter Bar) or upside down on it (Actions area).
+ * Encounter Bar) or upside down on it (Actions area, Titles, Skills).
  */
 export function rotateStack(t: Table, id: string, delta: number, defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
@@ -589,7 +589,7 @@ export function storyAt(t: Table, x: number, y: number): boolean {
 /**
  * Lay the spots out: spread out piles dropped on the hand, close the gaps in fanned spots (Money Cards, Goods), their
  * piles lying on the first places in row order, and lay cards on a spot that turns them straight and face up (Market Prices) or face down (Encounter Bar), or
- * upside down (Actions area), as they must lie there.
+ * upside down (Actions area, Titles, Skills), as they must lie there.
  */
 export function settleSpots(t: Table): Table {
   let next = t

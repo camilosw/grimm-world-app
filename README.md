@@ -146,6 +146,16 @@ and no other card can be put there. The Alignment Card always lies under the Cha
 showing (**Rotate** it to show the value on its other end); both Alignment Cards dropped there form one pile. Other
 cards may still overlap the edges of these places.
 
+**Titles and Skills.** Above the Character Card lie the titles and skills received (rulebook 4.1), in one column:
+first the titles, the first slid under the Character Card's top edge so that its bottom fifth shows, each further one
+likewise under the one before; then the skills, the first slid under the last title (or under the Character Card while
+there are none), each showing only its name banner. Above them all is one placeholder, split in two: drop a Y-card on
+its left half ("Titles") to add it as the last title, on its right half ("Skills") to add it as the last skill. The cards
+lie upside down, so that the strip printed upside down at their bottom reads the right way up; they can't be rotated
+there. Titles always stay below the skills: a title dragged along the column is only reordered among the titles, a
+skill among the skills (drop it on the other half of the placeholder to move it to the other group). Other cards are
+refused. Any number of each: the area grows up with the column.
+
 **Quest Cards.** Below the Character Card lies a column of Quest Cards, under a "Quest Cards" placeholder: the first
 slid under its bottom edge so that only its bottom quarter shows, each further one likewise under the one before. It
 takes any Y-card (Lost Pages): drop one on or near the placeholder, or on the column, to add it there (where you drop

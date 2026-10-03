@@ -19,11 +19,13 @@ import {
   placeStack,
   PLACE_BUTTON,
   snapArea,
+  splitBox,
   spotsOf,
   stacksOnSpot,
   turnedSpot,
   type Area,
   type Side,
+  type Spot,
 } from './areas'
 import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, tokenSize, turnedClass, type Turn } from './cards'
 import { CardGhost } from './CardGhost'
@@ -105,6 +107,8 @@ interface Drag {
   spot: string | null
   /** Where the card would really land. */
   to: { x: number; y: number } | null
+  /** The pointer, in table coordinates (the dragged card lies offset from it, as it was taken). */
+  pointer?: { x: number; y: number }
 }
 
 /** Below this breadth (world units) a covered place's label is set smaller to fit (Market Prices showing only their price strip). */
@@ -297,13 +301,13 @@ export function TableView(props: Props) {
         dropOn = story.id
         area = { id: 'storybook', ok: true }
       } else if (g2.target.kind === 'stack' && !zone) {
-        const dest = destination(g2.target, x, y, dropOn)
+        const dest = destination(g2.target, x, y, dropOn, w)
         dropOn = dest.onto
         if (dest.area) area = { id: dest.area.id, ok: !dest.refused }
         spot = dest.spot?.id ?? null
         to = { x: dest.x, y: dest.y }
       }
-      setDrag({ target: g2.target, x, y, dropOn, zone, clientX: e.clientX, clientY: e.clientY, area, spot, to })
+      setDrag({ target: g2.target, x, y, dropOn, zone, clientX: e.clientX, clientY: e.clientY, area, spot, to, pointer: w })
     }
   }
 
@@ -345,10 +349,10 @@ export function TableView(props: Props) {
   }
 
   /** Where a dragged pile (or its top card) would really land, and why it can't go there. */
-  function destination(target: { id: string; whole: boolean }, x: number, y: number, dropOn: string | null) {
+  function destination(target: { id: string; whole: boolean }, x: number, y: number, dropOn: string | null, pointer?: { x: number; y: number }) {
     // A fixed pile (an Encounter Deck place) stays: its cards leave it as a new pile.
     const moving = target.whole && !isFixed(table.stacks[target.id]) ? target.id : null
-    return placement(table, movedCards(target), defs, x, y, dropOn, moving)
+    return placement(table, movedCards(target), defs, x, y, dropOn, moving, pointer)
   }
 
   function commitDrag(d: Drag) {
@@ -358,7 +362,7 @@ export function TableView(props: Props) {
     if (target.kind !== 'stack') return
     if (zone) return onZoneDrop(zone, target.id, target.whole)
     if (dropOn && table.stacks[dropOn]?.slot === 'story') return props.onStoryDrop(target.id, target.whole)
-    const dest = destination(target, x, y, dropOn)
+    const dest = destination(target, x, y, dropOn, d.pointer)
     if (dest.refused) return props.onRefuse(dest.refused)
     const onto = dest.onto
     // Put back where it came from (a card dropped back on its deck).
@@ -416,6 +420,63 @@ export function TableView(props: Props) {
   const covered = new Map(spots.filter((s) => s.under).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
   const turned = new Map(spots.flatMap((s) => (s.turn ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const) : [])))
 
+  /** A spot's placeholders: its free place(s), only the part showing beside a card covering it. */
+  const placeholders = (spot: Spot) => {
+    // A fanned spot shows its next free place, none when full. The Encounter Bar: left of its cards, and once it
+    // has cards, also right of its last one.
+    if (spot.fan && !fanHasPlace(shownTable, spot)) return []
+    // A row sharing a split placeholder shows no free place of its own: the split one takes its cards (left half), the
+    // other row's on the right (the Titles | Skills above both).
+    if (spots.some((s) => s.split && s.after === spot.id)) return []
+    if (spot.split) {
+      const box = splitBox(shownTable, spot)
+      const halves = [spots.find((s) => s.id === spot.after) ?? spot, spot]
+      return halves.map((half, i) => {
+        const state = drag?.spot === half.id ? (drag.area?.ok ? ' accept' : ' refuse') : ''
+        return (
+          <div
+            key={`${spot.id}-${i}`}
+            className={`card-spot covered covered-bottom split-${i ? 'right' : 'left'}${state}`}
+            style={{ left: box.x + (i * box.w) / 2, top: box.y, width: box.w / 2, height: box.h }}
+          >
+            <span>
+              {half.label}
+              {half.hint && <small>{half.hint}</small>}
+            </span>
+          </div>
+        )
+      })
+    }
+    const row = spot.addsFirst ? fanRow(shownTable, spot) : []
+    // Where the dragged card goes: after the row's last card (not counting the card itself), else before its first.
+    // Taken from the table itself: the preview spreads a dragged pile out into cards that aren't on it.
+    const others = spot.addsFirst ? fanRow(table, spot).filter((id) => id !== dragStack?.id) : []
+    const toEnd = !!drag?.to && others.length > 0 && drag.to.x > table.stacks[others[others.length - 1]].x
+    return freePlaces(shownTable, spot).map((at, i) => {
+      const end = i > 0
+      // A covered spot only shows the part beside the card lying on it. The Encounter Bar's free place lies under
+      // its first card, though the cards put there go on top; its place after the last card lies under that card. So
+      // does the hand's place after its last card, though the card put there goes on top.
+      const side = end ? 'left' : row.length ? 'right' : freeCovered(shownTable, spot)
+      const hover = drag?.spot === spot.id && (!spot.addsFirst || end === toEnd)
+      const state = hover ? (drag.area?.ok ? ' accept' : ' refuse') : ''
+      const box = cardBox(at.x, at.y, !!spot.landscape)
+      const hidden = 1 - (spot.shows ?? 0.5)
+      if (side === 'left') box.left += hidden * box.width
+      if (side === 'top') box.top += hidden * box.height
+      if (side === 'left' || side === 'right') box.width *= 1 - hidden
+      if (side === 'top' || side === 'bottom') box.height *= 1 - hidden
+      return (
+        <div key={end ? `${spot.id}-end` : spot.id} className={`card-spot${side ? ` covered covered-${side}` : ''}${box.width > box.height ? ' wide' : ''}${Math.min(box.width, box.height) < NARROW_SPOT ? ' narrow' : ''}${state}`} style={box}>
+          <span>
+            {spot.label}
+            {spot.hint && <small>{spot.hint}</small>}
+          </span>
+        </div>
+      )
+    })
+  }
+
   return (
     <div
       ref={rootRef}
@@ -444,39 +505,7 @@ export function TableView(props: Props) {
             Enemies
           </div>
         )}
-        {spots.flatMap((spot) => {
-          // A fanned spot shows its next free place, none when full. The Encounter Bar: left of its cards, and once it
-          // has cards, also right of its last one.
-          if (spot.fan && !fanHasPlace(shownTable, spot)) return []
-          const row = spot.addsFirst ? fanRow(shownTable, spot) : []
-          // Where the dragged card goes: after the row's last card (not counting the card itself), else before its first.
-          // Taken from the table itself: the preview spreads a dragged pile out into cards that aren't on it.
-          const others = spot.addsFirst ? fanRow(table, spot).filter((id) => id !== dragStack?.id) : []
-          const toEnd = !!drag?.to && others.length > 0 && drag.to.x > table.stacks[others[others.length - 1]].x
-          return freePlaces(shownTable, spot).map((at, i) => {
-            const end = i > 0
-            // A covered spot only shows the part beside the card lying on it. The Encounter Bar's free place lies under
-            // its first card, though the cards put there go on top; its place after the last card lies under that card. So
-            // does the hand's place after its last card, though the card put there goes on top.
-            const side = end ? 'left' : row.length ? 'right' : freeCovered(shownTable, spot)
-            const hover = drag?.spot === spot.id && (!spot.addsFirst || end === toEnd)
-            const state = hover ? (drag.area?.ok ? ' accept' : ' refuse') : ''
-            const box = cardBox(at.x, at.y, !!spot.landscape)
-            const hidden = 1 - (spot.shows ?? 0.5)
-            if (side === 'left') box.left += hidden * box.width
-            if (side === 'top') box.top += hidden * box.height
-            if (side === 'left' || side === 'right') box.width *= 1 - hidden
-            if (side === 'top' || side === 'bottom') box.height *= 1 - hidden
-            return (
-              <div key={end ? `${spot.id}-end` : spot.id} className={`card-spot${side ? ` covered covered-${side}` : ''}${box.width > box.height ? ' wide' : ''}${Math.min(box.width, box.height) < NARROW_SPOT ? ' narrow' : ''}${state}`} style={box}>
-                <span>
-                  {spot.label}
-                  {spot.hint && <small>{spot.hint}</small>}
-                </span>
-              </div>
-            )
-          })
-        })}
+        {spots.flatMap(placeholders)}
         {allAreas(shownTable).flatMap((area) => {
           // The Encounter Deck area's places, shown while empty (their piles cover them), with a Shuffle button below each
           // time card's (it stays at the bottom).

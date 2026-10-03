@@ -1433,6 +1433,23 @@ button.on {
   background: rgba(255, 138, 112, 0.15);
 }
 
+/* The two halves of a split placeholder (Titles | Skills), with one dashed line between them, their text clear of the
+   cards right below them. */
+.card-spot.split-left,
+.card-spot.split-right {
+  padding: 0 8px 14px;
+  line-height: 1.1;
+}
+
+.card-spot.split-left {
+  border-right: none;
+  border-radius: 12px 0 0 0;
+}
+
+.card-spot.split-right {
+  border-radius: 0 12px 0 0;
+}
+
 /* ---------- storybook slots ---------- */
 
 .stack.slot {
