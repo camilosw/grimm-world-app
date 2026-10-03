@@ -1,4 +1,4 @@
-import { allAreas, anchorsAfterMove, areaForCard, battlefieldPiles, onGrid, fanRow, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, terrainPlace, facedSpot, turnedSpot, upsideDownSpot } from './areas'
+import { allAreas, anchorsAfterMove, areaForCard, battlefieldPiles, onGrid, fanRow, settleEnemies, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, terrainPlace, facedSpot, turnedSpot, upsideDownSpot } from './areas'
 import { CARD_H, CARD_W, compareCards, family, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, returnsCards, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
@@ -648,9 +648,12 @@ export function settleSpots(t: Table): Table {
   return next
 }
 
-/** Bring the table in order after any change: the spots laid out (`settleSpots()`), then the areas (`settleLayout()`). */
+/**
+ * Bring the table in order after any change: the cards on the Enemy Card places kept on them (`settleEnemies()`), the
+ * spots laid out (`settleSpots()`), then the areas (`settleLayout()`).
+ */
 export function settle(t: Table): Table {
-  return settleLayout(settleSpots(t))
+  return settleLayout(settleSpots(settleEnemies(t)))
 }
 
 // ---------- area layout ----------

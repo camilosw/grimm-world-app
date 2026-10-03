@@ -162,16 +162,31 @@ const hand = {
 
 /** Thickness of a free place beside a Terrain Card on the battlefield: a strip along that side of the card. */
 export const TERRAIN_STRIP = 50;
-/** Columns right of the battlefield's Terrain Cards for Enemy Cards with their Hit Point Cards. */
-export const ENEMY_COLS = 2;
+/** Columns and rows of Enemy Card places right of the battlefield's Terrain Cards: four enemies at most (rulebook 3.3). */
+const ENEMY_COLS = 2;
+const ENEMY_ROWS = 2;
 const ENEMY_GAP = 60;
+/**
+ * Where a Hit Point Card lies on its Enemy Card (rulebook figures 80 and 91): this far down, over the card's lower part
+ * below its reaction symbols...
+ */
+const HP_DROP = Math.round(0.715 * CARD_H);
+/** ...and this far left of it, its chain pointing at the unspent reaction, or right of it at the spent one. */
+const HP_SHIFT = Math.round(0.14 * CARD_W);
+/** An Enemy Card's place with its Hit Point Card's places beside and below it. */
+const ENEMY_SLOT = { w: CARD_W + 2 * HP_SHIFT, h: HP_DROP + CARD_H };
+/** The Enemy Card places, `ENEMY_COLS` by `ENEMY_ROWS`. */
+const ENEMY_BLOCK = {
+  w: ENEMY_COLS * ENEMY_SLOT.w + (ENEMY_COLS - 1) * PLACE_GAP,
+  h: ENEMY_ROWS * ENEMY_SLOT.h + (ENEMY_ROWS - 1) * PLACE_GAP,
+};
 // Right of the Home area as laid out (`battlefieldPlace()`): a grid of landscape Terrain Card places, edge to edge, with
 // room for the Enemy Cards right of it. Drawn only as large as its cards need (`measure()`): this size, its first place
 // alone, places its grid (`gridOrigin()`).
 const battlefield = {
   x: home.x + home.w + OWN_GAP,
   y: home.y,
-  w: CARD_H + 2 * TERRAIN_STRIP + ENEMY_GAP + ENEMY_COLS * CARD_W + AREA_PAD * 2,
+  w: CARD_H + 2 * TERRAIN_STRIP + ENEMY_GAP + ENEMY_BLOCK.w + AREA_PAD * 2,
   h: 2 * CARD_H + AREA_HEADER + AREA_PAD,
 };
 
@@ -263,6 +278,17 @@ export interface Spot {
    * A pile moved within either row stays in it (`placement()`).
    */
   split?: boolean;
+  /** The spot whose card this spot's card lies on, drawn above it (a Hit Point Card on its Enemy Card). */
+  above?: string;
+  /** Its placeholder shows only while that spot holds a card (a Hit Point Card's, once its Enemy Card is there). */
+  needs?: string;
+  /**
+   * Another place for that spot's card (a Hit Point Card on the spent side, or over its defeated enemy): it shows no
+   * placeholder, and the spot and its other places hold one card between them (`one`).
+   */
+  alt?: string;
+  /** Holds one card (with its `alt` places, between them): another dropped there is refused. */
+  one?: boolean;
   /** The storybook place whose top card this spot's card lies on. */
   over?: StorySlot;
   /** Cards of the family dropped anywhere in its area go here. */
@@ -1149,7 +1175,8 @@ function gridPiles(t: Table): Map<string, string> {
   if (grid) return grid;
   grid = new Map();
   const o = terrainPlace(t, 0, 0);
-  const onSpots = new Set(spotsOf(t).flatMap((sp) => stacksOnSpot(t, sp)));
+  // The areas' spots only: the battlefield's lie right of the grid, where it ends (`battlefieldSpots()`).
+  const onSpots = new Set(baseSpots(t).flatMap((sp) => stacksOnSpot(t, sp)));
   for (const id of t.z) {
     const s = t.stacks[id];
     if (s.slot || s.deck || s.place || onSpots.has(id)) continue;
@@ -1219,8 +1246,14 @@ export function terrainPlaces(
       { ...terrainPlace(t, 0, 0), col: 0, row: 0, box: cellBox(t, 0, 0), side: null },
     ];
   const terrain = new Set(grid.values());
+  // The cards on the Enemy Card places hide no strip: the places move aside as the grid grows (`settleEnemies()`).
+  const enemies = new Set(
+    spotsOf(t)
+      .filter((s) => s.area === "battlefield")
+      .flatMap((s) => stacksOnSpot(t, s)),
+  );
   const others = t.z
-    .filter((id) => id !== moving && !terrain.has(id))
+    .filter((id) => id !== moving && !terrain.has(id) && !enemies.has(id))
     .map((id) => cardRect(t.stacks[id].x, t.stacks[id].y));
   const places: TerrainPlace[] = [];
   for (const key of grid.keys()) {
@@ -1255,8 +1288,8 @@ export function battlefieldBoxes(t: Table): { grid: Rect; enemies: Rect } {
   const enemies = {
     x: right + ENEMY_GAP,
     y,
-    w: ENEMY_COLS * CARD_W,
-    h: Math.max(grid.h, 2 * CARD_H),
+    w: ENEMY_BLOCK.w,
+    h: Math.max(grid.h, ENEMY_BLOCK.h),
   };
   return { grid, enemies };
 }
@@ -1303,9 +1336,113 @@ function shiftOf(t: Table, area: string): Point {
 }
 
 const shiftedSpots = new WeakMap<Table, Spot[]>();
+const tableSpots = new WeakMap<Table, Spot[]>();
 
-/** The spots as they lie on this table: moved with their areas (`Table.shifts`). Use these, not `SPOTS`, for positions. */
+/**
+ * The spots as they lie on this table: moved with their areas (`Table.shifts`), and the battlefield's Enemy Card places
+ * right of its Terrain Cards (`battlefieldSpots()`). Use these, not `SPOTS`, for positions.
+ */
 export function spotsOf(t: Table): Spot[] {
+  let spots = tableSpots.get(t);
+  if (!spots) {
+    spots = [...baseSpots(t), ...battlefieldSpots(t)];
+    tableSpots.set(t, spots);
+  }
+  return spots;
+}
+
+/**
+ * The places of the battlefield's Enemy Cards, right of its Terrain Cards (`battlefieldBoxes()`), two by two: each
+ * with its Hit Point Card's place over the card's lower part, its chain pointing at the unspent reaction (rulebook
+ * figure 80), and two more places for that card: on the spent side (rulebook 8.2.1.2.2, figure 91) and over the
+ * defeated enemy (8.2.1.3), a unit lower, so it isn't taken for the Enemy Card's pile.
+ */
+function battlefieldSpots(t: Table): Spot[] {
+  const { enemies } = battlefieldBoxes(t);
+  return Array.from({ length: ENEMY_COLS * ENEMY_ROWS }, (_, i): Spot[] => {
+    const n = i + 1;
+    // Rounded like the places of a fanned spot (the battlefield's top, like the Home area's, lies half a unit off the
+    // grid).
+    const x = Math.round(
+      enemies.x + HP_SHIFT + (i % ENEMY_COLS) * (ENEMY_SLOT.w + PLACE_GAP),
+    );
+    const y = Math.round(
+      enemies.y + Math.floor(i / ENEMY_COLS) * (ENEMY_SLOT.h + PLACE_GAP),
+    );
+    const hp = (id: string, dx: number, dy: number, alt: boolean): Spot => ({
+      id,
+      label: "Hit Point Card",
+      area: "battlefield",
+      family: "hitpoints",
+      attracts: false,
+      x: x + dx,
+      y: y + dy,
+      above: `enemy-${n}`,
+      one: true,
+      ...(alt ? { alt: `hp-${n}` } : { needs: `enemy-${n}` }),
+    });
+    return [
+      {
+        id: `enemy-${n}`,
+        label: "Enemy Card",
+        hint: "Y-Card",
+        area: "battlefield",
+        family: "lost-pages",
+        attracts: false,
+        x,
+        y,
+        one: true,
+        faceUp: true,
+      },
+      hp(`hp-${n}`, -HP_SHIFT, HP_DROP, false),
+      hp(`hp-${n}-spent`, HP_SHIFT, HP_DROP, true),
+      hp(`hp-${n}-defeated`, 0, 1, true),
+    ];
+  }).flat();
+}
+
+/**
+ * Keep the cards on the battlefield's Enemy Card places on them as the places move with the grid's edge (a Terrain Card
+ * laid beyond it, or taken away), and remember where they lie from the grid (`Table.enemies`). Run by `settle()` after
+ * every change.
+ */
+export function settleEnemies(t: Table): Table {
+  const o = terrainPlace(t, 0, 0);
+  const { enemies } = battlefieldBoxes(t);
+  const at = { x: enemies.x - o.x, y: enemies.y - o.y };
+  const was = t.enemies;
+  if (was && was.x === at.x && was.y === at.y) return t;
+  let stacks = t.stacks;
+  if (was) {
+    const dx = Math.round(at.x - was.x);
+    const dy = Math.round(at.y - was.y);
+    const moved = new Set<string>();
+    for (const s of battlefieldSpots(t))
+      for (const id of t.z) {
+        const p = stacks[id];
+        if (moved.has(id) || p.x !== s.x - dx || p.y !== s.y - dy) continue;
+        stacks = { ...stacks, [id]: { ...p, x: s.x, y: s.y } };
+        moved.add(id);
+      }
+  }
+  return { ...t, stacks, enemies: at };
+}
+
+/**
+ * Whether one of the places holding a single card between them (a spot and its `alt` places) holds a pile other than
+ * `moving`.
+ */
+export function holdsOne(t: Table, spot: Spot, moving: string | null = null): boolean {
+  const main = spot.alt ?? spot.id;
+  return spotsOf(t).some(
+    (s) =>
+      (s.alt ?? s.id) === main &&
+      stacksOnSpot(t, s).some((id) => id !== moving),
+  );
+}
+
+/** The spots of the areas (`SPOTS`) as they lie on this table: all of them but the battlefield's. */
+function baseSpots(t: Table): Spot[] {
   let spots = shiftedSpots.get(t);
   if (!spots) {
     spots = SPOTS.map((s) => {
@@ -1971,6 +2108,16 @@ export function drawOrder(t: Table): string[] {
     const above = Math.min(...covering.map((id) => z.indexOf(id)));
     z.splice(covering.length ? above : first, 0, ...below);
   }
+  // A card lying on another's card (a Hit Point Card on its Enemy Card) right above it.
+  for (const spot of spots) {
+    if (!spot.above) continue;
+    const on = stacksOnSpot(t, spot);
+    const cover = spots.find((s) => s.id === spot.above);
+    const below = cover ? stacksOnSpot(t, cover) : [];
+    if (!on.length || !below.length) continue;
+    z = z.filter((id) => !on.includes(id));
+    z.splice(Math.max(...below.map((id) => z.indexOf(id))) + 1, 0, ...on);
+  }
   for (const spot of spots) {
     if (!spot.over) continue;
     const on = stacksOnSpot(t, spot);
@@ -2090,7 +2237,14 @@ export function placement(
   // A spot takes its cards even in an area that doesn't (the Encounter Card in the Storybook area).
   const refused = fits ? null : (refusal(area, cardIds, defs) ?? other);
   if (!spot.fan)
-    return { ...place, onto: pileAt(t, place, moving), area, spot, refused };
+    return {
+      ...place,
+      onto: pileAt(t, place, moving),
+      area,
+      spot,
+      refused:
+        refused ?? (spot.one && holdsOne(t, spot, moving) ? full(spot) : null),
+    };
   // A card joins a fanned row at the place it is dropped on, never on top of another card.
   const inRow = spotPlace(t, spot, moving, to.x, to.y);
   return {

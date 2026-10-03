@@ -109,6 +109,11 @@ export interface Table {
   anchors?: Record<string, { x: number; y: number }>
   /** Frames of the growing areas as last laid out: a card dropped on one belongs to that area (`settleLayout()`). */
   frames?: Record<string, { x: number; y: number; w: number; h: number }>
+  /**
+   * Where the battlefield's Enemy Card places lay, from its grid's first place, as last laid out: they move as the grid
+   * grows or shrinks, and the cards on them with them (`settleEnemies()`). Missing: not laid out yet.
+   */
+  enemies?: { x: number; y: number }
   nextId: number
 }
 

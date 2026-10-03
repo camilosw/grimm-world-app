@@ -374,10 +374,20 @@ out, with room for the Enemy Cards and their Hit Point Cards on the right. Terra
 Region Cards, and face up there: one put on the Battlefield turns face up, however it came, and can't be turned over; **↻ Turn around** turns one half a turn, so that its triangles point down instead of up (they can't be
 rotated otherwise). While the Battlefield is empty it shows one place for a Terrain Card. Once a card lies there, a
 narrow strip marked + runs along each of its sides: a Terrain Card dropped on a strip lies right beside that card, edge
-to edge, and gets strips of its own on its free sides. A strip only shows where nothing lies yet (a card in the way,
-an Enemy Card say, hides it). A Terrain Card dropped anywhere else in the Battlefield goes to the nearest strip; one at
+to edge, and gets strips of its own on its free sides. A strip only shows where nothing lies yet (a card in the way
+hides it; not the cards on the Enemy Card places, which move aside with the grid). A Terrain Card dropped anywhere else in the Battlefield goes to the nearest strip; one at
 a time, and nothing else goes on top of a Terrain Card. A card on the battlefield moves to another strip by dragging it
 there. The area grows with its cards in every direction.
+
+**Enemy Cards and Hit Point Cards.** Right of the Terrain Cards are four Enemy Card places, two by two (at most four
+enemies, one per Hit Point Card): each takes one Y-card, the Enemy Card picked out for the combat, face up (a card put
+there face down turns face up). The places stay right of the Terrain Cards as the battlefield grows or shrinks, the
+cards on them moving along. Once an Enemy Card
+lies there, a Hit Point Card placeholder shows over its lower part, a little to the left, as in rulebook figure 80: the
+Hit Point Card dropped there lies on the Enemy Card, its chain pointing at the unspent reaction. Drag it a little to the
+right to mark the reaction as spent, back to the left in the Refresh Phase (rulebook figure 91), or right over the Enemy
+Card once the enemy is defeated (rulebook 8.2.1.3). It can be rotated and turned over there to show the hit points left.
+Each Enemy Card place and its Hit Point Card hold one card each: another one dropped there is refused.
 
 **⚔ Battle** builds the battlefield of a Conflict Card for you. Type the Terrain Cards row by row, adding `v` to cards
 whose arrows point down and `-` for empty cells, e.g. `01 07v 15v` / `19 30 31`. Check the preview, then _Lay out_: the

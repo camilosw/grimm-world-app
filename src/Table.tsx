@@ -5,7 +5,6 @@ import {
   allAreas,
   BROWSE_DECKS,
   coveredSide,
-  battlefieldBoxes,
   battlefieldInUse,
   deckPlace,
   drawOrder,
@@ -14,6 +13,7 @@ import {
   fanHasPlace,
   fanRow,
   freeCovered,
+  holdsOne,
   freePlaces,
   onGrid,
   placement,
@@ -472,6 +472,12 @@ export function TableView(props: Props) {
       })
     }
     if (spot.fan && !fanHasPlace(shownTable, spot)) return []
+    // A place holding one card shows none once that card is there (a Hit Point Card on any of its places); another place
+    // for a spot's card shows none of its own (the spent side, over the defeated enemy); a Hit Point Card's place shows
+    // only once its Enemy Card is there.
+    if (spot.alt || (spot.one && holdsOne(shownTable, spot))) return []
+    const needed = spot.needs && spots.find((s) => s.id === spot.needs)
+    if (needed && !stacksOnSpot(shownTable, needed).length) return []
     const row = spot.addsFirst ? fanRow(shownTable, spot) : []
     // Where the dragged card goes: after the row's last card (not counting the card itself), else before its first.
     // Taken from the table itself: the preview spreads a dragged pile out into cards that aren't on it.
@@ -522,9 +528,6 @@ export function TableView(props: Props) {
             onRules={() => props.onAreaRules(area.id)}
           />
         ))}
-        <div className="enemy-slots" style={rectStyle(battlefieldBoxes(shownTable).enemies)}>
-          Enemies
-        </div>
         {/* The battlefield's free places: its first one, then a strip on each free side of its Terrain Cards. */}
         {terrainPlaces(shownTable, dragStack ? movingPile(dragStack) : null).map((p) => {
           const hover = hl?.area?.id === 'battlefield' && hl.to?.x === p.x && hl.to?.y === p.y

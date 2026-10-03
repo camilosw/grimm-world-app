@@ -1315,18 +1315,6 @@ button.on {
   border-radius: 14px;
 }
 
-.enemy-slots {
-  position: absolute;
-  padding-top: 12px;
-  border: 3px dashed rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
-  text-align: center;
-  font-size: 26px;
-  font-weight: 600;
-  color: rgba(255, 245, 225, 0.35);
-  pointer-events: none;
-}
-
 .notice.ok {
   background: #1f3d29;
   border-color: #7fe3a0;
