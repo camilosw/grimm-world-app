@@ -31,7 +31,13 @@ export interface Area {
 
 export const AREA_PAD = 40;
 export const AREA_HEADER = 90;
-export const GAP = 120;
+/** Space between two areas as laid out on the table. */
+export const GAP = 40;
+/**
+ * Space between the areas' own places in `AREAS`. These only fix where spots lie relative to each other, and saves
+ * record each area's shift from its own place (`Table.shifts`), so this must not change.
+ */
+const OWN_GAP = 120;
 
 /** Size of an area holding `cols` × `rows` cards. */
 function box(cols: number, rows: number) {
@@ -64,7 +70,7 @@ const BAR_SHOWS = 0.26;
 // Right of the Map, one landscape card high. Drawn only as large as its cards need (`measure()`): this size, just its
 // free place, places its spot; it grows right with the cards placed in it (see SPOTS).
 const bar = {
-  x: map.x + map.w + GAP,
+  x: map.x + map.w + OWN_GAP,
   y: 0,
   w: CARD_H + AREA_PAD * 2,
   h: CARD_W + AREA_HEADER + AREA_PAD,
@@ -79,7 +85,7 @@ export const PLACE_BUTTON = { gap: 24, h: 76 };
 // The three places of the Encounter Deck area side by side (`ENCOUNTER_PLACES`), with a Shuffle button below each time
 // card's.
 const encounter = {
-  x: bar.x + bar.w + GAP,
+  x: bar.x + bar.w + OWN_GAP,
   y: 0,
   w: 3 * CARD_W + 2 * PLACE_GAP + AREA_PAD * 2,
   h: CARD_H + PLACE_BUTTON.gap + PLACE_BUTTON.h + AREA_HEADER + AREA_PAD,
@@ -87,14 +93,14 @@ const encounter = {
 // Below the Map, which is taller than the Encounter Bar. The Character, Storage and Home areas are drawn only as large
 // as the cards in them need (`measure()`): these sizes just place their spots. Where the areas really lie is up to
 // `settleLayout()`, which moves each next to the one before it.
-const character = { x: 0, y: Math.max(map.h, bar.h) + GAP, ...box(5, 3) };
+const character = { x: 0, y: Math.max(map.h, bar.h) + OWN_GAP, ...box(5, 3) };
 // Five wide, leaving room right of the Money Cards fanned out from the Storage Card (see SPOTS).
-const storage = { x: character.w + GAP, y: character.y, ...box(5, 3) };
+const storage = { x: character.w + OWN_GAP, y: character.y, ...box(5, 3) };
 /** Part of the revealed storybook card's height covered by the Encounter Card lying on its bottom edge. */
 const STORY_COVERED = 0.15;
 // The revealed cards and the storybook, with the Encounter Card below the revealed cards (see SPOTS).
 const story = {
-  x: storage.x + storage.w + GAP,
+  x: storage.x + storage.w + OWN_GAP,
   y: character.y,
   ...box(2, 2 - STORY_COVERED),
 };
@@ -104,7 +110,7 @@ export const BROWSE_DECKS: DeckKind[] = ["training"];
 // each on its place (see `deckPlace()`), with its Browse button below it (`BROWSE_DECKS`).
 const deckBox = box(1, 1);
 const deckArea = (i: number) => ({
-  x: story.x + story.w + GAP + i * (deckBox.w + GAP),
+  x: story.x + story.w + OWN_GAP + i * (deckBox.w + OWN_GAP),
   y: character.y,
   w: deckBox.w,
   h:
@@ -139,7 +145,7 @@ const HOME_RIGHT =
 // right (see SPOTS).
 const home = {
   x: story.x,
-  y: story.y + story.h + GAP,
+  y: story.y + story.h + OWN_GAP,
   ...box(HOME_LEFT + 1 + HOME_RIGHT, 1 + HOUSE_ABOVE_SHOWS + HOUSE_BELOW_SHOWS),
 };
 /** Part of a hand card's height showing above the card lying on it: the strip of an Action Card, turned upside down. */
@@ -163,7 +169,7 @@ const ENEMY_GAP = 60;
 // room for the Enemy Cards right of it. Drawn only as large as its cards need (`measure()`): this size, its first place
 // alone, places its grid (`gridOrigin()`).
 const battlefield = {
-  x: home.x + home.w + GAP,
+  x: home.x + home.w + OWN_GAP,
   y: home.y,
   w: CARD_H + 2 * TERRAIN_STRIP + ENEMY_GAP + ENEMY_COLS * CARD_W + AREA_PAD * 2,
   h: 2 * CARD_H + AREA_HEADER + AREA_PAD,
@@ -1102,7 +1108,7 @@ export function deckPlace(t: Table, kind: DeckKind): Point {
  * Where the battlefield lay before it was an area of its own, at the left edge below the other areas: the height below
  * the areas' own places, for migrating older saves.
  */
-export const BATTLEFIELD_ORIGIN = { x: 0, y: character.y + character.h + GAP };
+export const BATTLEFIELD_ORIGIN = { x: 0, y: character.y + character.h + OWN_GAP };
 
 /** Top-left corner of the battlefield grid's first place (column 0, row 0), as the area lies on this table. */
 function gridOrigin(t: Table): Point {
