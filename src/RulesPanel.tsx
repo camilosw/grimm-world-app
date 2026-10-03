@@ -248,7 +248,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
       style={width ? ({ '--rules-width': `${width}px` } as React.CSSProperties) : undefined}
     >
       <div className="rules-resize" {...resize} onPointerCancel={resize.onPointerUp} role="separator" aria-orientation="vertical" aria-label="Resize the rules" />
-      <header className="rules-bar">
+      <header className={openedBooklet && !onShelf && book === 'booklets' ? 'rules-bar crowded' : 'rules-bar'}>
         <div className="segmented rules-books" role="group" aria-label="Book">
           <button className={book === 'rulebook' ? 'on' : ''} onClick={() => showBook('rulebook')}>
             Rulebook
@@ -261,7 +261,14 @@ export function RulesPanel({ rules, target, onClose }: Props) {
             Booklets
           </button>
         </div>
-        <span className="spacer" />
+        <input
+          type="search"
+          className="rules-search"
+          placeholder="Search"
+          aria-label="Search the rules"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
         {book === 'rulebook' ? (
           <button className={mode === 'contents' ? 'on' : ''} onClick={() => setMode(mode === 'contents' ? 'read' : 'contents')}>
             ☰ <span>Contents</span>
@@ -296,9 +303,6 @@ export function RulesPanel({ rules, target, onClose }: Props) {
           ✕
         </button>
       </header>
-      <div className="rules-search">
-        <input type="search" placeholder="Search the rules, e.g. fate number, banish, hedge" value={query} onChange={(e) => setQuery(e.target.value)} />
-      </div>
 
       {query.trim() ? (
         <div className="rules-list">
