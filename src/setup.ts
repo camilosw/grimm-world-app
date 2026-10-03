@@ -1,5 +1,5 @@
 import { addStack, isFixed, mergeStacks, rearrange, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
-import { CARD_H, CARD_W, compareCards, family, TOKEN_SIZE } from './cards'
+import { CARD_H, CARD_W, compareCards, family, tokenSize } from './cards'
 import { allAreas, AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, deckPlace, ENCOUNTER_PLACES, encounterPlace, GAP, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, TABLE_DECKS, type DeckKind } from './decks'
 import type { CardDef, CardManifest, CardRef, EncounterPlace, Stack, Table } from './types'
@@ -165,7 +165,7 @@ function addEncounterArea(t: Table): Table {
   const right = Math.max(
     ...allAreas(t).map((a) => a.x + a.w),
     ...t.z.map((id) => t.stacks[id].x + CARD_H),
-    ...t.tokens.map((k) => k.x + TOKEN_SIZE),
+    ...t.tokens.map((k) => k.x + tokenSize(k)),
   )
   const shifts = { ...t.shifts, encounter: { x: Math.round(right + GAP - own.x), y: 0 } }
   if (!t.anchors) return { ...t, shifts }
@@ -185,7 +185,7 @@ function addHandArea(t: Table): Table {
   const right = Math.max(
     ...areas.map((a) => a.x + a.w),
     ...t.z.map((id) => t.stacks[id].x + CARD_H),
-    ...t.tokens.map((k) => k.x + TOKEN_SIZE),
+    ...t.tokens.map((k) => k.x + tokenSize(k)),
   )
   const shifts = { ...t.shifts, hand: { x: Math.round(right + GAP - own.x), y: 0 } }
   if (!t.anchors) return { ...t, shifts }
@@ -304,7 +304,7 @@ function shrinkMap(t: Table): Table {
   const stacks = Object.fromEntries(
     Object.entries(t.stacks).map(([id, s]) => [id, t.z.includes(id) && !s.slot ? shift(s, CARD_W, CARD_H) : s]),
   )
-  return { ...t, stacks, tokens: t.tokens.map((k) => shift(k, TOKEN_SIZE, TOKEN_SIZE)), layout: 2 }
+  return { ...t, stacks, tokens: t.tokens.map((k) => shift(k, tokenSize(k), tokenSize(k))), layout: 2 }
 }
 
 /**
@@ -387,7 +387,7 @@ function clearDeckAreas(t: Table): Table {
       return [id, loose ? { ...s, x: s.x + dx } : s]
     }),
   )
-  const tokens = laid.tokens.map((k) => (inRow(k.x + TOKEN_SIZE / 2, k.y + TOKEN_SIZE / 2) ? { ...k, x: k.x + dx } : k))
+  const tokens = laid.tokens.map((k) => (inRow(k.x + tokenSize(k) / 2, k.y + tokenSize(k) / 2) ? { ...k, x: k.x + dx } : k))
   return { ...laid, stacks, tokens, layout: 4 }
 }
 

@@ -25,7 +25,7 @@ import {
   type Area,
   type Side,
 } from './areas'
-import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, TOKEN_SIZE, turnedClass, type Turn } from './cards'
+import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, tokenSize, turnedClass, type Turn } from './cards'
 import { CardGhost } from './CardGhost'
 import { DECK_SPECS, deckStack, storySlot } from './decks'
 import { update } from './store'
@@ -730,7 +730,7 @@ function TokenView({ token, selected }: { token: Token; selected: boolean }) {
     <div
       className={`token ${token.shape}${selected ? ' selected' : ''}`}
       data-token={token.id}
-      style={{ left: token.x, top: token.y, width: TOKEN_SIZE, height: TOKEN_SIZE, background: token.color }}
+      style={{ left: token.x, top: token.y, width: tokenSize(token), height: tokenSize(token), background: token.color }}
     />
   )
 }

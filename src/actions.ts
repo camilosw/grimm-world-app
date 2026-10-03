@@ -1,5 +1,5 @@
 import { allAreas, anchorsAfterMove, AREA_HEADER, AREA_PAD, areaForCard, fanRow, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, turnedSpot, upsideDownSpot } from './areas'
-import { CARD_H, CARD_W, compareCards, family, isLandscape, TOKEN_SIZE } from './cards'
+import { CARD_H, CARD_W, compareCards, family, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
 
@@ -591,30 +591,22 @@ export function settle(t: Table): Table {
 // ---------- area layout ----------
 
 /**
- * Apply a change that moves the areas, and lay the table out (`settle()`). The piles and figures that lay outside the
- * areas and now lie under one move right, past the areas, keeping their places to each other: they don't belong in it.
+ * Apply a change that moves the areas, and lay the table out (`settle()`). The piles that lay outside the areas and now
+ * lie under one move right, past the areas, keeping their places to each other: they don't belong in it. Figures belong
+ * to no area and may lie on any, so they stay.
  */
 export function rearrange(t: Table, fn: (t: Table) => Table): Table {
-  const outside = (x: number, y: number) => !allAreas(t).some((a) => x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h)
   const piles = t.z.filter((id) => !isFixed(t.stacks[id]) && !areaForCard(t, t.stacks[id].x, t.stacks[id].y))
-  const figures = t.tokens.filter((k) => outside(k.x + TOKEN_SIZE / 2, k.y + TOKEN_SIZE / 2)).map((k) => k.id)
   const laid = settle(fn(t))
   const areas = allAreas(laid)
   const covered = (x: number, y: number, w: number, h: number) =>
     areas.some((a) => x < a.x + a.w && x + w > a.x && y < a.y + a.h && y + h > a.y)
-  const moved = new Set([
-    ...piles.filter((id) => covered(laid.stacks[id].x, laid.stacks[id].y, CARD_W, CARD_H)),
-    ...figures.filter((id) => {
-      const k = laid.tokens.find((k) => k.id === id)!
-      return covered(k.x, k.y, TOKEN_SIZE, TOKEN_SIZE)
-    }),
-  ])
+  const moved = new Set(piles.filter((id) => covered(laid.stacks[id].x, laid.stacks[id].y, CARD_W, CARD_H)))
   if (!moved.size) return laid
-  const left = Math.min(...[...Object.values(laid.stacks), ...laid.tokens].filter((p) => moved.has(p.id)).map((p) => p.x))
+  const left = Math.min(...[...moved].map((id) => laid.stacks[id].x))
   const dx = Math.max(...areas.map((a) => a.x + a.w)) + CARD_W / 2 - left
   const stacks = Object.fromEntries(Object.entries(laid.stacks).map(([id, s]) => [id, moved.has(id) ? { ...s, x: s.x + dx } : s]))
-  const tokens = laid.tokens.map((k) => (moved.has(k.id) ? { ...k, x: k.x + dx } : k))
-  return { ...laid, stacks, tokens }
+  return { ...laid, stacks }
 }
 
 /** Put an area (and everything in it) with its top-left corner at (x, y); the areas in its way are pushed aside. */

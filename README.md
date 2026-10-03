@@ -75,7 +75,7 @@ instead. Pushed areas move back as the area pushing them shrinks. Undo puts ever
 **Rearranging the areas.** Drag the `⠿` tab in the top-right corner of an area (the battlefield's too) to move the area, with
 everything lying in it, wherever you like; the table shows where it will go while you drag. It snaps into line with the
 edge of another area, or a gap beside it, when it comes close. Areas in its way are pushed aside to their nearest free
-side and stay there. Loose cards and figures it would cover move off to the right, past the areas. From then on each
+side and stay there. Loose cards it would cover move off to the right, past the areas (figures stay where they are). From then on each
 area stays where you put it: a growing area still pushes the areas in its way aside, and they move back to their own
 places as it shrinks. **📍 Areas → ↺ Reset layout** packs the areas together again in the three rows above.
 
@@ -288,7 +288,9 @@ also finds text in the booklets (read by OCR, so a word may now and then be miss
 **🔍 Find card** searches every card by number or name ("Take card Y003 and resolve it") and can take it out of its deck.
 A search finds every card with that text anywhere in its number or name, and several searches can be separated by commas:
 "44, 41" finds Y044, Y344, Y441, Y041, B41… The Browse panel's filter works the same way.
-**● Figures** adds the player marker and the character, ally and enemy figures.
+**● Figures** adds the player marker (a small cube) and the character, ally and enemy figures. A figure belongs to no
+area or place: it goes in the middle of the screen, on top of whatever lies there (an area, a placeholder, a card),
+beside any figure already there, and can be dragged anywhere. A figure lying in an area moves with it.
 
 **☰ Browse** opens a panel over the bottom half of the screen with the pile's cards, top card first. The table above
 stays in use (pan, zoom, move cards) until you close the panel with ✕ or tap **Browse** again. Filter by number or

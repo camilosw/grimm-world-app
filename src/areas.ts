@@ -3,7 +3,7 @@ import {
   CARD_W,
   cardBox,
   family,
-  TOKEN_SIZE,
+  tokenSize,
   type Family,
   type Turn,
 } from "./cards";
@@ -1291,7 +1291,7 @@ export function settleLayout(t: Table): Table {
       };
   }
   const tokens = t.tokens.map((k) => {
-    const c = { x: k.x + TOKEN_SIZE / 2, y: k.y + TOKEN_SIZE / 2 };
+    const c = { x: k.x + tokenSize(k) / 2, y: k.y + tokenSize(k) / 2 };
     const move = moves.find(([id]) => inRect(now.get(id)!, c.x, c.y));
     return move ? { ...k, x: k.x + move[1].x, y: k.y + move[1].y } : k;
   });

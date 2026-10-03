@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
-import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, TOKEN_SIZE } from './cards'
+import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, tokenSize } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
 import { allAreas, areaForCard, battlefieldArea, battlefieldOrigin, placement, turnedSpot, upsideDownSpot, type Area } from './areas'
 import { DECK_SPECS, homeDeck, type DeckKind } from './decks'
@@ -118,7 +118,7 @@ export default function App() {
     (t: Table) => {
       const items = [
         ...t.z.map((id) => t.stacks[id]).map((s) => ({ x: s.x, y: s.y - 50, w: CARD_W, h: CARD_H + 90 })),
-        ...t.tokens.map((k) => ({ x: k.x, y: k.y, w: TOKEN_SIZE, h: TOKEN_SIZE })),
+        ...t.tokens.map((k) => ({ x: k.x, y: k.y, w: tokenSize(k), h: tokenSize(k) })),
         ...allAreas(t),
       ]
       fitRect(
@@ -710,10 +710,14 @@ export default function App() {
               <button
                 key={tok.label}
                 onClick={() => {
-                  const at = dropAt()!
-                  let x = at.x + CARD_W / 2 - TOKEN_SIZE / 2
-                  const y = at.y + CARD_H / 2 - TOKEN_SIZE / 2
-                  while (table.tokens.some((k) => Math.abs(k.x - x) < TOKEN_SIZE && Math.abs(k.y - y) < TOKEN_SIZE)) x += TOKEN_SIZE + 10
+                  // Figures belong to no area or place: in the middle of the screen, on whatever lies there, beside
+                  // the figures already there.
+                  const el = areaRef.current!
+                  const size = tokenSize(tok)
+                  let x = (el.clientWidth / 2 - view.x) / view.scale - size / 2
+                  const y = (el.clientHeight / 2 - view.y) / view.scale - size / 2
+                  const near = (k: Token) => Math.abs(k.x + tokenSize(k) / 2 - x - size / 2) < (tokenSize(k) + size) / 2 && Math.abs(k.y + tokenSize(k) / 2 - y - size / 2) < (tokenSize(k) + size) / 2
+                  while (table.tokens.some(near)) x += size + 10
                   update((t) => A.addToken(t, x, y, tok.color, tok.shape))
                   setDialog(null)
                 }}
