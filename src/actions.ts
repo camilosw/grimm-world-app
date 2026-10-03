@@ -188,18 +188,20 @@ function reorders(s: Stack | undefined): s is Stack {
   return !!s && unpinned(s).length >= 2
 }
 
+/** The items in random order. */
+export function shuffled<T>(list: T[]): T[] {
+  const out = [...list]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
 export function shuffleStack(t: Table, id: string): Table {
   const s = t.stacks[id]
   if (!reorders(s)) return t
-  const cards = abovePinned(s, (rest) => {
-    const out = [...rest]
-    for (let i = out.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[out[i], out[j]] = [out[j], out[i]]
-    }
-    return out
-  })
-  return setStack(t, { ...s, cards })
+  return setStack(t, { ...s, cards: abovePinned(s, shuffled) })
 }
 
 export function sortStack(t: Table, id: string, defs: Record<string, CardDef>): Table {
@@ -244,9 +246,10 @@ export function extractCard(t: Table, id: string, index: number, x: number, y: n
 }
 
 /**
- * Pull cards (by index, bottom = 0) out of a pile, face up and in their pile
- * order, onto the table at (x, y) or onto the pile `ontoId` (into a table deck:
- * `dropOnto()`); onto their own pile they move to its top.
+ * Pull cards (by index, bottom = 0) out of a pile, face up (or face down: cards
+ * picked at random, unseen) and in the order given (bottom → top), onto the
+ * table at (x, y) or onto the pile `ontoId` (into a table deck: `dropOnto()`);
+ * onto their own pile they move to its top.
  */
 export function playCards(
   t: Table,
@@ -256,11 +259,12 @@ export function playCards(
   y: number,
   ontoId: string | null,
   defs: Record<string, CardDef>,
+  faceUp = true,
 ): Table {
   const s = t.stacks[id]
   if (!s) return t
-  const set = new Set(indices.filter((i) => !isPinned(s, i)))
-  const picked = s.cards.filter((_, i) => set.has(i)).map((c) => ({ ...c, faceUp: true }))
+  const set = new Set(indices.filter((i) => s.cards[i] && !isPinned(s, i)))
+  const picked = [...set].map((i) => ({ ...s.cards[i], faceUp }))
   if (!picked.length) return t
   const rest = s.cards.filter((_, i) => !set.has(i))
   if (ontoId === id) return setStack(t, { ...s, cards: [...rest, ...picked] })
@@ -327,11 +331,11 @@ export function stackTargetAt(t: Table, cx: number, cy: number, exclude: string 
  * in the Browse panel, face up as when taken out). They go before the set-aside pile `before`, else last. A pile that
  * moves whole keeps its id (one already set aside just moves along the sidebar); it lies upright there.
  */
-export function toTray(t: Table, id: string, which: 'all' | 'top' | string[], before: string | null = null): Table {
+export function toTray(t: Table, id: string, which: 'all' | 'top' | string[], before: string | null = null, faceUp = true): Table {
   const s = t.stacks[id]
   if (!s || before === id) return t
   const free = unpinned(s)
-  const cards = which === 'all' ? free : which === 'top' ? (pinnedOnTop(s) ? [] : free.slice(-1)) : cardsOf(t, id, which).map((c) => ({ ...c, faceUp: true }))
+  const cards = which === 'all' ? free : which === 'top' ? (pinnedOnTop(s) ? [] : free.slice(-1)) : cardsOf(t, id, which).map((c) => ({ ...c, faceUp }))
   if (!cards.length) return t
   const insert = (tray: string[], at: string) => {
     const i = before ? tray.indexOf(before) : -1
@@ -452,22 +456,28 @@ export function stackToDecks(t: Table, id: string, which: 'top' | 'all', defs: R
   return returnToDecks(withCards(t, s, s.cards.filter((c) => !out.has(c.id))), moved, defs, s.deck)
 }
 
-/** Some cards (by index) of a table pile, or of a deck built during play, go back to their decks, but its pinned ones. */
+/**
+ * Some cards (by index, in that order) of a table pile, or of a deck built during play, go back to their decks, but its
+ * pinned ones.
+ */
 export function cardsToDecks(t: Table, id: string, indices: number[], defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
   if (!s || (s.deck && !returnsCards(s.deck))) return t
-  const set = new Set(indices.filter((i) => !isPinned(s, i)))
-  const moved = s.cards.filter((_, i) => set.has(i))
+  const set = new Set(indices.filter((i) => s.cards[i] && !isPinned(s, i)))
+  const moved = [...set].map((i) => s.cards[i])
   return returnToDecks(withCards(t, s, s.cards.filter((_, i) => !set.has(i))), moved, defs, s.deck)
 }
 
-/** The cards of a pile that may leave it (all but its pinned ones), or only those given (in pile order). */
+/**
+ * The cards of a pile that may leave it (all but its pinned ones), or only those given, in the order given (bottom →
+ * top: the Browse panel's selection order, e.g. picked at random).
+ */
 function cardsOf(t: Table, stackId: string, cardIds?: string[]): CardRef[] {
   const s = t.stacks[stackId]
   const cards = s ? unpinned(s) : []
   if (!cardIds) return cards
-  const ids = new Set(cardIds)
-  return cards.filter((c) => ids.has(c.id))
+  const byId = new Map(cards.map((c) => [c.id, c]))
+  return [...new Set(cardIds)].flatMap((id) => byId.get(id) ?? [])
 }
 
 /** Take cards (all of them if none given, but its pinned ones) out of a pile; an emptied table pile disappears. */
@@ -498,13 +508,13 @@ export function putUnderDeck(t: Table, stackId: string, deckId: string, defs: Re
   return insertIntoDeck(t2, t2.stacks[deckId], cards, defs, true)
 }
 
-/** Slide cards picked out of a pile (e.g. a sidebar deck) under a table pile, face up as when taken out. */
-export function putUnderPile(t: Table, stackId: string, cardIds: string[], targetId: string): Table {
+/** Slide cards picked out of a pile (e.g. a sidebar deck) under a table pile, face up as when taken out (or face down). */
+export function putUnderPile(t: Table, stackId: string, cardIds: string[], targetId: string, faceUp = true): Table {
   if (stackId === targetId || !t.stacks[targetId] || t.stacks[stackId]?.slot === 'story') return t
   const [t2, cards] = takeCards(t, stackId, cardIds)
   const target = t2.stacks[targetId]
   if (!cards.length || !target) return t
-  return setStack(t2, { ...target, cards: underneath(target, cards.map((c) => ({ ...c, faceUp: true }))) })
+  return setStack(t2, { ...target, cards: underneath(target, cards.map((c) => ({ ...c, faceUp }))) })
 }
 
 // ---------- storybook ----------

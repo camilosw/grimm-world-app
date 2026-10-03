@@ -1,17 +1,8 @@
-import { addStack, isFixed, mergeStacks, rearrange, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
+import { addStack, isFixed, mergeStacks, rearrange, returnToDecks, settle, settleSpots, shuffled, sortStack, takeCard } from './actions'
 import { CARD_H, CARD_W, compareCards, family, tokenSize } from './cards'
 import { allAreas, AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, deckPlace, ENCOUNTER_PLACES, encounterPlace, GAP, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, TABLE_DECKS, type DeckKind } from './decks'
 import type { CardDef, CardManifest, CardRef, EncounterPlace, Stack, Table } from './types'
-
-function shuffled<T>(list: T[]): T[] {
-  const out = [...list]
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[out[i], out[j]] = [out[j], out[i]]
-  }
-  return out
-}
 
 /** Current version of the area layout (`Table.layout`). */
 const LAYOUT = 7

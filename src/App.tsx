@@ -87,7 +87,7 @@ export default function App() {
   const [rawSelection, setSelection] = useState<Selection>(null)
   const [dialog, setDialog] = useState<Dialog>(null)
   // Cards waiting in "Put under…" mode: a whole table pile, or cards picked in the Browse panel.
-  const [putUnder, setPutUnder] = useState<{ stackId: string; cardIds?: string[] } | null>(null)
+  const [putUnder, setPutUnder] = useState<{ stackId: string; cardIds?: string[]; faceUp?: boolean } | null>(null)
   /** Pile shown in the browse panel. */
   const [browseId, setBrowseId] = useState<string | null>(null)
   const closeBrowse = useCallback(() => setBrowseId(null), [])
@@ -347,13 +347,13 @@ export default function App() {
     update((t) => A.stackToDecks(t, stackId, whole ? 'all' : 'top', defs))
   }
 
-  /** Cards dragged out of the browse panel were released at a screen point. */
-  const dropFromBrowse = (stackId: string, cardIds: string[], clientX: number, clientY: number) => {
+  /** Cards dragged out of the browse panel were released at a screen point (face down: picked at random, unseen). */
+  const dropFromBrowse = (stackId: string, cardIds: string[], clientX: number, clientY: number, faceUp: boolean) => {
     const stack = table?.stacks[stackId]
     const indices = cardIds.map((id) => stack?.cards.findIndex((c) => c.id === id) ?? -1).filter((i) => i >= 0)
     if (!table || !indices.length) return
     const zone = zoneAt(clientX, clientY)
-    if (zone?.kind === 'tray') return setAside((t) => A.toTray(t, stackId, cardIds, zone.before))
+    if (zone?.kind === 'tray') return setAside((t) => A.toTray(t, stackId, cardIds, zone.before, faceUp))
     if (zone) {
       if (!stack?.deck || returnsCards(stack.deck)) {
         notify(`Back to ${homeNames(cardIds.map((id) => ({ id, faceUp: true })), stack?.deck)}`, true)
@@ -367,7 +367,7 @@ export default function App() {
     if (onStory(at, cardIds)) return setDialog({ kind: 'chapter', stackId, cardIds })
     const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
     const p = placeAt(cardIds, at.x, at.y, target)
-    if (p) update((t) => A.playCards(t, stackId, indices, p.x, p.y, p.onto, defs))
+    if (p) update((t) => A.playCards(t, stackId, indices, p.x, p.y, p.onto, defs, faceUp))
   }
 
 
@@ -393,7 +393,7 @@ export default function App() {
     const source = putUnder
     setPutUnder(null)
     if (!table || !source || source.stackId === targetId) return
-    const { stackId: sourceId, cardIds } = source
+    const { stackId: sourceId, cardIds, faceUp = true } = source
     const target = table.stacks[targetId]
     if (target.slot === 'story-revealed') return notify('Put cards under the storybook itself (the right-hand card)')
     if (target.slot === 'story') {
@@ -405,13 +405,13 @@ export default function App() {
       update((t) => A.putUnderDeck(t, sourceId, targetId, defs, cardIds))
     } else if (A.inTray(table, targetId)) {
       // Set aside, the pile belongs to no area.
-      update((t) => (cardIds ? A.putUnderPile(t, sourceId, cardIds, targetId) : A.mergeStacks(t, sourceId, targetId, 'bottom')))
+      update((t) => (cardIds ? A.putUnderPile(t, sourceId, cardIds, targetId, faceUp) : A.mergeStacks(t, sourceId, targetId, 'bottom')))
     } else {
       const cards = cardIds ?? table.stacks[sourceId].cards.map((c) => c.id)
       const p = placeAt(cards, target.x, target.y, targetId)
       if (!p) return
       if (p.onto !== targetId) return notify(`The ${p.spot?.label ?? 'card'} stays on its place`)
-      update((t) => (cardIds ? A.putUnderPile(t, sourceId, cardIds, targetId) : A.mergeStacks(t, sourceId, targetId, 'bottom')))
+      update((t) => (cardIds ? A.putUnderPile(t, sourceId, cardIds, targetId, faceUp) : A.mergeStacks(t, sourceId, targetId, 'bottom')))
     }
     setSelection({ kind: 'stack', id: targetId })
   }
@@ -642,12 +642,12 @@ export default function App() {
           defs={defs}
           dropAt={dropAt}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
-          onDrop={(cardIds, x, y) => dropFromBrowse(browseId, cardIds, x, y)}
+          onDrop={(cardIds, x, y, faceUp) => dropFromBrowse(browseId, cardIds, x, y, faceUp)}
           onDragHover={(cardIds, at) => {
             const deck = table.stacks[browseId]?.deck
             hoverZone(at && zoneAt(at.x, at.y), deck && !returnsCards(deck) ? [] : cardIds, deck)
           }}
-          onPutUnder={(cardIds) => setPutUnder({ stackId: browseId, cardIds })}
+          onPutUnder={(cardIds, faceUp) => setPutUnder({ stackId: browseId, cardIds, faceUp })}
           onClose={closeBrowse}
         />
       )}

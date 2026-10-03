@@ -312,11 +312,13 @@ beside any figure already there, and can be dragged anywhere. A figure lying in 
 
 **☰ Browse** opens a panel over the bottom half of the screen with the pile's cards, top card first. The table above
 stays in use (pan, zoom, move cards) until you close the panel with ✕ or tap **Browse** again. Filter by number or
-name, switch between **Fronts** and **Backs**, and swipe up and down to scroll.
+name, switch between **Fronts** and **Backs** (it opens on the backs), and swipe up and down to scroll. Selected cards
+move in their numbered order, card 1 on top; the pile they come from keeps its order.
 
 | In the Browse panel | Action                                                                              |
 | ------------------- | ----------------------------------------------------------------------------------- |
-| Tap a card          | Select / unselect it (✓)                                                            |
+| Tap a card          | Select / unselect it (✓; with several selected, numbered in the order you tapped them) |
+| **⚄ Random**        | Pick that many of the shown cards at random, unseen, in random order (by default all of them: shuffle them). Nothing marks them and the panel turns to the backs; drag them by the `⠿ n random cards` grip in the bar, or **Take out face down** / **Put under…**: they stay face down. E.g. filter `Y705`, 2, **⚄ Random**, then drag them onto the Quest Deck (Y009). Tapping a card drops the random pick |
 | 🔍 or long-press    | Read it at full size                                                                |
 | **Take out (n)**    | Put the selected cards face up on the table as one pile                             |
 | **Put under…**      | Then tap a pile, a deck or the storybook to slide the selected cards under it       |

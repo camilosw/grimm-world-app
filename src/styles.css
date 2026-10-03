@@ -83,6 +83,7 @@ button.primary {
 }
 
 input[type="search"],
+input[type="number"],
 input:not([type]) {
   font: inherit;
   font-size: 16px; /* avoids iOS zoom on focus */
@@ -659,6 +660,43 @@ button.on {
 
 .browse-bar input[type="search"] {
   width: 240px;
+}
+
+/* How many cards ⚄ Random picks, joined to its button. */
+.random-pick {
+  display: inline-flex;
+}
+
+.random-pick input {
+  flex: none;
+  width: 64px;
+  min-width: 0;
+  text-align: center;
+  border-right: none;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.random-pick button {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* The cards picked at random: dragged from here, as the grid doesn't show which they are. */
+.blind-pick {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px dashed var(--gold);
+  border-radius: var(--radius);
+  color: var(--gold);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.blind-pick.dragging {
+  opacity: 0.4;
 }
 
 .browse .card-grid {

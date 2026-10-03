@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { extractCard, inTray, isPinned, locateCard, playCards, type TerrainSlot } from './actions'
+import { extractCard, inTray, isPinned, locateCard, playCards, shuffled, type TerrainSlot } from './actions'
 import { cardImage, cardLabel, compareCards, isLandscape, landscapeClass, matchesQuery, queryTerms } from './cards'
 import { CardGhost } from './CardGhost'
 import { update } from './store'
@@ -74,12 +74,12 @@ interface BrowseProps {
   /** World position for cards taken out of the pile. */
   dropAt: (cardIds: string[]) => { x: number; y: number } | null
   onInspect: (card: CardRef) => void
-  /** Cards were dragged out of the panel and released at this screen point. */
-  onDrop: (cardIds: string[], clientX: number, clientY: number) => void
+  /** Cards were dragged out of the panel and released at this screen point (face down: picked at random, unseen). */
+  onDrop: (cardIds: string[], clientX: number, clientY: number, faceUp: boolean) => void
   /** Cards are being dragged out of the panel, to this screen point (null: the drag ended). */
   onDragHover: (cardIds: string[], at: { x: number; y: number } | null) => void
   /** "Put under…" the selected cards: the player then taps the pile or deck to put them under. */
-  onPutUnder: (cardIds: string[]) => void
+  onPutUnder: (cardIds: string[], faceUp: boolean) => void
   onClose: () => void
 }
 
@@ -87,34 +87,54 @@ interface BrowseProps {
  * Look through a pile and pull cards out. Sits in the bottom half of the
  * screen so the table stays in use: tap cards to select them, then take them
  * out, or drag a card's ⠿ grip (with the other selected cards) onto the table.
+ * Selected cards move in the order they were selected, the first one on top.
+ * Random picks some of the shown cards unseen, in random order: nothing marks
+ * them, they move face down by the bar's own grip, and the panel shows backs.
  */
 export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, onDragHover, onPutUnder, onClose }: BrowseProps) {
   const stack = table.stacks[stackId]
   const [query, setQuery] = useState('')
-  const [fronts, setFronts] = useState(true)
-  const [picked, setPicked] = useState<Set<string>>(new Set())
-  // Selected cards that are still in the pile, in pile order.
-  const chosen = stack?.cards.filter((c) => picked.has(c.id)).map((c) => c.id) ?? []
+  const [fronts, setFronts] = useState(false)
+  // Selected cards, in the order they were selected (the first goes on top).
+  const [picked, setPicked] = useState<string[]>([])
+  // Cards picked at random, unseen, in that order; picking by tap drops them.
+  const [blind, setBlind] = useState<string[]>([])
+  // How many of the shown cards Random picks (null: all of them, i.e. shuffle them).
+  const [count, setCount] = useState<number | null>(null)
+  // Selected cards that are still in the pile, bottom → top, as the actions take them.
+  const inPile = new Set(stack?.cards.map((c) => c.id))
+  const chosen = picked.filter((id) => inPile.has(id)).reverse()
+  const unseen = blind.filter((id) => inPile.has(id)).reverse()
   /** A dragged card takes the other selected cards along. */
-  const draggedWith = (cardId: string) => (picked.has(cardId) ? chosen : [cardId])
+  const draggedWith = (cardId: string) => (picked.includes(cardId) ? chosen : [cardId])
   // A card pinned to the pile (the Damage Card, the Training and Banned Cards cards) can't be picked or taken out.
   const pinnedIds = new Set(stack?.cards.filter((_, i) => isPinned(stack, i)).map((c) => c.id))
-  const togglePick = (cardId: string) =>
-    !pinnedIds.has(cardId) &&
-    setPicked((p) => {
-      const next = new Set(p)
-      if (next.has(cardId)) next.delete(cardId)
-      else next.add(cardId)
-      return next
-    })
+  const togglePick = (cardId: string) => {
+    if (pinnedIds.has(cardId)) return
+    setBlind([])
+    setPicked((p) => (p.includes(cardId) ? p.filter((id) => id !== cardId) : [...p, cardId]))
+  }
   const view = (cardId: string) => onInspect({ id: cardId, faceUp: fronts })
   // Swipes on a card scroll the list; only the grip drags.
   const thumb = useDragOut<string>({ onTap: togglePick, onLongPress: view })
   const grip = useDragOut<string>({
     onTap: togglePick,
-    onDrop: (cardId, x, y) => onDrop(draggedWith(cardId), x, y),
+    onDrop: (cardId, x, y) => onDrop(draggedWith(cardId), x, y, true),
     onHover: (d) => onDragHover(d ? draggedWith(d.item) : [], d),
   })
+  // The cards picked at random go by the bar's grip, so the grid doesn't show which they are.
+  const blindGrip = useDragOut<null>({
+    onTap: () => {},
+    onDrop: (_, x, y) => onDrop(unseen, x, y, false),
+    onHover: (d) => onDragHover(d ? unseen : [], d),
+  })
+  /** Take cards out onto the table, as one pile. */
+  const takeOut = (cardIds: string[], faceUp: boolean) => {
+    const at = dropAt(cardIds)
+    if (!at) return
+    const indices = cardIds.map((id) => stack.cards.findIndex((c) => c.id === id))
+    update((t) => playCards(t, stackId, indices, at.x, at.y, null, defs, faceUp))
+  }
 
   // The pile disappears when its last card is taken out.
   useEffect(() => {
@@ -126,6 +146,9 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
     .map((card, index) => ({ card, index, def: defs[card.id] }))
     .reverse()
     .filter((e) => !e.def || matchesQuery(e.def, query))
+  // The shown cards Random may pick, and how many it picks.
+  const pickable = entries.map((e) => e.card.id).filter((id) => !pinnedIds.has(id))
+  const randomCount = Math.min(count ?? pickable.length, pickable.length)
   const dragged = new Set(grip.drag ? draggedWith(grip.drag.item) : [])
 
   return (
@@ -134,7 +157,15 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
         <h2>
           {stack.label ?? 'Pile'} — {stack.cards.length} cards <span className="muted">(top first)</span>
         </h2>
-        <input type="search" placeholder="Filter: Y003, B12, Terrain…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input
+          type="search"
+          placeholder="Filter: Y003, B12, Terrain…"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setCount(null)
+          }}
+        />
         <div className="segmented" role="group" aria-label="Card side">
           <button className={fronts ? 'on' : ''} aria-pressed={fronts} onClick={() => setFronts(true)}>
             Fronts
@@ -143,21 +174,48 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
             Backs
           </button>
         </div>
-        {chosen.length > 0 && (
-          <>
+        {pickable.length > 1 && (
+          <div className="random-pick" role="group" aria-label="Pick at random">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={pickable.length}
+              value={randomCount}
+              aria-label="How many cards"
+              onChange={(e) => setCount(Math.max(1, Math.floor(Number(e.target.value)) || 1))}
+              onFocus={(e) => e.target.select()}
+            />
             <button
-              className="primary"
               onClick={() => {
-                const at = dropAt(chosen)
-                if (!at) return
-                const indices = chosen.map((id) => stack.cards.findIndex((c) => c.id === id))
-                update((t) => playCards(t, stackId, indices, at.x, at.y, null, defs))
+                setPicked([])
+                setBlind(shuffled(pickable).slice(0, randomCount))
+                setFronts(false)
               }}
             >
+              ⚄ Random
+            </button>
+          </div>
+        )}
+        {unseen.length > 0 && (
+          <>
+            <span className={`blind-pick${blindGrip.drag ? ' dragging' : ''}`} aria-label="Drag the cards picked at random" {...blindGrip.bind(null)}>
+              ⠿ {unseen.length} random card{unseen.length > 1 ? 's' : ''}
+            </span>
+            <button className="primary" onClick={() => takeOut(unseen, false)}>
+              Take out face down
+            </button>
+            <button onClick={() => onPutUnder(unseen, false)}>⤵ Put under…</button>
+            <button onClick={() => setBlind([])}>Clear</button>
+          </>
+        )}
+        {chosen.length > 0 && (
+          <>
+            <button className="primary" onClick={() => takeOut(chosen, true)}>
               Take out ({chosen.length})
             </button>
-            <button onClick={() => onPutUnder(chosen)}>⤵ Put under…</button>
-            <button onClick={() => setPicked(new Set())}>Clear</button>
+            <button onClick={() => onPutUnder(chosen, true)}>⤵ Put under…</button>
+            <button onClick={() => setPicked([])}>Clear</button>
           </>
         )}
         <button className="icon" onClick={onClose} aria-label="Close">
@@ -165,18 +223,19 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
         </button>
       </header>
       <div className="card-grid">
-        {entries.map(({ card, index, def }) => (
+        {entries.map(({ card, def }) => (
           <div
             key={card.id}
-            className={`grid-card${picked.has(card.id) ? ' picked' : ''}${dragged.has(card.id) ? ' dragging' : ''}`}
+            className={`grid-card${picked.includes(card.id) ? ' picked' : ''}${dragged.has(card.id) ? ' dragging' : ''}`}
           >
             <div className="grid-caption">
               <span className="grid-label">{cardLabel(def)}</span>
-              <span className="muted">{stack.cards.length - index}</span>
             </div>
-            <div className="thumb" role="button" aria-pressed={picked.has(card.id)} {...thumb.bind(card.id)}>
+            <div className="thumb" role="button" aria-pressed={picked.includes(card.id)} {...thumb.bind(card.id)}>
               <Thumb id={card.id} faceUp={fronts} def={def} />
-              {picked.has(card.id) && <span className="pick-badge">✓</span>}
+              {chosen.includes(card.id) && (
+                <span className="pick-badge">{chosen.length > 1 ? chosen.length - chosen.indexOf(card.id) : '✓'}</span>
+              )}
             </div>
             <div className="card-tools">
               {pinnedIds.has(card.id) ? (
@@ -201,6 +260,15 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
           y={grip.drag.y}
           count={dragged.size}
           frame={landscapeClass(isLandscape(defs[grip.drag.item]), fronts)}
+        />
+      )}
+      {blindGrip.drag && unseen.length > 0 && (
+        <CardGhost
+          src={cardImage(unseen[unseen.length - 1], false, 'sm')}
+          x={blindGrip.drag.x}
+          y={blindGrip.drag.y}
+          count={unseen.length}
+          frame={landscapeClass(isLandscape(defs[unseen[unseen.length - 1]]), false)}
         />
       )}
     </section>
