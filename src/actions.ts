@@ -52,7 +52,8 @@ export function pinned(s: Stack): number {
  * Card's grip moves them all.
  */
 export function pinnedOnTop(s: Stack): number {
-  return (s.place === 'damage' || (!!s.deck && !!DECK_SPECS[s.deck].keeps)) && s.cards.length ? 1 : 0
+  // Older saves have decks no longer made (the 'time' sidebar deck, until `migrateTable` lays its cards out).
+  return (s.place === 'damage' || (!!s.deck && !!DECK_SPECS[s.deck]?.keeps)) && s.cards.length ? 1 : 0
 }
 
 /** Whether the card at `index` (bottom = 0) is pinned to its pile. */
