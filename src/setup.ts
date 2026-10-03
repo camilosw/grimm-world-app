@@ -1,11 +1,11 @@
 import { addStack, isFixed, mergeStacks, rearrange, returnToDecks, settle, settleSpots, shuffled, sortStack, takeCard } from './actions'
 import { CARD_H, CARD_W, compareCards, family, tokenSize } from './cards'
-import { allAreas, AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, deckPlace, ENCOUNTER_PLACES, encounterPlace, GAP, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
+import { allAreas, AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, deckPlace, ENCOUNTER_PLACES, encounterPlace, GAP, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS, terrainPlace } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, TABLE_DECKS, type DeckKind } from './decks'
 import type { CardDef, CardManifest, CardRef, EncounterPlace, Stack, Table } from './types'
 
 /** Current version of the area layout (`Table.layout`). */
-const LAYOUT = 8
+const LAYOUT = 9
 
 /** The Encounter Bar before it became a row of landscape cards (`Table.layout` < 3): six cards wide, two high. */
 const OLD_BAR = { w: 6 * CARD_W + 2 * AREA_PAD, h: 2 * CARD_H + AREA_HEADER + AREA_PAD }
@@ -137,7 +137,7 @@ const OLD_ENCOUNTER: string[] = ['encounter', 'time']
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
-  const migrated = addHandArea(addEncounterArea(emptyHand(migrateDecks(t, defs), defs)))
+  const migrated = addHandArea(addEncounterArea(emptyHand(migrateDecks(addBattlefieldArea(t, defs), defs), defs)))
   const laidOut = packAreas(clearDeckAreas(layDecks(raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(migrated))), defs)))))
   return settle(addDeckCards(placeOnSpots(addDamagePlace(layEncounterDeck(laidOut, defs), defs), defs), defs))
 }
@@ -162,6 +162,45 @@ function addEncounterArea(t: Table): Table {
   if (!t.anchors) return { ...t, shifts }
   const bar = t.frames?.bar ?? allAreas(t).find((a) => a.id === 'bar')!
   return { ...t, shifts, anchors: { ...t.anchors, encounter: { x: Math.round(bar.x + bar.w + GAP), y: Math.round(bar.y) } } }
+}
+
+/**
+ * The Battlefield area is new (`Table.layout` < 9): a battlefield used to be built on demand below the other areas
+ * (`Table.battlefield`), its Terrain Cards lying portrait, edge to edge. The area lies right of everything on the table,
+ * so that it takes in none of the cards lying there, until `packAreas` lays it out right of the Home area; where the
+ * player moved the areas, it goes below them at the left edge. The Terrain Cards of a battlefield built go onto the
+ * places of its grid, in the same columns and rows.
+ */
+function addBattlefieldArea(t: Table, defs: Record<string, CardDef>): Table {
+  if ((t.layout ?? 0) >= 9) return t
+  const { battlefield: old, ...rest } = t
+  const own = area('battlefield')
+  const areas = allAreas(rest).filter((a) => a.id !== 'battlefield')
+  const right = Math.max(
+    ...areas.map((a) => a.x + a.w),
+    ...t.z.map((id) => t.stacks[id].x + CARD_H),
+    ...t.tokens.map((k) => k.x + tokenSize(k)),
+  )
+  const next: Table = { ...rest, shifts: { ...t.shifts, battlefield: { x: Math.round(right + GAP - own.x), y: 0 } } }
+  if (t.anchors) {
+    const x = Math.min(...areas.map((a) => a.x))
+    const y = Math.max(...areas.map((a) => a.y + a.h)) + GAP
+    next.anchors = { ...t.anchors, battlefield: { x: Math.round(x), y: Math.round(y) } }
+  }
+  if (!old) return next
+  const x0 = old.x + AREA_PAD
+  const y0 = old.y + AREA_HEADER
+  const stacks = { ...next.stacks }
+  for (const id of t.z) {
+    const s = t.stacks[id]
+    if (!s.cards.some((c) => defs[c.id]?.type === 'terrain')) continue
+    const col = Math.round((s.x - x0) / CARD_W)
+    const row = Math.round((s.y - y0) / CARD_H)
+    const inside = col >= 0 && row >= 0 && col < old.cols && row < old.rows
+    if (!inside || Math.hypot(s.x - x0 - col * CARD_W, s.y - y0 - row * CARD_H) > CARD_W / 4) continue
+    stacks[id] = { ...s, ...terrainPlace(next, col, row) }
+  }
+  return { ...next, stacks }
 }
 
 /**
@@ -325,8 +364,8 @@ function fillBar(t: Table, defs: Record<string, CardDef>): Table {
 }
 
 /**
- * The Encounter Bar used to be taller than the Map: now that it is lower, the areas below them moved up, with the cards,
- * figures and battlefield lying in them and the frames last laid out.
+ * The Encounter Bar used to be taller than the Map: now that it is lower, the areas below them moved up, with the cards
+ * and figures lying in them and the frames last laid out.
  */
 function raiseAreas(t: Table): Table {
   if ((t.layout ?? 0) >= 3) return t
@@ -334,8 +373,7 @@ function raiseAreas(t: Table): Table {
   const up = <P extends { y: number }>(p: P): P => (below(p) ? { ...p, y: p.y - RAISE } : p)
   const stacks = Object.fromEntries(Object.entries(t.stacks).map(([id, s]) => [id, t.z.includes(id) ? up(s) : s]))
   const frames = t.frames && Object.fromEntries(Object.entries(t.frames).map(([id, f]) => [id, up(f)]))
-  const battlefield = t.battlefield && up(t.battlefield)
-  return { ...t, stacks, tokens: t.tokens.map(up), frames, battlefield, layout: 3 }
+  return { ...t, stacks, tokens: t.tokens.map(up), frames, layout: 3 }
 }
 
 /**
@@ -386,8 +424,9 @@ function clearDeckAreas(t: Table): Table {
  * The areas used to lie near places leaving room for them to grow, far apart (`Table.layout` < 5); now each lies next
  * to the one before it (`settleLayout()`), moving with its cards. The same lays out the Actions area, new since
  * (`Table.layout` < 6, `addHandArea`), the Training Deck area, taller since for its Browse button (`Table.layout`
- * < 7), and the areas in their rows since, the Encounter Bar on top (`Table.layout` < 8). The piles and figures lying
- * outside the areas that an area now lies on move right, past the areas.
+ * < 7), the areas in their rows since, the Encounter Bar on top (`Table.layout` < 8), and the Battlefield area, new since
+ * (`Table.layout` < 9, `addBattlefieldArea`). The piles and figures lying outside the areas that an area now lies on move
+ * right, past the areas.
  */
 function packAreas(t: Table): Table {
   if ((t.layout ?? 0) >= LAYOUT) return t

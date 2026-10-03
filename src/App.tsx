@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, tokenSize } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
-import { allAreas, areaForCard, battlefieldArea, battlefieldOrigin, facedSpot, placement, PLAY_AREAS, turnedSpot, upsideDownSpot, type Area } from './areas'
+import { allAreas, areaForCard, battlefieldInUse, COMBAT_AREAS, facedSpot, onGrid, placement, PLAY_AREAS, turnedSpot, upsideDownSpot, type Area } from './areas'
 import { DECK_SPECS, homeDeck, returnsCards, type DeckKind } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
 import { RulesPanel } from './RulesPanel'
 import { Sidebar } from './Sidebar'
-import { loadSaved, redo, resetTable, undo, update, useHistory, useTable } from './store'
+import { getTable, loadSaved, redo, resetTable, undo, update, useHistory, useTable } from './store'
 import { TableView, type Incoming, type Selection, type Zone } from './Table'
 import { Tray } from './Tray'
 import type { CardDef, CardManifest, CardRef, Table, Token, View } from './types'
@@ -136,7 +136,10 @@ export default function App() {
     [rectView],
   )
 
-  /** The view showing the areas used in every round (`PLAY_AREAS`), or with `whole`, everything on the table. */
+  /**
+   * The view showing the areas used in every round (`PLAY_AREAS`), or in a combat, while Terrain Cards lie on the
+   * battlefield, those used in it (`COMBAT_AREAS`); with `whole`, everything on the table.
+   */
   const fitView = useCallback(
     (t: Table, whole = false) => {
       const items = whole
@@ -145,7 +148,7 @@ export default function App() {
             ...t.tokens.map((k) => ({ x: k.x, y: k.y, w: tokenSize(k), h: tokenSize(k) })),
             ...allAreas(t),
           ]
-        : allAreas(t).filter((a) => PLAY_AREAS.includes(a.id))
+        : allAreas(t).filter((a) => (battlefieldInUse(t) ? COMBAT_AREAS : PLAY_AREAS).includes(a.id))
       return rectView(
         Math.min(...items.map((i) => i.x)),
         Math.min(...items.map((i) => i.y)),
@@ -356,7 +359,7 @@ export default function App() {
     if (at && table) {
       const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
       const p = placement(table, cardIds, defs, at.x, at.y, target)
-      next = { area: p.area ? { id: p.area.id, ok: !p.refused } : null, spot: p.spot?.id ?? null, dropOn: p.onto }
+      next = { area: p.area ? { id: p.area.id, ok: !p.refused } : null, spot: p.spot?.id ?? null, dropOn: p.onto, to: { x: p.x, y: p.y } }
     }
     setIncoming((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
   }
@@ -496,13 +499,10 @@ export default function App() {
   }
 
   const buildBattlefield = (rows: (A.TerrainSlot | null)[][]) => {
-    if (!table) return
-    // Where it goes among the areas as they lie, without the battlefield being replaced.
-    const size = { cols: Math.max(1, ...rows.map((r) => r.length)), rows: rows.length }
-    const { x, y } = battlefieldOrigin(table, size)
-    update((t) => A.buildBattlefield(t, rows, defs, x, y))
+    update((t) => A.buildBattlefield(t, rows, defs))
     setSelection(null)
-    showArea(battlefieldArea({ x, y, ...size }))
+    const area = allAreas(getTable() ?? table!).find((a) => a.id === 'battlefield')
+    if (area) showArea(area)
   }
 
   const exportSave = () => {
@@ -552,6 +552,8 @@ export default function App() {
   const fixed = !!selectedStack && !!turnedSpot(table, selectedStack.id)
   // Nor turned over, nor one lying face up for good (Broken Items, Status Upgrades & Items).
   const faced = !!selectedStack && !!facedSpot(table, selectedStack.id)
+  // A Terrain Card on the battlefield lies face up.
+  const onBattlefield = !!selectedStack && onGrid(table, selectedStack.id)
   // A card lying upside down on its place (Actions area, Titles, Skills, Broken Items, Status Upgrades & Items) can't be rotated either.
   const upsideDown = !!selectedStack && !!upsideDownSpot(table, selectedStack.id)
   /** Decks and places draw several cards; a pile on the table needs at least two. */
@@ -722,7 +724,7 @@ export default function App() {
               🂠 Draw
             </button>
           )}
-          {count > 0 && !faced && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
+          {count > 0 && !faced && !onBattlefield && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
           {free > 1 && !topPinned && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
           {count > 1 && (
             <button
@@ -737,6 +739,9 @@ export default function App() {
           {topCard && <button onClick={() => setDialog({ kind: 'inspect', card: topCard })}>🔍 View</button>}
           {!isDeck && !isPlace && !aside && !fixed && !upsideDown && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
             <button onClick={() => act((t, id) => A.rotateStack(t, id, 90, defs))}>↻ Rotate</button>
+          )}
+          {!aside && selectedStack.cards.every((c) => defs[c.id]?.type === 'terrain') && (
+            <button onClick={() => act((t, id) => A.rotateStack(t, id, 180, defs))}>↻ Turn around</button>
           )}
           {(!isDeck || isPlace) && free > 0 && <button onClick={() => setPutUnder({ stackId: selectedStack.id })}>⤵ Put under…</button>}
           {free > 1 && <button onClick={() => act(A.flipStack)}>⇵ Turn pile over</button>}

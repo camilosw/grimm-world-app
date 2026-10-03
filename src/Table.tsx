@@ -5,16 +5,17 @@ import {
   allAreas,
   BROWSE_DECKS,
   coveredSide,
+  battlefieldBoxes,
+  battlefieldInUse,
   deckPlace,
   drawOrder,
   ENCOUNTER_PLACES,
   encounterPlace,
-  ENEMY_COLS,
-  enemyOrigin,
   fanHasPlace,
   fanRow,
   freeCovered,
   freePlaces,
+  onGrid,
   placement,
   placeStack,
   PLACE_BUTTON,
@@ -22,6 +23,7 @@ import {
   splitHalves,
   spotsOf,
   stacksOnSpot,
+  terrainPlaces,
   facedSpot,
   type Area,
   type Side,
@@ -47,6 +49,8 @@ export interface Incoming {
   area: { id: string; ok: boolean } | null
   spot: string | null
   dropOn: string | null
+  /** Where they would lie (a free place of the battlefield grid lights up). */
+  to?: { x: number; y: number } | null
 }
 
 interface Props {
@@ -332,6 +336,7 @@ export function TableView(props: Props) {
       lastTap.current = null
       const fixed = facedSpot(table, target.id)
       if (fixed) return props.onRefuse(`Cards on the ${fixed.label} place lie face ${fixed.faceDown ? 'down' : 'up'}`)
+      if (onGrid(table, target.id)) return props.onRefuse('Terrain Cards on the Battlefield lie face up')
       update((t) => flipTop(t, target.id))
       return
     }
@@ -357,10 +362,16 @@ export function TableView(props: Props) {
     return cards.map((c) => c.id)
   }
 
+  /** The pile a drag moves whole: dragged by its grip, or a Terrain Card alone on its battlefield place. */
+  function movingPile(target: { id: string; whole: boolean }) {
+    const whole = target.whole || onGrid(table, target.id)
+    return whole && !isFixed(table.stacks[target.id]) ? target.id : null
+  }
+
   /** Where a dragged pile (or its top card) would really land, and why it can't go there. */
   function destination(target: { id: string; whole: boolean }, x: number, y: number, dropOn: string | null, pointer?: { x: number; y: number }) {
     // A fixed pile (an Encounter Deck place) stays: its cards leave it as a new pile.
-    const moving = target.whole && !isFixed(table.stacks[target.id]) ? target.id : null
+    const moving = movingPile(target)
     return placement(table, movedCards(target), defs, x, y, dropOn, moving, pointer)
   }
 
@@ -507,18 +518,34 @@ export function TableView(props: Props) {
             key={area.id}
             area={area}
             state={movingArea === area.id ? 'moving' : hl?.area?.id === area.id ? (hl.area.ok ? 'accept' : 'refuse') : null}
-            onClear={area.id === 'battlefield' ? props.onClearBattlefield : undefined}
+            onClear={area.id === 'battlefield' && battlefieldInUse(shownTable) ? props.onClearBattlefield : undefined}
             onRules={() => props.onAreaRules(area.id)}
           />
         ))}
-        {shownTable.battlefield && (
-          <div
-            className="enemy-slots"
-            style={{ left: enemyOrigin(shownTable.battlefield).x, top: enemyOrigin(shownTable.battlefield).y, width: ENEMY_COLS * CARD_W }}
-          >
-            Enemies
-          </div>
-        )}
+        <div className="enemy-slots" style={rectStyle(battlefieldBoxes(shownTable).enemies)}>
+          Enemies
+        </div>
+        {/* The battlefield's free places: its first one, then a strip on each free side of its Terrain Cards. */}
+        {terrainPlaces(shownTable, dragStack ? movingPile(dragStack) : null).map((p) => {
+          const hover = hl?.area?.id === 'battlefield' && hl.to?.x === p.x && hl.to?.y === p.y
+          const state = hover ? (hl.area?.ok ? ' accept' : ' refuse') : ''
+          return (
+            <div
+              key={`terrain-${p.col},${p.row}-${p.side}`}
+              className={`card-spot${p.side ? ` terrain-strip strip-${p.side}` : ' wide'}${state}`}
+              style={rectStyle(p.box)}
+            >
+              {p.side ? (
+                <span>+</span>
+              ) : (
+                <span>
+                  Terrain Card
+                  <small>build the battlefield from here</small>
+                </span>
+              )}
+            </div>
+          )
+        })}
         {spots.flatMap(placeholders)}
         {allAreas(shownTable).flatMap((area) => {
           // The Encounter Deck area's places, shown while empty (their piles cover them), with a Shuffle button below each
@@ -666,6 +693,9 @@ function SlotView({ stack, defs, size, dropTarget }: { stack: Stack; defs: Recor
   )
 }
 
+/** Position and size of a table rectangle as an absolutely placed element's style. */
+const rectStyle = (r: { x: number; y: number; w: number; h: number }) => ({ left: r.x, top: r.y, width: r.w, height: r.h })
+
 interface AreaViewProps {
   area: Area
   /** Cards dragged over it are taken or refused; or it is being moved. */
@@ -741,7 +771,7 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
         ref={cardRef}
         className={`card${turn ? turnedClass(turn) : landscapeClass(landscape, faceUp)}`}
         style={{
-          rotate: landscape ? undefined : `${stack.rot}deg`,
+          rotate: `${stack.rot}deg`,
           boxShadow: [...shadow, lifted ? '0 18px 30px rgba(0,0,0,.55)' : '0 4px 10px rgba(0,0,0,.45)'].join(', '),
         }}
       >
@@ -753,7 +783,7 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
           <div
             key={`${shuffle}-${i}`}
             className={`card shuffle-card${i % 2 ? ' right' : ''}${turn ? turnedClass(turn) : landscapeClass(landscape, c.faceUp)}`}
-            style={{ rotate: landscape ? undefined : `${stack.rot}deg`, animationDelay: `${i * 60}ms` }}
+            style={{ rotate: `${stack.rot}deg`, animationDelay: `${i * 60}ms` }}
             aria-hidden
           >
             <img src={cardImage(c.id, c.faceUp, size)} alt="" draggable={false} />
