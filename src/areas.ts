@@ -108,7 +108,11 @@ const deckArea = (i: number) => ({
   x: story.x + story.w + GAP + i * (deckBox.w + GAP),
   y: character.y,
   w: deckBox.w,
-  h: deckBox.h + (BROWSE_DECKS.includes(TABLE_DECKS[i]) ? PLACE_BUTTON.gap + PLACE_BUTTON.h : 0),
+  h:
+    deckBox.h +
+    (BROWSE_DECKS.includes(TABLE_DECKS[i])
+      ? PLACE_BUTTON.gap + PLACE_BUTTON.h
+      : 0),
 });
 /** Part of the house extension's height showing above the House Card (the rest lies under it). */
 const HOUSE_ABOVE_SHOWS = 0.27;
@@ -438,7 +442,9 @@ export function turnedSpot(t: Table, id: string): Spot | undefined {
 
 /** Whether pile `id` lies on a spot taking the cards dropped on it underneath (the Damage Card's). */
 export function slidesUnder(t: Table, id: string): boolean {
-  return spotsOf(t).some((s) => s.slidesUnder && stacksOnSpot(t, s).includes(id));
+  return spotsOf(t).some(
+    (s) => s.slidesUnder && stacksOnSpot(t, s).includes(id),
+  );
 }
 
 /** The spot laying the cards on it upside down (the Actions area's) that pile `id` lies on, if any. */
@@ -484,6 +490,8 @@ const houseSpot = {
   x: Math.round(home.x + AREA_PAD + HOME_LEFT * CARD_W),
   y: Math.round(home.y + AREA_HEADER + HOUSE_ABOVE_SHOWS * CARD_H),
 };
+/** Part of a Quest Card's height showing below the Character Card (or the card before it) on top of it. */
+const QUESTS_SHOWS = 0.26;
 /** Part of a Goods card's height showing below the card on top of it. */
 const GOODS_BELOW_SHOWS = 0.21;
 const goodsX = Math.round(storageSpot.x - GOODS_LEFT_SHOWS * CARD_W);
@@ -583,6 +591,21 @@ export const SPOTS: Spot[] = [
     x: characterSpot.x - CARD_W / 2,
     y: characterSpot.y,
     under: "character",
+  },
+  // Below it, the Quest Cards (Y-cards) slid under its bottom edge so only their bottom quarter shows, each further one
+  // likewise under the one before. Any number of them: the area grows with the column.
+  {
+    id: "quests",
+    label: "Quest Cards",
+    hint: "Y-Cards",
+    area: "character",
+    family: "lost-pages",
+    attracts: false,
+    x: characterSpot.x,
+    y: characterSpot.y + Math.round(QUESTS_SHOWS * CARD_H),
+    under: "character",
+    shows: QUESTS_SHOWS,
+    fan: { count: Infinity },
   },
   // Top center. The Storage Card is a Y-card; goods go left and below it, items and money right (rulebook 4.7.4).
   {

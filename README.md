@@ -141,6 +141,11 @@ and no other card can be put there. The Alignment Card always lies under the Cha
 showing (**Rotate** it to show the value on its other end); both Alignment Cards dropped there form one pile. Other
 cards may still overlap the edges of these places.
 
+**Quest Cards.** Below the Character Card lies a column of Quest Cards, under a "Quest Cards" placeholder: the first
+slid under its bottom edge so that only its bottom quarter shows, each further one likewise under the one before. It
+takes any Y-card (Lost Pages): drop one on or near the placeholder, or on the column, to add it there (where you drop
+it, or at the end); other cards are refused on it. Any number of them: the area grows with the column.
+
 **Storage Card place.** The Storage area has a place for the Storage Card at its top center. It takes any Y-card, since the
 Storage Card is one of them: a Y-card dropped on or near it snaps onto it, and other cards are refused there. Unlike
 the Character and Alignment Cards, Y-cards are not pulled there from elsewhere on the table.
