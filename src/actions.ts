@@ -422,7 +422,7 @@ export function clearBattlefield(t: Table, defs: Record<string, CardDef>): Table
 function insertIntoDeck(t: Table, deck: Stack | undefined, cards: CardRef[], defs: Record<string, CardDef>, under = false): Table {
   if (!deck?.deck || !cards.length) return t
   const spec = DECK_SPECS[deck.deck]
-  const added = cards.map((c) => ({ ...c, faceUp: spec.faceUp }))
+  const added = cards.map((c) => ({ ...c, faceUp: spec.faceUp ?? c.faceUp }))
   if (spec.insert === 'sorted') return sortStack(setStack(t, { ...deck, cards: [...deck.cards, ...added] }), deck.id, defs)
   const bottom = under || spec.insert === 'bottom'
   return setStack(t, { ...deck, cards: bottom ? underneath(deck, added) : [...deck.cards, ...added] })

@@ -24,8 +24,8 @@ export interface DeckSpec {
   emptyHint?: string;
   /** What it may hold, for a deck lying in its own area on the table (shown in the area's header). */
   holdsText?: string;
-  /** Facing of cards put into this deck. */
-  faceUp: boolean;
+  /** Facing of cards put into this deck; left out, they keep the side they show. */
+  faceUp?: boolean;
   /** Where returned cards go: on top, underneath (rulebook: used Encounter Cards), or by card number. */
   insert: "top" | "bottom" | "sorted";
   /** Cards this deck may hold (rulebook chapter 6 and cards Y003/Y009). */
@@ -139,13 +139,12 @@ export const DECKS: DeckSpec[] = [
     insert: "top",
     holds: (d) => yIn(d, [705, 707]),
   },
-  // The Enemy Card Y013 with the Enemy Cards Y800–Y849 underneath (Y009).
+  // The Enemy Card Y013 with the Enemy Cards Y800–Y849 underneath (Y009), each lying as it was put there.
   {
     kind: "enemy",
     label: "Enemy Deck",
     emptyHint: "Built by card Y009",
     holdsText: "Y013, Y800–Y849",
-    faceUp: true,
     insert: "bottom",
     holds: (d) => yIn(d, [13, 13], [800, 849]),
   },

@@ -59,14 +59,14 @@ export function initialTable(manifest: CardManifest): Table {
   const contents = deckContents(cards)
   let table: Table = { stacks: {}, z: [], tokens: [], layout: LAYOUT, nextId: 1 }
   for (const spec of SIDEBAR_DECKS) {
-    const cards = contents[spec.kind].map((c) => ({ id: c.id, faceUp: spec.faceUp }))
+    const cards = contents[spec.kind].map((c) => ({ id: c.id, faceUp: spec.faceUp ?? true }))
     table = addStack(table, 0, 0, cards, { label: spec.label, deck: spec.kind })[0]
   }
   table = { ...table, dock: table.z, z: [] }
   const story = contents.storybook.map((c) => ({ id: c.id, faceUp: false }))
   // Face down: their hourglass backs show.
   const timeCard = (name: string) => cards.filter((c) => c.type === 'time' && c.name === name).map((c) => ({ id: c.id, faceUp: false }))
-  const deck = contents.encounter.map((c) => ({ id: c.id, faceUp: DECK_SPECS.encounter.faceUp }))
+  const deck = contents.encounter.map((c) => ({ id: c.id, faceUp: DECK_SPECS.encounter.faceUp ?? false }))
   const places = { 'time-passes': [...timeCard('Time Passes'), ...deck], 'next-chapter': timeCard('Next Chapter'), used: [] }
   const defs = Object.fromEntries(cards.map((c) => [c.id, c]))
   return settle(addDeckCards(addDamagePlace(addEncounterPlaces(layDecks(addStorySlots(table, story)), places), defs), defs))
@@ -206,7 +206,7 @@ function layEncounterDeck(t: Table, defs: Record<string, CardDef>): Table {
     }
     const timePasses = timeCard('Time Passes')
     const nextChapter = timeCard('Next Chapter')
-    const deck = old.flatMap((id) => next.stacks[id].cards).map((c) => ({ ...c, faceUp: DECK_SPECS.encounter.faceUp }))
+    const deck = old.flatMap((id) => next.stacks[id].cards).map((c) => ({ ...c, faceUp: DECK_SPECS.encounter.faceUp ?? false }))
     const stacks = { ...next.stacks }
     for (const id of old) delete stacks[id]
     next = { ...next, stacks, dock: next.dock?.filter((id) => !old.includes(id)) }
@@ -477,7 +477,7 @@ function migrateDecks(t: Table, defs: Record<string, CardDef>): Table {
     const def = defs[card.id]
     const deck = def && deckStack(next, homeDeck(next, def))
     if (!deck) continue
-    next = { ...next, stacks: { ...next.stacks, [deck.id]: { ...deck, cards: [...deck.cards, { ...card, faceUp: DECK_SPECS[deck.deck!].faceUp }] } } }
+    next = { ...next, stacks: { ...next.stacks, [deck.id]: { ...deck, cards: [...deck.cards, { ...card, faceUp: DECK_SPECS[deck.deck!].faceUp ?? card.faceUp }] } } }
     if (DECK_SPECS[deck.deck!].insert === 'sorted') next = sortStack(next, deck.id, defs)
   }
 
