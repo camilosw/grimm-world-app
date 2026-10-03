@@ -330,8 +330,9 @@ Pile and deck actions: **Draw** (top card face up onto the table), **Top → bot
 deck, e.g. X-cards under the Encounter Deck), **Rotate**, **Front/Back** (overlap order, e.g. tucking the Alignment card under the Character card), **Return to
 deck** and **Name**.
 
-**📖 Rules** opens the rulebook beside the table (over it in portrait): the real pages, a contents list, search
-(e.g. "fate number", "banish") and zoom. Drag its left edge to make it wider or narrower — as far as almost the left edge of the screen, over the table and sidebar. It remembers the page you
+**📖 Rules** opens the rulebook beside the table and the toolbar, from the top of the screen (over both in portrait): the
+real pages, a contents list, search (e.g. "fate number", "banish"; in the panel's top bar, or on a row of its own below
+it when the panel is too narrow) and zoom. Drag its left edge to make it wider or narrower — as far as almost the left edge of the screen, over the table and sidebar. It remembers the page you
 were reading and its width. The **ⓘ** next to an area's name,
 **📖 Rules** in the action bar of a selected deck or card, in the card viewer and in the Battle dialog open the rulebook
 at the section that explains it. **Booklets** at the top of the panel switches to the six rule booklets

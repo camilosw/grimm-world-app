@@ -561,6 +561,9 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* The rules panel lies beside the toolbar and the table, from the top of the screen. */}
+      <div className="workspace">
+      <div className="workspace-left">
       <header className="toolbar">
         <button onClick={toggleSidebar} className={sidebarOpen ? 'on' : ''} aria-label="Toggle decks">
           🂠 <span>Decks</span>
@@ -690,6 +693,8 @@ export default function App() {
           onDrop={dropFromTray}
         />
       )}
+      </div>
+      </div>
       {rulesOpen && rules && <RulesPanel rules={rules} target={rulesTarget} onClose={() => setRulesOpen(false)} />}
       </div>
 

@@ -140,6 +140,8 @@ input:not([type]) {
   padding-top: max(8px, env(safe-area-inset-top));
   border-bottom: 1px solid #000;
   align-items: center;
+  /* Narrowed by the rules panel: its width never pushes the panel aside (see .toolbar button span). */
+  container-type: inline-size;
 }
 
 .toolbar .spacer {
@@ -153,10 +155,25 @@ input:not([type]) {
   scrollbar-width: none;
 }
 
-@media (max-width: 700px) {
+@container (max-width: 700px) {
   .toolbar button span {
     display: none;
   }
+}
+
+/* The toolbar and the table, with the rules panel beside both. */
+.workspace {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .main {
@@ -1670,12 +1687,34 @@ button.on {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: 6px 6px 6px 14px;
+  /* At the top of the screen, as high as the toolbar beside it. */
+  padding: max(8px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) 8px 14px;
   border-bottom: 1px solid #000;
 }
 
-.rules-bar .spacer {
-  flex: 1;
+.rules-bar .rules-search {
+  min-width: 110px;
+  padding: 8px 10px;
+}
+
+/* The buttons after it stay at the right edge when the search has a row of its own. */
+.rules-bar .rules-books {
+  margin-right: auto;
+}
+
+/* No room beside the buttons (more of them while reading a booklet): the search gets its own row below them. */
+@container (max-width: 540px) {
+  .rules-bar .rules-search {
+    order: 1;
+    flex-basis: 100%;
+  }
+}
+
+@container (max-width: 690px) {
+  .rules-bar.crowded .rules-search {
+    order: 1;
+    flex-basis: 100%;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -1689,11 +1728,6 @@ button.on {
   .rules-bar button span {
     display: none;
   }
-}
-
-.rules-search {
-  display: flex;
-  padding: 8px 10px;
 }
 
 .rules-pages {
