@@ -57,8 +57,9 @@ npm run deploy     # vercel build --prod && vercel deploy --prebuilt --prod
 ## Controls
 
 **Areas.** The table has a framed area for each part of the game (rulebook chapters 4 and 10). An area only takes
-the cards that belong there; while you drag, it lights up green (allowed) or red (refused), and a refused card goes
-back where it came from. Space outside the areas takes any card. **📍 Areas** jumps to an area.
+the cards that belong there; while you drag, it lights up green (allowed) or red (refused), as does the place the card
+would go to — also for cards dragged in from the sidebar, the set-aside cards or the Browse panel — and a refused card
+goes back where it came from. Space outside the areas takes any card. **📍 Areas** jumps to an area.
 
 The Map area is just large enough for its places. The Encounter Bar, Character, Storage, Actions and Home areas are only as large
 as their places and the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
@@ -181,13 +182,21 @@ can't be turned over or rotated there. It takes Encounter Cards and Y-cards (som
 one on or near the placeholder, or on the column, to add it there; other cards are refused on it. Any number of them:
 the area grows up with the column.
 
-**Money Cards.** Right of the Storage Card lies a row of up to three Money Cards (rulebook 4.3): the first slid half
-under the right side of the Storage Card, each further one half under the one before, so the amounts on their right
-halves show and add up to the character's money. The placeholder marks where the next one goes. Like the Alignment Card,
-a Money Card dropped anywhere on the table joins the row: where you drop it when that is on the row, else at its end. A
-fourth one is refused. Drag a card along the row to reorder it (the others make room while you drag); take one away and
-the cards right of it close the gap. Each card lies on its own, so double-tap or **Rotate** it to show the amount you
-need.
+**Items.** Right of the Storage Card lies a row of the whole items stowed in the bag (rulebook 4.7.4, 7.2.4): the first
+slid under its right side, each further one likewise under the one before. The cards lie face up and upside down, so that
+only the strip of status values printed upside down along their left edge shows, the right way up (as in rulebook
+figure 16); a card put there face down turns face up, and they can't be turned over or rotated there. It takes Encounter
+Cards and Y-cards, any number. The Money Cards lie beyond the items, and the two rows share one placeholder beyond them
+both, split in two: drop a card on its upper half ("Items") to add it as the last item, before the Money Cards; on its
+lower half ("Money Card") to add a Money Card. Once there are three Money Cards, the whole placeholder is for items. An
+item dragged along the row is only reordered among the items, a Money Card among the Money Cards.
+
+**Money Cards.** Beyond the items lies a row of up to three Money Cards (rulebook 4.3): the first slid half under the
+last item (or under the right side of the Storage Card while there are none), each further one half under the one
+before, so the amounts on their right halves show and add up to the character's money. Like the Alignment Card, a Money
+Card dropped anywhere on the table joins the row: where you drop it when that is on the row, else at its end. A fourth
+one is refused. Drag a card along the row to reorder it (the others make room while you drag); take one away and the
+cards right of it close the gap. Each card lies on its own, so double-tap or **Rotate** it to show the amount you need.
 
 **Goods.** Encounter Cards held as goods (B-Encounters from the Encounter Deck and X-Encounters) go in two rows
 beside the Storage Card, each under a "Goods" placeholder. Left of it, the first is slid under the left side of the

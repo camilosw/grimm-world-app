@@ -1467,6 +1467,24 @@ button.on {
   border-radius: 0 12px 0 0;
 }
 
+/* Items over Money, beside the cards on their left: written across, clear of those cards. */
+.card-spot.split-top,
+.card-spot.split-bottom,
+.card-spot.split-whole {
+  padding: 0 4px 0 14px;
+  line-height: 1.1;
+  writing-mode: horizontal-tb;
+}
+
+.card-spot.split-top {
+  border-bottom: none;
+  border-radius: 0 12px 0 0;
+}
+
+.card-spot.split-bottom {
+  border-radius: 0 0 12px 0;
+}
+
 /* ---------- storybook slots ---------- */
 
 .stack.slot {

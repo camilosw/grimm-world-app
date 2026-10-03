@@ -19,7 +19,7 @@ import {
   placeStack,
   PLACE_BUTTON,
   snapArea,
-  splitBox,
+  splitHalves,
   spotsOf,
   stacksOnSpot,
   facedSpot,
@@ -41,6 +41,13 @@ export type Selection = { kind: 'stack' | 'token'; id: string } | null
  * aside (before the set-aside pile `before`, else last).
  */
 export type Zone = { kind: 'deck'; id: string } | { kind: 'dock' } | { kind: 'tray'; before: string | null }
+
+/** Where cards dragged in from outside the table (sidebar, set-aside cards, Browse panel) would land, to light it up. */
+export interface Incoming {
+  area: { id: string; ok: boolean } | null
+  spot: string | null
+  dropOn: string | null
+}
 
 interface Props {
   table: TableState
@@ -73,6 +80,8 @@ interface Props {
   onBrowseDeck: (stackId: string) => void
   /** The pile shown in the browse panel, if any. */
   browsing: string | null
+  /** Cards dragged in from outside the table, while over it. */
+  incoming?: Incoming | null
   /** The pile just shuffled, shown shuffling (`n` restarts the animation). */
   shuffled: { id: string; n: number } | null
 }
@@ -416,6 +425,8 @@ export function TableView(props: Props) {
   )
   const shownTable = areaPreview ?? (fanTo && dragStack ? settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y)) : table)
   const spots = spotsOf(shownTable)
+  // What a drag lights up: a drag on the table, else cards dragged in from outside it.
+  const hl: Incoming | null = drag ?? props.incoming ?? null
   const sliding = new Set(spots.filter((s) => s.fan).flatMap((s) => fanRow(shownTable, s)))
   const covered = new Map(spots.filter((s) => s.under).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
   const turned = new Map(spots.flatMap((s) => (s.turn ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const) : [])))
@@ -424,29 +435,32 @@ export function TableView(props: Props) {
   const placeholders = (spot: Spot) => {
     // A fanned spot shows its next free place, none when full. The Encounter Bar: left of its cards, and once it
     // has cards, also right of its last one.
-    if (spot.fan && !fanHasPlace(shownTable, spot)) return []
-    // A row sharing a split placeholder shows no free place of its own: the split one takes its cards (left half), the
-    // other row's on the right (the Titles | Skills above both).
+    // A row sharing a split placeholder shows no free place of its own: the split one takes its cards, beyond both rows
+    // (Titles | Skills above the Character Card, Items over Money right of the Storage Card), all of it once the other
+    // row is full.
     if (spots.some((s) => s.split && s.after === spot.id)) return []
     if (spot.split) {
-      const box = splitBox(shownTable, spot)
-      const halves = [spots.find((s) => s.id === spot.after) ?? spot, spot]
+      const halves = splitHalves(shownTable, spot)
+      const side = freeCovered(shownTable, spot)
+      const across = side === 'top' || side === 'bottom'
       return halves.map((half, i) => {
-        const state = drag?.spot === half.id ? (drag.area?.ok ? ' accept' : ' refuse') : ''
+        const state = hl?.spot === half.spot.id ? (hl.area?.ok ? ' accept' : ' refuse') : ''
+        const pos = halves.length === 1 ? 'whole' : across ? (i ? 'right' : 'left') : i ? 'bottom' : 'top'
         return (
           <div
             key={`${spot.id}-${i}`}
-            className={`card-spot covered covered-bottom split-${i ? 'right' : 'left'}${state}`}
-            style={{ left: box.x + (i * box.w) / 2, top: box.y, width: box.w / 2, height: box.h }}
+            className={`card-spot covered covered-${side} split-${pos}${state}`}
+            style={{ left: half.x, top: half.y, width: half.w, height: half.h }}
           >
             <span>
-              {half.label}
-              {half.hint && <small>{half.hint}</small>}
+              {half.spot.label}
+              {half.spot.hint && <small>{half.spot.hint}</small>}
             </span>
           </div>
         )
       })
     }
+    if (spot.fan && !fanHasPlace(shownTable, spot)) return []
     const row = spot.addsFirst ? fanRow(shownTable, spot) : []
     // Where the dragged card goes: after the row's last card (not counting the card itself), else before its first.
     // Taken from the table itself: the preview spreads a dragged pile out into cards that aren't on it.
@@ -458,8 +472,8 @@ export function TableView(props: Props) {
       // its first card, though the cards put there go on top; its place after the last card lies under that card. So
       // does the hand's place after its last card, though the card put there goes on top.
       const side = end ? 'left' : row.length ? 'right' : freeCovered(shownTable, spot)
-      const hover = drag?.spot === spot.id && (!spot.addsFirst || end === toEnd)
-      const state = hover ? (drag.area?.ok ? ' accept' : ' refuse') : ''
+      const hover = hl?.spot === spot.id && (!spot.addsFirst || end === toEnd)
+      const state = hover ? (hl.area?.ok ? ' accept' : ' refuse') : ''
       const box = cardBox(at.x, at.y, !!spot.landscape)
       const hidden = 1 - (spot.shows ?? 0.5)
       if (side === 'left') box.left += hidden * box.width
@@ -492,7 +506,7 @@ export function TableView(props: Props) {
           <AreaView
             key={area.id}
             area={area}
-            state={movingArea === area.id ? 'moving' : drag?.area?.id === area.id ? (drag.area.ok ? 'accept' : 'refuse') : null}
+            state={movingArea === area.id ? 'moving' : hl?.area?.id === area.id ? (hl.area.ok ? 'accept' : 'refuse') : null}
             onClear={area.id === 'battlefield' ? props.onClearBattlefield : undefined}
             onRules={() => props.onAreaRules(area.id)}
           />
@@ -513,7 +527,7 @@ export function TableView(props: Props) {
             return ENCOUNTER_PLACES.flatMap(({ place, label, hint }) => {
               const at = encounterPlace(shownTable, place)
               const s = placeStack(shownTable, place)
-              const state = s && drag?.dropOn === s.id ? (drag.area?.ok ? ' accept' : ' refuse') : ''
+              const state = s && hl?.dropOn === s.id ? (hl.area?.ok ? ' accept' : ' refuse') : ''
               const spot = (
                 <div key={`place-${place}`} className={`card-spot${state}`} style={cardBox(at.x, at.y, false)}>
                   <span>
@@ -541,7 +555,7 @@ export function TableView(props: Props) {
           // below the Training Deck's (`BROWSE_DECKS`).
           if (!area.deck) return []
           const spec = DECK_SPECS[area.deck]
-          const state = drag?.area?.id === area.id ? (drag.area.ok ? ' accept' : ' refuse') : ''
+          const state = hl?.area?.id === area.id ? (hl.area.ok ? ' accept' : ' refuse') : ''
           const at = deckPlace(shownTable, area.deck)
           const s = deckStack(shownTable, area.deck)
           const spot = (
@@ -575,7 +589,7 @@ export function TableView(props: Props) {
             if (dragStack.whole && !isFixed(s)) return null
             shown = { ...s, cards: dragStack.whole ? s.cards.filter((c) => !unpinned(s).includes(c)) : s.cards.slice(0, -1) }
           }
-          if (s.slot) return <SlotView key={id} stack={shown} defs={defs} size={imgSize} dropTarget={drag?.dropOn === id} />
+          if (s.slot) return <SlotView key={id} stack={shown} defs={defs} size={imgSize} dropTarget={hl?.dropOn === id} />
           if (!shown.cards.length) return null
           return (
             <StackView
@@ -584,7 +598,7 @@ export function TableView(props: Props) {
               defs={defs}
               size={imgSize}
               selected={selection?.kind === 'stack' && selection.id === id}
-              dropTarget={drag?.dropOn === id}
+              dropTarget={hl?.dropOn === id}
               lifted={false}
               covered={covered.get(id) ?? null}
               turn={turned.get(id) ?? null}

@@ -9,7 +9,7 @@ import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type R
 import { RulesPanel } from './RulesPanel'
 import { Sidebar } from './Sidebar'
 import { loadSaved, redo, resetTable, undo, update, useHistory, useTable } from './store'
-import { TableView, type Selection, type Zone } from './Table'
+import { TableView, type Incoming, type Selection, type Zone } from './Table'
 import { Tray } from './Tray'
 import type { CardDef, CardManifest, CardRef, Table, Token, View } from './types'
 
@@ -101,6 +101,8 @@ export default function App() {
   const [rulesTarget, setRulesTarget] = useState<RuleTarget | null>(null)
   /** Sidebar decks a dragged card would go back to. */
   const [homeHover, setHomeHover] = useState<string[]>([])
+  // Where cards dragged in from outside the table (sidebar, set-aside cards, Browse panel) would land on it.
+  const [incoming, setIncoming] = useState<Incoming | null>(null)
   const noticeTimer = useRef<number | undefined>(undefined)
   /** The table pile just shuffled, shown shuffling for a moment (`n` restarts the animation). */
   const [shuffled, setShuffled] = useState<{ id: string; n: number } | null>(null)
@@ -342,6 +344,21 @@ export default function App() {
     const r = areaRef.current?.getBoundingClientRect()
     if (!r || clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) return null
     return { x: (clientX - r.left - view.x) / view.scale - CARD_W / 2, y: (clientY - r.top - view.y) / view.scale - CARD_H / 2 }
+  }
+
+  /**
+   * Cards dragged in from outside the table, held at a screen point (none: the drag left the table or ended): light up
+   * where they would land on the table, as a drag on the table does.
+   */
+  const hoverTable = (cardIds: string[], clientX = 0, clientY = 0) => {
+    const at = table && cardIds.length && !zoneAt(clientX, clientY) ? worldAt(clientX, clientY) : null
+    let next: Incoming | null = null
+    if (at && table) {
+      const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
+      const p = placement(table, cardIds, defs, at.x, at.y, target)
+      next = { area: p.area ? { id: p.area.id, ok: !p.refused } : null, spot: p.spot?.id ?? null, dropOn: p.onto }
+    }
+    setIncoming((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
   }
 
   /** Names of the decks these cards (taken off the deck `from` if any) go back to, e.g. "Lost Pages". */
@@ -595,7 +612,11 @@ export default function App() {
           onDoubleTap={(id) => update((t) => A.flipTop(t, id))}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
           onDrop={dropFromDeck}
-          onDragHover={(d) => hoverZone(d && zoneAt(d.x, d.y), [])}
+          onDragHover={(d) => {
+            hoverZone(d && zoneAt(d.x, d.y), [])
+            const top = d && table.stacks[d.item]?.cards.at(-1)
+            hoverTable(top ? [top.id] : [], d?.x, d?.y)
+          }}
         />
       )}
       <div className="table-area" ref={areaRef}>
@@ -638,6 +659,7 @@ export default function App() {
             setBrowseId(browseId === stackId ? null : stackId)
           }}
           browsing={browseId}
+          incoming={incoming}
         />
         {notice && <div className={`notice${notice.ok ? ' ok' : ''}`}>{notice.text}</div>}
         {putUnder && (
@@ -658,7 +680,11 @@ export default function App() {
           onTap={(id) => (putUnder ? putUnderTarget(id) : setSelection({ kind: 'stack', id }))}
           onDoubleTap={(id) => update((t) => A.flipTop(t, id))}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
-          onDragHover={(d) => hoverZone(d && zoneAt(d.x, d.y), d ? (table.stacks[d.item]?.cards.map((c) => c.id) ?? []) : [])}
+          onDragHover={(d) => {
+            const cardIds = d ? (table.stacks[d.item]?.cards.map((c) => c.id) ?? []) : []
+            hoverZone(d && zoneAt(d.x, d.y), cardIds)
+            hoverTable(cardIds, d?.x, d?.y)
+          }}
           onDrop={dropFromTray}
         />
       )}
@@ -677,6 +703,7 @@ export default function App() {
           onDragHover={(cardIds, at) => {
             const deck = table.stacks[browseId]?.deck
             hoverZone(at && zoneAt(at.x, at.y), deck && !returnsCards(deck) ? [] : cardIds, deck)
+            hoverTable(at ? cardIds : [], at?.x, at?.y)
           }}
           onPutUnder={(cardIds, faceUp) => setPutUnder({ stackId: browseId, cardIds, faceUp })}
           onClose={closeBrowse}

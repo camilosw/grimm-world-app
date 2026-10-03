@@ -227,14 +227,14 @@ export interface Spot {
   fan?: { count: number };
   /**
    * Its row starts beyond the last card of this spot's row, under it, and moves out as that row grows (the Skills beyond
-   * the Titles, `spotsOf()`). It runs on a line one unit beside that row's, as `fanRow()` takes the piles on its own line
-   * only.
+   * the Titles, the Money Cards beyond the stowed items, `spotsOf()`). The two rows lie a unit apart across them, as
+   * `fanRow()` takes the piles on its own line only.
    */
   after?: string;
   /**
-   * Its placeholder, beyond the last card of both rows, is shared with the `after` row: cards dropped on its left half
-   * join that row, on its right half this one (`splitBox()`), so that row's free place, under this row, isn't shown on
-   * its own. A pile moved within either row stays in it (`placement()`).
+   * Its placeholder, beyond the last card of both rows, is shared with the `after` row: cards dropped on one half join
+   * that row, on the other this one (`splitHalves()`), so that row's free place, under this row, isn't shown on its own.
+   * A pile moved within either row stays in it (`placement()`).
    */
   split?: boolean;
   /** The storybook place whose top card this spot's card lies on. */
@@ -350,9 +350,8 @@ export function freePlaces(t: Table, spot: Spot): Point[] {
 const SPLIT_SHOWS = 0.3;
 
 /**
- * Where a split placeholder lies (`Spot.split`, a row running up): right above the last card of both rows, the card's
- * width, as high as the larger strip of the two rows shows, at least `SPLIT_SHOWS`. Its left half takes cards into the
- * `after` row, its right half into this one.
+ * Where a split placeholder lies (`Spot.split`): right beyond the last card of both rows, across the row as wide as a
+ * card, along it as far as the larger strip of the two rows shows, at least `SPLIT_SHOWS`.
  */
 export function splitBox(
   t: Table,
@@ -360,11 +359,58 @@ export function splitBox(
 ): { x: number; y: number; w: number; h: number } {
   const partner = spotsOf(t).find((s) => s.id === spot.after);
   const { w, h } = lyingSize(spot);
-  const edge = freePlace(t, spot).y + Math.round((spot.shows ?? 0.5) * h);
-  const high = Math.round(
-    Math.max(spot.shows ?? 0.5, partner?.shows ?? 0.5, SPLIT_SHOWS) * h,
+  const free = freePlace(t, spot);
+  const shows = spot.shows ?? 0.5;
+  const size = Math.max(shows, partner?.shows ?? 0.5, SPLIT_SHOWS);
+  // In line with the row on the exact line (the other lies a unit beside it).
+  const x = Math.min(spot.x, partner?.x ?? spot.x);
+  const y = Math.min(spot.y, partner?.y ?? spot.y);
+  // Beyond the edge of the last card, which covers the part of the free place that doesn't show.
+  switch (growth(spot)) {
+    case "top": {
+      const edge = free.y + Math.round(shows * h);
+      return { x, y: edge - Math.round(size * h), w, h: Math.round(size * h) };
+    }
+    case "bottom":
+      return {
+        x,
+        y: free.y + Math.round((1 - shows) * h),
+        w,
+        h: Math.round(size * h),
+      };
+    case "left": {
+      const edge = free.x + Math.round(shows * w);
+      return { x: edge - Math.round(size * w), y, w: Math.round(size * w), h };
+    }
+    case "right":
+      return {
+        x: free.x + Math.round((1 - shows) * w),
+        y,
+        w: Math.round(size * w),
+        h,
+      };
+  }
+}
+
+/**
+ * The halves of a split placeholder and the row each takes cards into: the `after` row's first (left of a column, above
+ * a row's other), this row's while it has room. Once it is full, the whole placeholder is the other row's.
+ */
+export function splitHalves(
+  t: Table,
+  spot: Spot,
+): { spot: Spot; x: number; y: number; w: number; h: number }[] {
+  const box = splitBox(t, spot);
+  const partner = spotsOf(t).find((s) => s.id === spot.after);
+  const rows = partner
+    ? [partner, ...(fanHasPlace(t, spot) ? [spot] : [])]
+    : [spot];
+  const n = rows.length;
+  return rows.map((s, i) =>
+    vertical(spot)
+      ? { spot: s, ...box, x: box.x + (i * box.w) / n, w: box.w / n }
+      : { spot: s, ...box, y: box.y + (i * box.h) / n, h: box.h / n },
   );
-  return { x: partner?.x ?? spot.x, y: edge - high, w, h: high };
 }
 
 /** The row sharing its placeholder with the row beyond it (the Titles, with the Skills'), if `spot` is one. */
@@ -412,13 +458,16 @@ export function fanRow(
   const along = (id: string) =>
     (v ? t.stacks[id].y - spot.y : t.stacks[id].x - spot.x) *
     Math.sign(fanStep(spot));
+  // A row `after` another moves out as that one grows: until `settleSpots()`, its cards lie up to one of that row's
+  // places before its first place (but not as far as the cards on its line before it, like the Storage Card).
+  const before = spot.after && SPOTS.find((s) => s.id === spot.after);
+  const behind = before ? Math.abs(fanStep(before)) + 1 : 1;
   const inLine = t.z
     .filter(
       (id) =>
         id !== exclude &&
         (v ? t.stacks[id].x === spot.x : t.stacks[id].y === spot.y) &&
-        // A row `after` another moves out as that one grows: its cards lie before its first place until `settleSpots()`.
-        (!!spot.after || along(id) >= -1),
+        along(id) >= -behind,
     )
     .sort((a, b) => along(a) - along(b));
   const row: string[] = [];
@@ -772,8 +821,31 @@ export const SPOTS: Spot[] = [
     upsideDown: true,
     faceUp: true,
   },
-  // Slid half under the right side of the Storage Card, and each further one half under the one before, so the amounts
-  // on their right halves add up to the sum shown (rulebook 4.3). Each is its own pile, so it can be turned to its amount.
+  // Right of it, the whole items stowed in the bag (rulebook 4.7.4, 7.2.4), mostly Encounter Cards, face up and upside
+  // down like the Status Upgrades & Items beside the Character Card: slid under its right side so only the strip of
+  // status values along their left edge shows (rulebook figure 16), each further one likewise under the one before.
+  // Any number of them; the Money Cards lie beyond them, sharing their placeholder. A unit below the Money Cards' line.
+  {
+    id: "items",
+    label: "Items",
+    // A non-breaking hyphen: the half is narrow, and "Y-" alone on a line reads badly.
+    hint: "Encounter Cards, Y\u2011Cards",
+    area: "storage",
+    family: "encounter",
+    also: ["lost-pages"],
+    attracts: false,
+    x: storageSpot.x + Math.round(UPGRADES_SHOWS * CARD_W),
+    y: storageSpot.y + 1,
+    under: "storage",
+    shows: UPGRADES_SHOWS,
+    fan: { count: Infinity },
+    upsideDown: true,
+    faceUp: true,
+  },
+  // Beyond the items (under the Storage Card's right side while there are none), slid half under the last one, and each
+  // further one half under the one before, so the amounts on their right halves add up to the sum shown (rulebook 4.3).
+  // Each is its own pile, so it can be turned to its amount. One placeholder beyond both rows, split: Items above, Money
+  // below.
   {
     id: "money",
     label: "Money Card",
@@ -782,7 +854,9 @@ export const SPOTS: Spot[] = [
     attracts: true,
     x: storageSpot.x + CARD_W / 2,
     y: storageSpot.y,
-    under: "storage",
+    under: "items",
+    after: "items",
+    split: true,
     fan: { count: 3 },
   },
   // Slid under the left side of the Storage Card so only their left third shows, and each further one likewise under
@@ -1045,8 +1119,18 @@ function framedPlaces(t: Table, spot: Spot): Point[] {
   const n = fanRow(t, spot).length;
   const last = spotPlaces(spot, n)[n - 1];
   const places = [spot, fanHasPlace(t, spot) ? freePlace(t, spot) : last];
-  // A split placeholder reaches further than the free place it lies over.
-  return spot.split ? [...places, splitBox(t, spot)] : places;
+  if (!spot.split) return places;
+  // A split placeholder reaches further than the free place it lies over: a card's place ending where it ends.
+  const box = splitBox(t, spot);
+  const { w, h } = lyingSize(spot);
+  const side = growth(spot);
+  return [
+    ...places,
+    {
+      x: side === "right" ? box.x + box.w - w : box.x,
+      y: side === "bottom" ? box.y + box.h - h : box.y,
+    },
+  ];
 }
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -1661,19 +1745,26 @@ function spotAt(
   families: (Family | undefined)[] = [],
   pointer?: Point,
 ): { spot: Spot; place: Point; split?: boolean } | undefined {
-  // Dropped on a split placeholder (pointing at it, or just above it; else with the card's middle there): its left half
-  // takes the cards into the row before, its right half into its own.
+  // Dropped on a split placeholder (pointing at it, or just beyond it; else with the card's middle there): each half
+  // takes the cards into its row.
   const cx = pointer?.x ?? x + CARD_W / 2;
   const cy = pointer?.y ?? y + CARD_H / 2;
+  const reach = CARD_W * 0.4;
   for (const spot of spotsOf(t).filter((s) => s.split)) {
     const box = splitBox(t, spot);
-    if (cx < box.x || cx > box.x + box.w) continue;
-    if (cy < box.y - CARD_W * 0.4 || cy > box.y + box.h) continue;
-    const into =
-      cx < box.x + box.w / 2
-        ? (spotsOf(t).find((s) => s.id === spot.after) ?? spot)
-        : spot;
-    return { spot: into, place: freePlace(t, into), split: true };
+    const side = growth(spot);
+    const near = {
+      x: box.x - (side === "left" ? reach : 0),
+      y: box.y - (side === "top" ? reach : 0),
+      w: box.w + (side === "left" || side === "right" ? reach : 0),
+      h: box.h + (side === "top" || side === "bottom" ? reach : 0),
+    };
+    if (!inRect(near, cx, cy)) continue;
+    const halves = splitHalves(t, spot);
+    const half =
+      halves.find((b) => (vertical(spot) ? cx < b.x + b.w : cy < b.y + b.h)) ??
+      halves[halves.length - 1];
+    return { spot: half.spot, place: freePlace(t, half.spot), split: true };
   }
   // An unlimited row reaches one place past its last card (unless it takes new cards through a split placeholder);
   // taking new cards first, also its free place before them.
@@ -1872,14 +1963,15 @@ function pairedRow(t: Table, id: string): Spot | undefined {
   );
 }
 
-/** The point of a row (running up or down) nearest to (x, y): on its line, between its first and last places. */
+/** The point of a row nearest to `p`: on its line, between its first and last places. */
 function withinRow(t: Table, spot: Spot, p: Point): Point {
-  const n = fanRow(t, spot).length;
-  const ends = [spot.y, spotPlaces(spot, Math.max(1, n))[Math.max(1, n) - 1].y];
-  return {
-    x: spot.x,
-    y: Math.max(Math.min(...ends), Math.min(Math.max(...ends), p.y)),
-  };
+  const n = Math.max(1, fanRow(t, spot).length);
+  const last = spotPlaces(spot, n)[n - 1];
+  const clamp = (v: number, a: number, b: number) =>
+    Math.max(Math.min(a, b), Math.min(Math.max(a, b), v));
+  return vertical(spot)
+    ? { x: spot.x, y: clamp(p.y, spot.y, last.y) }
+    : { x: clamp(p.x, spot.x, last.x), y: spot.y };
 }
 
 /** Cards dropped in a table deck's area go onto its pile (into the deck, `dropOnto()`), if it may hold them all. */
