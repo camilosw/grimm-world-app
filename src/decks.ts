@@ -129,13 +129,13 @@ export const DECKS: DeckSpec[] = [
     insert: "top",
     holds: (d) => d.type === "money",
   },
-  // Quest Cards are Y705–Y707 (Y009).
+  // Quest Cards are Y705–Y707 (Y009), kept face down.
   {
     kind: "quest",
     label: "Quest Deck",
     emptyHint: "Built by card Y009",
     holdsText: "Quest Cards Y705–Y707",
-    faceUp: true,
+    faceUp: false,
     insert: "top",
     holds: (d) => yIn(d, [705, 707]),
   },

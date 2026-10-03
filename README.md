@@ -212,7 +212,7 @@ empty; the Training Deck starts with the Training Card Y012 and Banned Cards wit
 which lie on top of their decks for good (older saves get them there too, taken from wherever they lie): they can't be
 dragged, drawn, taken out by Browse or **Find card**, and shuffling, sorting or turning the deck over leaves them on top.
 Drop a card, or a whole pile, anywhere in one of these areas (from the table, the top of a sidebar deck or the Browse
-panel) and it goes into that deck, face up: on top of the Quest Deck, under the cards of the others, so the Enemy Card
+panel) and it goes into that deck: face down on top of the Quest Deck, face up under the cards of the others, so the Enemy Card
 Y013, put there first, and Y012 and Y011 stay on top. A deck only takes the cards it may hold (table below); others are
 refused. Each works like a sidebar deck: drag it to take its top card, tap it for **Draw**, **Browse**, **Shuffle** and
 the other deck actions, double-tap to flip its top card; it can't be moved, and it stays (as its placeholder) when its
