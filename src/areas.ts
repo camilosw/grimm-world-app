@@ -250,7 +250,7 @@ export interface Spot {
   turn?: Turn;
   /** Its cards lie face down (the Encounter Bar's Y-cards, whose backs show the location they belong to). */
   faceDown?: boolean;
-  /** Its cards lie face up, turned so when put there, and can't be turned over there (Broken Items). */
+  /** Its cards lie face up, turned so when put there, and can't be turned over there (Broken Items, Status Upgrades). */
   faceUp?: boolean;
   /**
    * New cards go to the front of the fanned row, on top of the others, and its free place is shown before its first
@@ -484,7 +484,7 @@ export function takes(spot: Spot, f: Family | undefined): boolean {
   return f === spot.family || (!!f && !!spot.also?.includes(f));
 }
 
-/** The spot pile `id` lies on that keeps its cards face up or face down (Market Prices, Encounter Bar, Broken Items). */
+/** The spot pile `id` lies on that keeps its cards face up or down (Market Prices, Encounter Bar, Broken Items, …). */
 export function facedSpot(t: Table, id: string): Spot | undefined {
   return spotsOf(t).find(
     (s) => (s.turn || s.faceUp) && stacksOnSpot(t, s).includes(id),
@@ -552,6 +552,12 @@ const houseSpot = {
   x: Math.round(home.x + AREA_PAD + HOME_LEFT * CARD_W),
   y: Math.round(home.y + AREA_HEADER + HOUSE_ABOVE_SHOWS * CARD_H),
 };
+/**
+ * Part of a Status Upgrade's or item's width showing right of the Character Card (or the card before it) on top of it:
+ * the strip of status values printed upside down along the left edge of a Y-card or Encounter Card, the right way up
+ * with the card turned (rulebook figure 18).
+ */
+const UPGRADES_SHOWS = 0.15;
 /** Part of a Quest Card's height showing below the Character Card (or the card before it) on top of it. */
 const QUESTS_SHOWS = 0.26;
 /**
@@ -700,6 +706,26 @@ export const SPOTS: Spot[] = [
     shows: SKILLS_SHOWS,
     fan: { count: Infinity },
     upsideDown: true,
+  },
+  // Right of it, the Status Upgrades and Conditions (Y-cards) and equipped items (mostly Encounter Cards; rulebook 4.1,
+  // 4.7.5, 7.3.8), face up and upside down: slid under its right side so only the strip of status values printed upside
+  // down along their left edge shows (rulebook figure 18), each further one likewise under the one before. Any number of
+  // them: the area grows right with the row.
+  {
+    id: "upgrades",
+    // No hint: the strip is too narrow for a second line.
+    label: "Status Upgrades & Items",
+    area: "character",
+    family: "lost-pages",
+    also: ["encounter"],
+    attracts: false,
+    x: characterSpot.x + Math.round(UPGRADES_SHOWS * CARD_W),
+    y: characterSpot.y,
+    under: "character",
+    shows: UPGRADES_SHOWS,
+    fan: { count: Infinity },
+    upsideDown: true,
+    faceUp: true,
   },
   // Below it, the Quest Cards (Y-cards) slid under its bottom edge so only their bottom quarter shows, each further one
   // likewise under the one before. Any number of them: the area grows with the column.

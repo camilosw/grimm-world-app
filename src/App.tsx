@@ -533,9 +533,9 @@ export default function App() {
   const free = selectedStack ? A.unpinned(selectedStack).length : 0
   // A card lying turned on its place stays as it lies (Market Prices face up, Encounter Bar face down) and can't be rotated.
   const fixed = !!selectedStack && !!turnedSpot(table, selectedStack.id)
-  // Nor turned over, nor one lying face up for good (Broken Items).
+  // Nor turned over, nor one lying face up for good (Broken Items, Status Upgrades & Items).
   const faced = !!selectedStack && !!facedSpot(table, selectedStack.id)
-  // A card lying upside down on its place (Actions area, Titles, Skills, Broken Items) can't be rotated either.
+  // A card lying upside down on its place (Actions area, Titles, Skills, Broken Items, Status Upgrades & Items) can't be rotated either.
   const upsideDown = !!selectedStack && !!upsideDownSpot(table, selectedStack.id)
   /** Decks and places draw several cards; a pile on the table needs at least two. */
   const many = free > (isDeck || isPlace ? 0 : 1)

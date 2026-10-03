@@ -156,6 +156,14 @@ there. Titles always stay below the skills: a title dragged along the column is 
 skill among the skills (drop it on the other half of the placeholder to move it to the other group). Other cards are
 refused. Any number of each: the area grows up with the column.
 
+**Status Upgrades & Items.** Right of the Character Card lies a row of Status Upgrades, Conditions and equipped items
+(rulebook 4.1, 4.7.5, 7.3.8), under a "Status Upgrades & Items" placeholder: the first slid under its right side, each
+further one likewise under the one before. The cards lie face up and upside down, so that only the strip of status values
+printed upside down along their left edge shows, the right way up (as in rulebook figure 18); a card put there face down
+turns face up, and they can't be turned over or rotated there. It takes Y-cards and Encounter Cards: drop one on or near
+the placeholder, or on the row, to add it there; other cards are refused on it. Any number of them: the area grows right
+with the row.
+
 **Quest Cards.** Below the Character Card lies a column of Quest Cards, under a "Quest Cards" placeholder: the first
 slid under its bottom edge so that only its bottom quarter shows, each further one likewise under the one before. It
 takes any Y-card (Lost Pages): drop one on or near the placeholder, or on the column, to add it there (where you drop

@@ -1423,9 +1423,20 @@ button.on {
   font-size: 16px;
 }
 
-/* A narrow strip above the card covering it (Broken Items): its text kept clear of that card. */
+/* A narrow strip beside the card covering it (Broken Items, Status Upgrades & Items, Market Prices): its text kept clear
+   of that card. */
 .card-spot.narrow.covered-bottom {
   padding-bottom: 12px;
+  line-height: 1.05;
+}
+
+.card-spot.narrow.covered-left {
+  padding-left: 10px;
+  line-height: 1.05;
+}
+
+.card-spot.narrow.covered-right {
+  padding-right: 10px;
   line-height: 1.05;
 }
 
