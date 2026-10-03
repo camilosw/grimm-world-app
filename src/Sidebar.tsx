@@ -50,8 +50,8 @@ export function Sidebar({ decks, defs, selectedId, hoverIds, onTap, onDoubleTap,
       {decks.map((deck) => {
         const card = deck.cards[deck.cards.length - 1]
         const classes = ['deck', selectedId === deck.id && 'selected', hoverIds.includes(deck.id) && 'drop-target'].filter(Boolean)
-        // The Regions deck lies landscape, like its cards.
-        const landscape = card ? isLandscape(defs[card.id]) : deck.deck === 'regions'
+        // The Regions and Terrain decks lie landscape: their cards are printed sideways.
+        const landscape = deck.deck === 'regions' || deck.deck === 'terrain' || (!!card && isLandscape(defs[card.id]))
         return (
           <div key={deck.id} className={classes.join(' ')} data-deck={deck.id} {...bind(deck.id)}>
             <div className={`deck-card${landscapeClass(landscape, card?.faceUp ?? false)}`} style={{ '--depth': Math.min(6, Math.ceil(Math.log2(deck.cards.length + 1))) } as React.CSSProperties}>
