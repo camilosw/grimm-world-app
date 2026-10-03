@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { extractCard, locateCard, playCards, type TerrainSlot } from './actions'
-import { cardImage, cardLabel, compareCards, isLandscape, landscapeClass, matchesQuery } from './cards'
+import { cardImage, cardLabel, compareCards, isLandscape, landscapeClass, matchesQuery, queryTerms } from './cards'
 import { CardGhost } from './CardGhost'
 import { update } from './store'
 import type { CardDef, CardRef, Table } from './types'
@@ -207,7 +207,8 @@ interface FindProps {
 export function FindDialog({ table, defs, dropAt, onShow, onInspect, onClose }: FindProps) {
   const [query, setQuery] = useState('')
   const all = useMemo(() => Object.values(defs).sort(compareCards), [defs])
-  const results = query.trim() ? all.filter((d) => matchesQuery(d, query)).slice(0, 60) : []
+  const searching = queryTerms(query).length > 0
+  const results = searching ? all.filter((d) => matchesQuery(d, query)).slice(0, 60) : []
 
   return (
     <Modal title="Find a card" onClose={onClose} wide>
@@ -215,7 +216,7 @@ export function FindDialog({ table, defs, dropAt, onShow, onInspect, onClose }: 
         <input
           type="search"
           autoFocus
-          placeholder="Card number or name, e.g. Y003, B12, Chapter 3"
+          placeholder="Card numbers or names, e.g. Y003, B12, Chapter 3"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -262,8 +263,8 @@ export function FindDialog({ table, defs, dropAt, onShow, onInspect, onClose }: 
             </div>
           )
         })}
-        {query.trim() && !results.length && <p className="muted">No matching cards.</p>}
-        {!query.trim() && <p className="muted">Type a card number. Taken cards are placed face up in the middle of the screen.</p>}
+        {searching && !results.length && <p className="muted">No matching cards.</p>}
+        {!searching && <p className="muted">Type a card number. Taken cards are placed face up in the middle of the screen.</p>}
       </div>
     </Modal>
   )

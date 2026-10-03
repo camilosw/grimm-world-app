@@ -263,6 +263,8 @@ also finds text in the booklets (read by OCR, so a word may now and then be miss
 `scripts/split_rules.py`.
 
 **🔍 Find card** searches every card by number or name ("Take card Y003 and resolve it") and can take it out of its deck.
+A search finds every card with that text anywhere in its number or name, and several searches can be separated by commas:
+"44, 41" finds Y044, Y344, Y441, Y041, B41… The Browse panel's filter works the same way.
 **● Figures** adds the player marker and the character, ally and enemy figures.
 
 **☰ Browse** opens a panel over the bottom half of the screen with the pile's cards, top card first. The table above
