@@ -1423,6 +1423,12 @@ button.on {
   font-size: 16px;
 }
 
+/* A narrow strip above the card covering it (Broken Items): its text kept clear of that card. */
+.card-spot.narrow.covered-bottom {
+  padding-bottom: 12px;
+  line-height: 1.05;
+}
+
 .card-spot.accept {
   border: 6px solid #7fe3a0;
   background: rgba(127, 227, 160, 0.15);

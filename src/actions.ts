@@ -1,4 +1,4 @@
-import { allAreas, anchorsAfterMove, AREA_HEADER, AREA_PAD, areaForCard, fanRow, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, turnedSpot, upsideDownSpot } from './areas'
+import { allAreas, anchorsAfterMove, AREA_HEADER, AREA_PAD, areaForCard, fanRow, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, facedSpot, turnedSpot, upsideDownSpot } from './areas'
 import { CARD_H, CARD_W, compareCards, family, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, returnsCards, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
@@ -156,10 +156,13 @@ export function mergeStacks(t: Table, sourceId: string, targetId: string, where:
   return setStack(t2, { ...dst, cards: underneath(dst, moved.map((c) => ({ ...c, faceUp }))) })
 }
 
-/** Turn the top card over; a card lying turned on its place stays as it lies (Market Prices face up, the Encounter Bar face down). */
+/**
+ * Turn the top card over; a card lying face up or down on its place for good stays as it lies (Market Prices and Broken
+ * Items face up, the Encounter Bar face down).
+ */
 export function flipTop(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!s?.cards.length || turnedSpot(t, id)) return t
+  if (!s?.cards.length || facedSpot(t, id)) return t
   const cards = [...s.cards]
   const top = cards[cards.length - 1]
   cards[cards.length - 1] = { ...top, faceUp: !top.faceUp }
@@ -169,13 +172,13 @@ export function flipTop(t: Table, id: string): Table {
 /** Turn the whole pile over, like flipping a real deck (but its pinned cards). */
 export function flipStack(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!s || !unpinned(s).length || turnedSpot(t, id)) return t
+  if (!s || !unpinned(s).length || facedSpot(t, id)) return t
   return setStack(t, { ...s, cards: abovePinned(s, (cards) => cards.map((c) => ({ ...c, faceUp: !c.faceUp })).reverse()) })
 }
 
 /**
  * Turn a pile on the table; a Region Card in it never turns, nor a card lying turned on its place (Market Prices,
- * Encounter Bar) or upside down on it (Actions area, Titles, Skills).
+ * Encounter Bar) or upside down on it (Actions area, Titles, Skills, Broken Items).
  */
 export function rotateStack(t: Table, id: string, delta: number, defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
@@ -589,7 +592,7 @@ export function storyAt(t: Table, x: number, y: number): boolean {
 /**
  * Lay the spots out: spread out piles dropped on the hand, close the gaps in fanned spots (Money Cards, Goods), their
  * piles lying on the first places in row order, and lay cards on a spot that turns them straight and face up (Market Prices) or face down (Encounter Bar), or
- * upside down (Actions area, Titles, Skills), as they must lie there.
+ * face up (Broken Items), or upside down (Actions area, Titles, Skills, Broken Items), as they must lie there.
  */
 export function settleSpots(t: Table): Table {
   let next = t
@@ -626,6 +629,12 @@ export function settleSpots(t: Table): Table {
     for (const id of stacksOnSpot(next, spot)) {
       const s = next.stacks[id]
       if (s.rot || s.cards.some((c) => c.faceUp !== faceUp)) next = setStack(next, { ...s, rot: 0, cards: s.cards.map((c) => ({ ...c, faceUp })) })
+    }
+  }
+  for (const spot of spots.filter((s) => s.faceUp)) {
+    for (const id of stacksOnSpot(next, spot)) {
+      const s = next.stacks[id]
+      if (s.cards.some((c) => !c.faceUp)) next = setStack(next, { ...s, cards: s.cards.map((c) => ({ ...c, faceUp: true })) })
     }
   }
   for (const spot of spots.filter((s) => s.upsideDown)) {

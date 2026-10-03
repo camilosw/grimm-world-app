@@ -165,6 +165,14 @@ it, or at the end); other cards are refused on it. Any number of them: the area 
 Storage Card is one of them: a Y-card dropped on or near it snaps onto it, and other cards are refused there. Unlike
 the Character and Alignment Cards, Y-cards are not pulled there from elsewhere on the table.
 
+**Broken Items.** Above the Storage Card lies a column of broken items (rulebook 4.7.4, 7.2.4), under a "Broken Items"
+placeholder: the first slid under its top edge, each further one likewise under the one before. The cards lie face up
+and upside down, so that only the item strip printed upside down at the bottom of an Encounter Card shows, the right way
+up, with the item's name and repair costs (as in rulebook figure 16); a card put there face down turns face up, and they
+can't be turned over or rotated there. It takes Encounter Cards and Y-cards (some items are printed on Y-cards): drop
+one on or near the placeholder, or on the column, to add it there; other cards are refused on it. Any number of them:
+the area grows up with the column.
+
 **Money Cards.** Right of the Storage Card lies a row of up to three Money Cards (rulebook 4.3): the first slid half
 under the right side of the Storage Card, each further one half under the one before, so the amounts on their right
 halves show and add up to the character's money. The placeholder marks where the next one goes. Like the Alignment Card,

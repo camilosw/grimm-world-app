@@ -206,6 +206,8 @@ export interface Spot {
   hint?: string;
   area: string;
   family: Family;
+  /** Further card families it takes (Broken Items: Y-cards too, as some items are printed on them). */
+  also?: Family[];
   /** Cards of the family always land here, wherever they are dropped on the table. */
   attracts: boolean;
   x: number;
@@ -248,6 +250,8 @@ export interface Spot {
   turn?: Turn;
   /** Its cards lie face down (the Encounter Bar's Y-cards, whose backs show the location they belong to). */
   faceDown?: boolean;
+  /** Its cards lie face up, turned so when put there, and can't be turned over there (Broken Items). */
+  faceUp?: boolean;
   /**
    * New cards go to the front of the fanned row, on top of the others, and its free place is shown before its first
    * card, partly under it as the cards are under each other, instead of after its last (the Encounter Bar, a row
@@ -475,6 +479,18 @@ export function spotPlace(
 
 export type Side = "left" | "right" | "top" | "bottom";
 
+/** Whether a spot takes cards of family `f`. */
+export function takes(spot: Spot, f: Family | undefined): boolean {
+  return f === spot.family || (!!f && !!spot.also?.includes(f));
+}
+
+/** The spot pile `id` lies on that keeps its cards face up or face down (Market Prices, Encounter Bar, Broken Items). */
+export function facedSpot(t: Table, id: string): Spot | undefined {
+  return spotsOf(t).find(
+    (s) => (s.turn || s.faceUp) && stacksOnSpot(t, s).includes(id),
+  );
+}
+
 /** The spot turning the card lying on it (Market Prices) that pile `id` lies on, if any. */
 export function turnedSpot(t: Table, id: string): Spot | undefined {
   return spotsOf(t).find((s) => s.turn && stacksOnSpot(t, s).includes(id));
@@ -545,6 +561,11 @@ const QUESTS_SHOWS = 0.26;
 const TITLES_SHOWS = 0.21;
 /** Part of a skill card's height showing above the title (or skill) card on top of it: the skill's name banner. */
 const SKILLS_SHOWS = 0.14;
+/**
+ * Part of a broken item's height showing above the Storage Card (or the item before it) on top of it: the item strip
+ * printed upside down at the bottom of an Encounter Card, with its repair costs, the right way up with the card turned.
+ */
+const BROKEN_SHOWS = 0.16;
 /** Part of a Goods card's height showing below the card on top of it. */
 const GOODS_BELOW_SHOWS = 0.21;
 const goodsX = Math.round(storageSpot.x - GOODS_LEFT_SHOWS * CARD_W);
@@ -704,6 +725,26 @@ export const SPOTS: Spot[] = [
     family: "lost-pages",
     attracts: false,
     ...storageSpot,
+  },
+  // Above it, the broken items (rulebook 4.7.4, 7.2.4), face up and upside down: slid under its top edge so only the
+  // item strip printed upside down at their bottom shows, with the repair costs (rulebook figure 16), each further one
+  // likewise under the one before. Mostly Encounter Cards; some items are Y-cards. Any number of them: the area grows up
+  // with the column.
+  {
+    id: "broken",
+    label: "Broken Items",
+    hint: "Encounter Cards, Y-Cards",
+    area: "storage",
+    family: "encounter",
+    also: ["lost-pages"],
+    attracts: false,
+    x: storageSpot.x,
+    y: storageSpot.y - Math.round(BROKEN_SHOWS * CARD_H),
+    under: "storage",
+    shows: BROKEN_SHOWS,
+    fan: { count: Infinity },
+    upsideDown: true,
+    faceUp: true,
   },
   // Slid half under the right side of the Storage Card, and each further one half under the one before, so the amounts
   // on their right halves add up to the sum shown (rulebook 4.3). Each is its own pile, so it can be turned to its amount.
@@ -1644,7 +1685,7 @@ function spotAt(
   // Overlapping places (half under another card, fanned) are close together: take the nearest that takes the cards,
   // else the nearest (to refuse them there).
   const fits = (spot: Spot) =>
-    families.length > 0 && families.every((f) => f === spot.family);
+    families.length > 0 && families.every((f) => takes(spot, f));
   return near
     .filter((n) => n.d < CARD_W * 0.4)
     .sort(
@@ -1779,10 +1820,10 @@ export function placement(
     spot = from;
     to = withinRow(t, from, at);
   }
-  const fits = families.every((f) => f === spot.family);
+  const fits = families.every((f) => takes(spot, f));
   const other = spot.attracts
     ? `Only the ${spot.label} goes on its place`
-    : `Only ${FAMILY_NAMES[spot.family]} go on the ${spot.label} place`;
+    : `Only ${familyNames(spot)} go on the ${spot.label} place`;
   // A spot takes its cards even in an area that doesn't (the Encounter Card in the Storybook area).
   const refused = fits ? null : (refusal(area, cardIds, defs) ?? other);
   if (!spot.fan)
@@ -1892,7 +1933,7 @@ function areaSpot(
     (s) =>
       s.fillsArea &&
       s.area === area?.id &&
-      families.every((f) => f === s.family),
+      families.every((f) => takes(s, f)),
   );
   return spot && { spot, place: { x: spot.x, y: spot.y } };
 }
@@ -1900,8 +1941,15 @@ function areaSpot(
 /** A fanned spot takes one card per place, not a pile (unless it spreads a pile out on its row, as the hand does). */
 function oneEach(spot: Spot, cardIds: string[]): string | null {
   return spot.fan && !spot.takesPiles && cardIds.length > 1
-    ? `Put ${FAMILY_NAMES[spot.family]} on the ${spot.label} place one at a time`
+    ? `Put ${familyNames(spot)} on the ${spot.label} place one at a time`
     : null;
+}
+
+/** The names of the card families a spot takes, e.g. "Encounter Cards and Lost Pages Cards". */
+function familyNames(spot: Spot): string {
+  return [spot.family, ...(spot.also ?? [])]
+    .map((f) => FAMILY_NAMES[f])
+    .join(" and ");
 }
 
 function full(spot: Spot): string {
