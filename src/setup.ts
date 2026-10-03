@@ -14,7 +14,7 @@ function shuffled<T>(list: T[]): T[] {
 }
 
 /** Current version of the area layout (`Table.layout`). */
-const LAYOUT = 6
+const LAYOUT = 7
 
 /** The Encounter Bar before it became a row of landscape cards (`Table.layout` < 3): six cards wide, two high. */
 const OLD_BAR = { w: 6 * CARD_W + 2 * AREA_PAD, h: 2 * CARD_H + AREA_HEADER + AREA_PAD }
@@ -78,7 +78,22 @@ export function initialTable(manifest: CardManifest): Table {
   const deck = contents.encounter.map((c) => ({ id: c.id, faceUp: DECK_SPECS.encounter.faceUp }))
   const places = { 'time-passes': [...timeCard('Time Passes'), ...deck], 'next-chapter': timeCard('Next Chapter'), used: [] }
   const defs = Object.fromEntries(cards.map((c) => [c.id, c]))
-  return settle(addDamagePlace(addEncounterPlaces(layDecks(addStorySlots(table, story)), places), defs))
+  return settle(addDeckCards(addDamagePlace(addEncounterPlaces(layDecks(addStorySlots(table, story)), places), defs), defs))
+}
+
+/**
+ * The Training Card (Y012) and the Banned Cards card (Y011) on top of their decks, face up, for good (`DeckSpec.keeps`),
+ * taken from wherever they are.
+ */
+function addDeckCards(t: Table, defs: Record<string, CardDef>): Table {
+  return DECKS.reduce((next, spec) => {
+    const def = spec.keeps ? Object.values(defs).find((d) => d.code === spec.keeps) : undefined
+    if (!def || deckStack(next, spec.kind)?.cards.at(-1)?.id === def.id) return next
+    const [t2, card] = takeCard(next, def.id)
+    const deck = deckStack(t2, spec.kind)
+    if (!card || !deck) return next
+    return { ...t2, stacks: { ...t2.stacks, [deck.id]: { ...deck, cards: [...deck.cards, { ...card, faceUp: true }] } } }
+  }, t)
 }
 
 /**
@@ -133,7 +148,7 @@ const OLD_ENCOUNTER: string[] = ['encounter', 'time']
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
   const migrated = addHandArea(addEncounterArea(emptyHand(migrateDecks(t, defs), defs)))
   const laidOut = packAreas(clearDeckAreas(layDecks(raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(migrated))), defs)))))
-  return settle(placeOnSpots(addDamagePlace(layEncounterDeck(laidOut, defs), defs), defs))
+  return settle(addDeckCards(placeOnSpots(addDamagePlace(layEncounterDeck(laidOut, defs), defs), defs), defs))
 }
 
 /** Whether the Encounter Deck area's places are on the table (older saves don't have them). */
@@ -379,8 +394,8 @@ function clearDeckAreas(t: Table): Table {
 /**
  * The areas used to lie near places leaving room for them to grow, far apart (`Table.layout` < 5); now each lies next
  * to the one before it (`settleLayout()`), moving with its cards. The same lays out the Actions area, new since
- * (`Table.layout` < 6, `addHandArea`). The piles and figures lying outside the areas that an area now lies on move
- * right, past the areas.
+ * (`Table.layout` < 6, `addHandArea`), and the Training Deck area, taller since for its Browse button (`Table.layout`
+ * < 7). The piles and figures lying outside the areas that an area now lies on move right, past the areas.
  */
 function packAreas(t: Table): Table {
   if ((t.layout ?? 0) >= LAYOUT) return t

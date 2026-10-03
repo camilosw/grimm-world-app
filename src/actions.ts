@@ -41,15 +41,17 @@ export function pinned(s: Stack): number {
 }
 
 /**
- * How many cards at the top of a pile never leave it: the Damage Card on its place. The cards under it can (they go
- * back to the hand once healed), but dragging the pile doesn't take them, nor does drawing; its grip moves them all.
+ * How many cards at the top of a pile never leave it: the Damage Card on its place, the Training Card (Y012) and the
+ * Banned Cards card (Y011) on their decks (`DeckSpec.keeps`). The cards under it can (they go back to the hand once
+ * healed, or are taken out by browsing the deck), but dragging the pile doesn't take them, nor does drawing; the Damage
+ * Card's grip moves them all.
  */
 export function pinnedOnTop(s: Stack): number {
-  return s.place === 'damage' && s.cards.length ? 1 : 0
+  return (s.place === 'damage' || (!!s.deck && !!DECK_SPECS[s.deck].keeps)) && s.cards.length ? 1 : 0
 }
 
 /** Whether the card at `index` (bottom = 0) is pinned to its pile. */
-function isPinned(s: Stack, index: number): boolean {
+export function isPinned(s: Stack, index: number): boolean {
   return index < pinned(s) || index >= s.cards.length - pinnedOnTop(s)
 }
 

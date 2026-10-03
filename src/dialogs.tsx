@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { extractCard, locateCard, playCards, type TerrainSlot } from './actions'
+import { extractCard, isPinned, locateCard, playCards, type TerrainSlot } from './actions'
 import { cardImage, cardLabel, compareCards, isLandscape, landscapeClass, matchesQuery, queryTerms } from './cards'
 import { CardGhost } from './CardGhost'
 import { update } from './store'
@@ -95,7 +95,10 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
   const chosen = stack?.cards.filter((c) => picked.has(c.id)).map((c) => c.id) ?? []
   /** A dragged card takes the other selected cards along. */
   const draggedWith = (cardId: string) => (picked.has(cardId) ? chosen : [cardId])
+  // A card pinned to the pile (the Damage Card, the Training and Banned Cards cards) can't be picked or taken out.
+  const pinnedIds = new Set(stack?.cards.filter((_, i) => isPinned(stack, i)).map((c) => c.id))
   const togglePick = (cardId: string) =>
+    !pinnedIds.has(cardId) &&
     setPicked((p) => {
       const next = new Set(p)
       if (next.has(cardId)) next.delete(cardId)
@@ -170,9 +173,13 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
               {picked.has(card.id) && <span className="pick-badge">✓</span>}
             </div>
             <div className="card-tools">
-              <span className="card-grip" aria-label={`Drag ${cardLabel(def)} onto the table`} {...grip.bind(card.id)}>
-                ⠿
-              </span>
+              {pinnedIds.has(card.id) ? (
+                <span className="card-grip" style={{ visibility: 'hidden' }} aria-hidden />
+              ) : (
+                <span className="card-grip" aria-label={`Drag ${cardLabel(def)} onto the table`} {...grip.bind(card.id)}>
+                  ⠿
+                </span>
+              )}
               <button className="card-view" onClick={() => view(card.id)} aria-label={`View ${cardLabel(def)}`}>
                 🔍
               </button>
@@ -238,7 +245,8 @@ export function FindDialog({ table, defs, dropAt, onShow, onInspect, onClose }: 
                 <span className="muted">{stack.slot ? 'in the Storybook' : inPile ? `in ${stack.label ?? 'pile'}` : 'on table'}</span>
               </div>
               <div className="card-actions">
-                {inPile && (
+                {/* A card pinned to its pile (the Damage Card, the Training and Banned Cards cards) stays there. */}
+                {inPile && !isPinned(stack, index) && (
                   <button
                     className="primary"
                     onClick={() => {

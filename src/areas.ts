@@ -72,15 +72,18 @@ const bar = {
 };
 /** Space between the Encounter Deck area's places. */
 const PLACE_GAP = 40;
-/** The Shuffle button below each time card's place in the Encounter Deck area: its distance from the card, and height. */
-export const SHUFFLE_BUTTON = { gap: 24, h: 76 };
+/**
+ * A button below a card's place (the Shuffle button below each time card's place in the Encounter Deck area, Browse
+ * below the Training Deck): its distance from the card, and height.
+ */
+export const PLACE_BUTTON = { gap: 24, h: 76 };
 // Right of the Encounter Bar, and moving right as it grows (`settleLayout()`): the three places of the Encounter Deck
 // area side by side (`ENCOUNTER_PLACES`), with a Shuffle button below each time card's.
 const encounter = {
   x: bar.x + bar.w + GAP,
   y: 0,
   w: 3 * CARD_W + 2 * PLACE_GAP + AREA_PAD * 2,
-  h: CARD_H + SHUFFLE_BUTTON.gap + SHUFFLE_BUTTON.h + AREA_HEADER + AREA_PAD,
+  h: CARD_H + PLACE_BUTTON.gap + PLACE_BUTTON.h + AREA_HEADER + AREA_PAD,
 };
 // Below the Map, which is taller than the Encounter Bar. The Character, Storage and Home areas are drawn only as large
 // as the cards in them need (`measure()`): these sizes just place their spots. Where the areas really lie is up to
@@ -96,13 +99,16 @@ const story = {
   y: character.y,
   ...box(2, 2 - STORY_COVERED),
 };
+/** Table decks with a Browse button below their place: the Training Deck, whose cards are all taken to train. */
+export const BROWSE_DECKS: DeckKind[] = ["training"];
 // Right of the Storybook area, one card each, two by two as laid out (`settleLayout()`): the decks built during play,
-// each on its place (see `deckPlace()`).
+// each on its place (see `deckPlace()`), with its Browse button below it (`BROWSE_DECKS`).
 const deckBox = box(1, 1);
 const deckArea = (i: number) => ({
   x: story.x + story.w + GAP + i * (deckBox.w + GAP),
   y: character.y,
-  ...deckBox,
+  w: deckBox.w,
+  h: deckBox.h + (BROWSE_DECKS.includes(TABLE_DECKS[i]) ? PLACE_BUTTON.gap + PLACE_BUTTON.h : 0),
 });
 /** Part of the house extension's height showing above the House Card (the rest lies under it). */
 const HOUSE_ABOVE_SHOWS = 0.27;

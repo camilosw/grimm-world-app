@@ -422,8 +422,10 @@ export default function App() {
   const isDeck = !!selectedStack?.deck
   // The Encounter Deck area's places stay too, and so do the time cards at the bottom of theirs.
   const isPlace = !!selectedStack?.place
-  // The Damage Card stays on top of its place for good: nothing is drawn from it, nor its top card moved under the rest.
+  // The Damage Card stays on top of its place for good, the Training and Banned Cards cards on top of their decks:
+  // nothing is drawn from them, nor their top card moved under the rest.
   const isDamage = selectedStack?.place === 'damage'
+  const topPinned = !!selectedStack && A.pinnedOnTop(selectedStack) > 0
   const free = selectedStack ? A.unpinned(selectedStack).length : 0
   // A card lying turned on its place stays as it lies (Market Prices face up, Encounter Bar face down) and can't be rotated.
   const fixed = !!selectedStack && !!turnedSpot(table, selectedStack.id)
@@ -521,6 +523,12 @@ export default function App() {
             shuffle(stackId)
             notify('Encounter Deck shuffled', true)
           }}
+          onBrowseDeck={(stackId) => {
+            setSelection({ kind: 'stack', id: stackId })
+            setPutUnder(null)
+            setBrowseId(browseId === stackId ? null : stackId)
+          }}
+          browsing={browseId}
         />
         {notice && <div className={`notice${notice.ok ? ' ok' : ''}`}>{notice.text}</div>}
         {putUnder && (
@@ -549,7 +557,7 @@ export default function App() {
 
       {selectedStack && !putUnder && (
         <footer className="actions">
-          {many && !isDamage && (
+          {many && !topPinned && (
             <button
               onClick={() => {
                 const at = (isDeck || isPlace) && topCard ? dropAt([topCard.id]) : undefined
@@ -560,7 +568,7 @@ export default function App() {
             </button>
           )}
           {count > 0 && !fixed && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
-          {free > 1 && !isDamage && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
+          {free > 1 && !topPinned && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
           {count > 1 && (
             <button
               className={browseId === selectedStack.id ? 'on' : ''}

@@ -207,14 +207,20 @@ edge of the current chapter (about a tenth of it). An Encounter Card dropped any
 that place; a second one, a pile, or any other card is refused there.
 
 **Quest, Enemy and Training Deck, Banned Cards.** The decks built during play (cards Y003 and Y009) lie right of the
-Storybook area, each in its own area on a placeholder that says which card builds it. They start empty. Drop a card,
-or a whole pile, anywhere in one of these areas (from the table, the top of a sidebar deck or the Browse panel) and it
-goes into that deck, face up: on top of the Quest Deck, under the cards of the others, so the Enemy Card Y013, the
-Training Card Y012 and the 'Banned Cards' card Y011, put there first, stay on top. A deck only takes the cards it may
-hold (table below); others are refused. Each works like a sidebar deck: drag it to take its top card, tap it for
-**Draw**, **Browse**, **Shuffle** and the other deck actions, double-tap to flip its top card; it can't be moved, and it
-stays (as its placeholder) when its last card is taken. Cards taken out remember it, so **Return to deck** (or a drop
-on the sidebar) puts a Quest, Enemy or training card back into its deck; banished cards go back to their own decks.
+Storybook area, each in its own area on a placeholder that says which card builds it. The Quest and Enemy Deck start
+empty; the Training Deck starts with the Training Card Y012 and Banned Cards with the 'Banned Cards' card Y011, face up,
+which lie on top of their decks for good (older saves get them there too, taken from wherever they lie): they can't be
+dragged, drawn, taken out by Browse or **Find card**, and shuffling, sorting or turning the deck over leaves them on top.
+Drop a card, or a whole pile, anywhere in one of these areas (from the table, the top of a sidebar deck or the Browse
+panel) and it goes into that deck, face up: on top of the Quest Deck, under the cards of the others, so the Enemy Card
+Y013, put there first, and Y012 and Y011 stay on top. A deck only takes the cards it may hold (table below); others are
+refused. Each works like a sidebar deck: drag it to take its top card, tap it for **Draw**, **Browse**, **Shuffle** and
+the other deck actions, double-tap to flip its top card; it can't be moved, and it stays (as its placeholder) when its
+last card is taken. The Training Deck and Banned Cards have no **Draw**, and dragging them takes nothing: take the cards
+under their top card out with **Browse**. The Training Deck has a **☰ Browse** button below it, for training (rulebook
+7.1.2.3.3.2: look through all its cards and buy the ones you pay for); it opens the Browse panel on the deck (tap it
+again to close it) and stays disabled while Y012 lies there alone. Cards taken out remember it, so **Return to deck** (or a drop on the sidebar)
+puts a Quest, Enemy or training card back into its deck; banished cards go back to their own decks.
 
 **🂠 Decks sidebar (left).** The other 8 decks of the game, sorted as in the rulebook (chapter 6.1); the table starts
 empty apart from the storybook, the Encounter Deck and the four decks in their areas. The title card is left out; it

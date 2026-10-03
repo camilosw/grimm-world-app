@@ -3,6 +3,7 @@ import { dropOnto, flipTop, isFixed, liftPile, moveArea, moveStack, moveToken, n
 import {
   acceptsText,
   allAreas,
+  BROWSE_DECKS,
   coveredSide,
   deckPlace,
   drawOrder,
@@ -16,7 +17,7 @@ import {
   freePlaces,
   placement,
   placeStack,
-  SHUFFLE_BUTTON,
+  PLACE_BUTTON,
   snapArea,
   spotsOf,
   stacksOnSpot,
@@ -26,7 +27,7 @@ import {
 } from './areas'
 import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, TOKEN_SIZE, turnedClass, type Turn } from './cards'
 import { CardGhost } from './CardGhost'
-import { DECK_SPECS, storySlot } from './decks'
+import { DECK_SPECS, deckStack, storySlot } from './decks'
 import { update } from './store'
 import type { CardDef, CardRef, Stack, StorySlot, Table as TableState, Token, View } from './types'
 import { useFlip } from './useFlip'
@@ -63,6 +64,10 @@ interface Props {
   onAreaRules: (areaId: string) => void
   /** The Shuffle button below an Encounter Deck place. */
   onShufflePlace: (stackId: string) => void
+  /** The Browse button below a table deck's place (`BROWSE_DECKS`). */
+  onBrowseDeck: (stackId: string) => void
+  /** The pile shown in the browse panel, if any. */
+  browsing: string | null
   /** The pile just shuffled, shown shuffling (`n` restarts the animation). */
   shuffled: { id: string; n: number } | null
 }
@@ -491,24 +496,41 @@ export function TableView(props: Props) {
                   data-ui
                   disabled={s.cards.length - pinned(s) < 2}
                   onClick={() => props.onShufflePlace(s.id)}
-                  style={{ left: at.x, top: at.y + CARD_H + SHUFFLE_BUTTON.gap, width: CARD_W, height: SHUFFLE_BUTTON.h }}
+                  style={{ left: at.x, top: at.y + CARD_H + PLACE_BUTTON.gap, width: CARD_W, height: PLACE_BUTTON.h }}
                 >
                   ⤮ Shuffle
                 </button>,
               ]
             })
-          // The place of a deck lying on the table, shown while it is empty (its pile covers it).
+          // The place of a deck lying on the table, shown while it is empty (its pile covers it), with a Browse button
+          // below the Training Deck's (`BROWSE_DECKS`).
           if (!area.deck) return []
           const spec = DECK_SPECS[area.deck]
           const state = drag?.area?.id === area.id ? (drag.area.ok ? ' accept' : ' refuse') : ''
-          return (
-            <div key={`deck-${area.id}`} className={`card-spot${state}`} style={cardBox(deckPlace(shownTable, area.deck).x, deckPlace(shownTable, area.deck).y, false)}>
+          const at = deckPlace(shownTable, area.deck)
+          const s = deckStack(shownTable, area.deck)
+          const spot = (
+            <div key={`deck-${area.id}`} className={`card-spot${state}`} style={cardBox(at.x, at.y, false)}>
               <span>
                 {spec.label}
                 {spec.emptyHint && <small>{spec.emptyHint}</small>}
               </span>
             </div>
           )
+          if (!s || !BROWSE_DECKS.includes(area.deck)) return [spot]
+          return [
+            spot,
+            <button
+              key={`browse-${area.id}`}
+              className={`place-button${props.browsing === s.id ? ' on' : ''}`}
+              data-ui
+              disabled={!unpinned(s).length}
+              onClick={() => props.onBrowseDeck(s.id)}
+              style={{ left: at.x, top: at.y + CARD_H + PLACE_BUTTON.gap, width: CARD_W, height: PLACE_BUTTON.h }}
+            >
+              ☰ Browse
+            </button>,
+          ]
         })}
         {drawOrder(shownTable).map((id) => {
           const s = shownTable.stacks[id]

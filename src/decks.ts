@@ -30,6 +30,11 @@ export interface DeckSpec {
   insert: "top" | "bottom" | "sorted";
   /** Cards this deck may hold (rulebook chapter 6 and cards Y003/Y009). */
   holds: (def: CardDef) => boolean;
+  /**
+   * Number of the card lying on top of this deck for good, the other cards under it: it never leaves the deck
+   * (`pinnedOnTop()` in actions.ts; put there by `addDeckCards()` in setup.ts).
+   */
+  keeps?: string;
 }
 
 /** Numeric part of a Y-card number: "Y815c" → 815. */
@@ -144,7 +149,7 @@ export const DECKS: DeckSpec[] = [
     insert: "bottom",
     holds: (d) => yIn(d, [13, 13], [800, 849]),
   },
-  // The Training Card Y012 with training cards (Y749–Y799) underneath (Y003).
+  // The Training Card Y012, on top for good, with training cards (Y749–Y799) underneath (Y003).
   {
     kind: "training",
     label: "Training Deck",
@@ -153,8 +158,9 @@ export const DECKS: DeckSpec[] = [
     faceUp: true,
     insert: "bottom",
     holds: (d) => yIn(d, [12, 12], [749, 799]),
+    keeps: "Y012",
   },
-  // Banished cards go under the 'Banned Cards' card Y011, whatever they are.
+  // Banished cards go under the 'Banned Cards' card Y011, on top for good, whatever they are.
   {
     kind: "banned",
     label: "Banned Cards",
@@ -163,6 +169,7 @@ export const DECKS: DeckSpec[] = [
     faceUp: true,
     insert: "bottom",
     holds: () => true,
+    keeps: "Y011",
   },
 ];
 
