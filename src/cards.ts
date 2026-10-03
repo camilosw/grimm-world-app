@@ -76,5 +76,5 @@ export function compareCards(a: CardDef | undefined, b: CardDef | undefined): nu
 export function matchesQuery(card: CardDef, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  return [card.code, card.name, card.type, `#${card.id}`].some((s) => s?.toLowerCase().includes(q))
+  return [card.code, card.name, card.type].some((s) => s?.toLowerCase().includes(q))
 }
