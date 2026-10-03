@@ -4,7 +4,6 @@ import type { CardDef, Stack, Table } from "./types";
 export type DeckKind =
   | "storybook"
   | "encounter"
-  | "time"
   | "x-encounters"
   | "lost-pages"
   | "regions"
@@ -47,7 +46,10 @@ const yIn = (def: CardDef, ...ranges: [number, number][]) => {
   );
 };
 
-/** All decks. The storybook and the decks built during play (`TABLE_DECKS`) lie in their areas on the table; the others are in the sidebar, in this order. */
+/**
+ * All decks. The storybook, the Encounter Deck and the decks built during play (`TABLE_DECKS`) lie in their areas on the
+ * table; the others are in the sidebar, in this order.
+ */
 export const DECKS: DeckSpec[] = [
   // Y-cards are also put "into the corresponding chapters" of the Storybook Deck.
   {
@@ -57,20 +59,14 @@ export const DECKS: DeckSpec[] = [
     insert: "top",
     holds: (d) => family(d) === "storybook" || isY(d),
   },
-  // X-cards and the 'Time Passes'/'Next Chapter' card are placed under the Encounter Deck.
+  // X-cards are placed under the Encounter Deck. It lies in its own area on the table, on the 'Time Passes' or the
+  // 'Next Chapter' card, which stay at the bottom of their places (see `ENCOUNTER_PLACES`).
   {
     kind: "encounter",
     label: "Encounter Deck",
     faceUp: false,
     insert: "bottom",
-    holds: (d) => family(d) === "encounter" || d.type === "time",
-  },
-  {
-    kind: "time",
-    label: "Time Card",
-    faceUp: true,
-    insert: "top",
-    holds: (d) => d.type === "time",
+    holds: (d) => family(d) === "encounter",
   },
   {
     kind: "x-encounters",
@@ -180,16 +176,26 @@ export const DECK_SPECS = Object.fromEntries(
  */
 export const TABLE_DECKS: DeckKind[] = ["quest", "enemy", "training", "banned"];
 
-/** Decks shown in the sidebar (all but the storybook and the table decks). */
+/** Decks shown in the sidebar (all but the storybook, the Encounter Deck and the table decks). */
 export const SIDEBAR_DECKS = DECKS.filter(
-  (d) => d.kind !== "storybook" && !TABLE_DECKS.includes(d.kind),
+  (d) =>
+    d.kind !== "storybook" &&
+    d.kind !== "encounter" &&
+    !TABLE_DECKS.includes(d.kind),
 );
 
-/** The stack holding a deck. */
+/**
+ * The stack holding a deck. The Encounter Deck lies on one of two places (on the 'Time Passes' or the 'Next Chapter'
+ * card): the one with the most cards, the 'Time Passes' place when even.
+ */
 export function deckStack(t: Table, kind: DeckKind): Stack | undefined {
   return [...(t.dock ?? []), ...t.z]
     .map((id) => t.stacks[id])
-    .find((s) => s.deck === kind);
+    .filter((s) => s.deck === kind)
+    .reduce<Stack | undefined>(
+      (most, s) => (!most || s.cards.length > most.cards.length ? s : most),
+      undefined,
+    );
 }
 
 /** The storybook's two places on the table. */
@@ -207,11 +213,11 @@ function defaultDeck(def: CardDef): DeckKind {
       return "storybook";
     case "encounter-b":
     case "encounter":
+    // Never moved off its place: only for saves from before the time cards had places.
+    case "time":
       return "encounter";
     case "encounter-x":
       return "x-encounters";
-    case "time":
-      return "time";
     case "region":
       return "regions";
     case "terrain":
@@ -231,13 +237,12 @@ function defaultDeck(def: CardDef): DeckKind {
 
 /**
  * The deck a card belongs to: the deck it last came out of (so an Enemy Card
- * goes back to the Enemy Deck), or else the deck of its type. The time card
- * always returns to its own slot, since the Encounter Deck only ever holds one.
+ * goes back to the Enemy Deck), or else the deck of its type.
  */
 export function homeDeck(t: Table, def: CardDef): DeckKind {
-  if (def.type === "time") return "time";
   const origin = t.origin?.[def.id];
-  if (origin && origin !== "banned" && DECK_SPECS[origin].holds(def))
+  // Older saves may name the Time Card deck, which is gone.
+  if (origin && origin !== "banned" && DECK_SPECS[origin]?.holds(def))
     return origin;
   return defaultDeck(def);
 }

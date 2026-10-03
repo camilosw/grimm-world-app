@@ -8,11 +8,24 @@
   --gold: #e0b252;
   /* Green baize of a reading desk under the rule booklets: the complement of their red-brown leather. */
   --baize:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.018) 0 1px,
+      transparent 1px 3px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(0, 0, 0, 0.05) 0 1px,
+      transparent 1px 3px
+    ),
     radial-gradient(ellipse at 50% 45%, #3b5e48 0%, #23402f 50%, #0f1d15 100%);
   --radius: 10px;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   color: var(--text);
   background: var(--bg);
   -webkit-tap-highlight-color: transparent;
@@ -69,7 +82,7 @@ button.primary {
   border-color: #e0504b;
 }
 
-input[type='search'],
+input[type="search"],
 input:not([type]) {
   font: inherit;
   font-size: 16px; /* avoids iOS zoom on focus */
@@ -115,7 +128,8 @@ input:not([type]) {
 .actions {
   display: flex;
   gap: 8px;
-  padding: 8px max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left));
+  padding: 8px max(8px, env(safe-area-inset-right)) 8px
+    max(8px, env(safe-area-inset-left));
   background: var(--panel);
   border-color: #000;
   z-index: 2;
@@ -166,8 +180,16 @@ input:not([type]) {
   overflow: hidden;
   touch-action: none;
   background:
-    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.45) 90%),
-    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.04) 0 2px, transparent 2px 6px),
+    radial-gradient(
+      ellipse at center,
+      rgba(255, 255, 255, 0.05),
+      rgba(0, 0, 0, 0.45) 90%
+    ),
+    repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.04) 0 2px,
+      transparent 2px 6px
+    ),
     #5a1a1c;
 }
 
@@ -194,6 +216,50 @@ input:not([type]) {
   overflow: hidden;
   background: #111;
   transition: rotate 0.15s ease;
+}
+
+/*
+ * A pile being shuffled: copies of its top cards over it split to the left and right and slide back in, one after
+ * another (`SHUFFLE_MS` in App.tsx covers the delays).
+ */
+.stack .shuffle-card {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5);
+  animation: shuffle-left 0.6s ease-in-out both;
+}
+
+.stack .shuffle-card.right {
+  animation-name: shuffle-right;
+}
+
+@keyframes shuffle-left {
+  0%,
+  100% {
+    transform: none;
+  }
+  45%,
+  55% {
+    transform: translate(-5%, -6%) rotate(-12deg);
+  }
+}
+
+@keyframes shuffle-right {
+  0%,
+  100% {
+    transform: none;
+  }
+  45%,
+  55% {
+    transform: translate(5%, -6%) rotate(12deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stack .shuffle-card {
+    animation-duration: 0.01s;
+  }
 }
 
 .stack .card img {
@@ -580,7 +646,8 @@ button.on {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 8px max(8px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left));
+  padding: 8px max(8px, env(safe-area-inset-right)) 8px
+    max(16px, env(safe-area-inset-left));
 }
 
 .browse-bar h2 {
@@ -590,7 +657,7 @@ button.on {
   white-space: nowrap;
 }
 
-.browse-bar input[type='search'] {
+.browse-bar input[type="search"] {
   width: 240px;
 }
 
@@ -686,7 +753,11 @@ button.on {
 .battle-input {
   flex: 1;
   min-width: 240px;
-  font: 16px/1.4 ui-monospace, 'SF Mono', Menlo, monospace;
+  font:
+    16px/1.4 ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
   color: var(--text);
   background: #16110e;
   border: 1px solid #54443a;
@@ -941,7 +1012,7 @@ button.on {
 
 .area-grip::before,
 .area-grip::after {
-  content: '';
+  content: "";
   position: absolute;
   width: var(--fillet);
   height: var(--fillet);
@@ -980,6 +1051,17 @@ button.on {
 /* The battlefield's button, clear of the grip in the top-right corner. */
 .area-header > button {
   margin-right: 34px;
+}
+
+/* Below a time card's place in the Encounter Deck area, in world units. */
+.place-button {
+  position: absolute;
+  justify-content: center;
+  text-align: center;
+  min-height: 0;
+  padding: 0;
+  font-size: 28px;
+  border-radius: 14px;
 }
 
 .area-header button {
@@ -1243,7 +1325,7 @@ button.on {
 }
 
 .rules-resize::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 9px;
   top: 50%;

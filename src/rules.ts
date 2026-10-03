@@ -40,6 +40,7 @@ export function rulePageImage(file: string): string {
 export const AREA_RULES: Record<string, string> = {
   map: '4.5',
   bar: '5.2',
+  encounter: '5.1',
   character: '4.1',
   storage: '4.7.4',
   storybook: '4.6',
@@ -55,7 +56,6 @@ export const AREA_RULES: Record<string, string> = {
 export const DECK_RULES: Record<DeckKind, string> = {
   storybook: '4.6',
   encounter: '5.1',
-  time: '9.1',
   'x-encounters': '4.4.2',
   'lost-pages': '4.7',
   regions: '4.5',

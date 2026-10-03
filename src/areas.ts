@@ -1,6 +1,6 @@
 import { CARD_H, CARD_W, cardBox, family, TOKEN_SIZE, type Family, type Turn } from "./cards";
 import { DECK_SPECS, TABLE_DECKS, type DeckKind } from "./decks";
-import type { Battlefield, CardDef, StorySlot, Table } from "./types";
+import type { Battlefield, CardDef, EncounterPlace, Stack, StorySlot, Table } from "./types";
 
 /** A framed part of the table reserved for certain cards (rulebook chapters 4 and 10). */
 export interface Area {
@@ -17,7 +17,7 @@ export interface Area {
 
 export const AREA_PAD = 40;
 export const AREA_HEADER = 90;
-const GAP = 120;
+export const GAP = 120;
 
 /** Size of an area holding `cols` × `rows` cards. */
 function box(cols: number, rows: number) {
@@ -54,6 +54,18 @@ const bar = {
   y: 0,
   w: CARD_H + AREA_PAD * 2,
   h: CARD_W + AREA_HEADER + AREA_PAD,
+};
+/** Space between the Encounter Deck area's places. */
+const PLACE_GAP = 40;
+/** The Shuffle button below each time card's place in the Encounter Deck area: its distance from the card, and height. */
+export const SHUFFLE_BUTTON = { gap: 24, h: 76 };
+// Right of the Encounter Bar, and moving right as it grows (`settleLayout()`): the three places of the Encounter Deck
+// area side by side (`ENCOUNTER_PLACES`), with a Shuffle button below each time card's.
+const encounter = {
+  x: bar.x + bar.w + GAP,
+  y: 0,
+  w: 3 * CARD_W + 2 * PLACE_GAP + AREA_PAD * 2,
+  h: CARD_H + SHUFFLE_BUTTON.gap + SHUFFLE_BUTTON.h + AREA_HEADER + AREA_PAD,
 };
 // Below the Map, which is taller than the Encounter Bar. The Character, Storage and Home areas are drawn only as large
 // as the cards in them need (`measure()`): these sizes just place their spots. Where the areas really lie is up to
@@ -115,6 +127,12 @@ export const AREAS: Area[] = [
     accepts: ["region"],
   },
   { id: "bar", label: "Encounter Bar", ...bar, accepts: ["lost-pages"] },
+  {
+    id: "encounter",
+    label: "Encounter Deck",
+    ...encounter,
+    accepts: ["encounter"],
+  },
   {
     id: "character",
     label: "Character",
@@ -642,6 +660,32 @@ export const STORY_SLOTS = {
   story: { x: story.x + AREA_PAD + CARD_W, y: story.y + AREA_HEADER },
 };
 
+/**
+ * The Encounter Deck area's places, left to right. The 'Time Passes' and 'Next Chapter' cards lie for good at the
+ * bottom of theirs (`pinned()` in actions.ts), the Encounter Deck on one of them (`deckStack()`); the used Encounter
+ * Cards lie on the third until they go back under the deck. Each holds Encounter Cards only.
+ */
+export const ENCOUNTER_PLACES: { place: EncounterPlace; label: string; hint?: string }[] = [
+  { place: "time-passes", label: "Time Passes" },
+  { place: "next-chapter", label: "Next Chapter" },
+  { place: "used", label: "Used Cards", hint: "Encounter Cards" },
+];
+
+/** Where an Encounter Deck place lies on this table: its pile, or its placeholder. */
+export function encounterPlace(t: Table, place: EncounterPlace): Point {
+  const i = ENCOUNTER_PLACES.findIndex((p) => p.place === place);
+  const d = shiftOf(t, "encounter");
+  return {
+    x: encounter.x + AREA_PAD + i * (CARD_W + PLACE_GAP) + d.x,
+    y: encounter.y + AREA_HEADER + d.y,
+  };
+}
+
+/** The pile on an Encounter Deck place. */
+export function placeStack(t: Table, place: EncounterPlace): Stack | undefined {
+  return t.z.map((id) => t.stacks[id]).find((s) => s.place === place);
+}
+
 /** Place of a table deck in its area (`TABLE_DECKS`), as it lies on this table: where its pile lies, or its placeholder. */
 export function deckPlace(t: Table, kind: DeckKind): Point {
   const area = AREAS.find((a) => a.deck === kind)!;
@@ -697,7 +741,7 @@ type Rect = { x: number; y: number; w: number; h: number };
 /**
  * Areas drawn only as large as what lies in them needs: their places (a fanned row as far as its next place) and the
  * piles lying on or overlapping them. Each grows around the cards added to it, pushing the areas right of it and below
- * it away (`settleLayout()`); the Encounter Bar only grows right, where nothing lies.
+ * it away (`settleLayout()`); the Encounter Bar only grows right, pushing the Encounter Deck area along.
  */
 const GROWING = ["bar", "character", "storage", "home"];
 
@@ -867,7 +911,7 @@ const DECK_COLS = 2;
 
 /**
  * Where the areas lie packed together, each `GAP` from the one before however they grew: the Map with the Encounter
- * Bar right of it; below them the Character, Storage and Storybook areas, each right of the one before, and the table
+ * Bar and the Encounter Deck right of it; below them the Character, Storage and Storybook areas, each right of the one before, and the table
  * decks' areas two by two right of the Storybook; the Home area below the Character and Storage areas (and below any
  * other area it reaches under), and the battlefield below them all, at the left edge.
  */
@@ -885,7 +929,8 @@ function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
   };
   const map = put("map", {});
   const bar = put("bar", { x: rightOf(map) + GAP, y: map.y });
-  const top = Math.max(bottomOf(map), bottomOf(bar)) + GAP;
+  const encounter = put("encounter", { x: rightOf(bar) + GAP, y: map.y });
+  const top = Math.max(bottomOf(map), bottomOf(bar), bottomOf(encounter)) + GAP;
   const character = put("character", { x: map.x, y: top });
   const storage = put("storage", { x: rightOf(character) + GAP, y: top });
   const story = put("storybook", { x: rightOf(storage) + GAP, y: top });
@@ -897,7 +942,7 @@ function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
   // Below every area it reaches under (always the Character area).
   const homeRight = character.x + now.get("home")!.w;
   const over = [...laid]
-    .filter(([id]) => id !== "map" && id !== "bar")
+    .filter(([id]) => id !== "map" && id !== "bar" && id !== "encounter")
     .map(([, r]) => r)
     .filter((r) => r.x < homeRight + GAP && rightOf(r) + GAP > character.x);
   put("home", { x: character.x, y: Math.max(...over.map(bottomOf)) + GAP });
@@ -1243,7 +1288,7 @@ export interface Placement {
 /**
  * Where cards dropped with their top-left corner at (x, y), or onto pile `onto`,
  * end up. Cards dropped in a table deck's area go into that deck (onto its pile),
- * cards with an attracting spot go there whatever the drop point, cards
+ * in the Encounter Deck area onto the nearest of its places, cards with an attracting spot go there whatever the drop point, cards
  * dropped on a spot snap onto it; `moving` is the pile being moved as a whole,
  * which doesn't count as lying on the spot.
  */
@@ -1260,6 +1305,7 @@ export function placement(
   const at = { x: target?.x ?? x, y: target?.y ?? y };
   const area = areaForCard(t, at.x, at.y);
   if (area?.deck) return intoDeck(t, area, area.deck, cardIds, defs);
+  if (area?.id === "encounter") return ontoPlace(t, area, cardIds, defs, at);
   const families = cardIds.map((id) => family(defs[id]));
   const own = ownSpot(
     t,
@@ -1336,6 +1382,28 @@ function intoDeck(
     refused: bad
       ? `${bad.code ?? bad.name ?? "This card"} can't go into the ${spec.label}`
       : null,
+  };
+}
+
+/** Cards dropped in the Encounter Deck area go onto the place nearest to where they are dropped, if they are Encounter Cards. */
+function ontoPlace(
+  t: Table,
+  area: Area,
+  cardIds: string[],
+  defs: Record<string, CardDef>,
+  at: Point,
+): Placement {
+  const far = (p: Point) => Math.hypot(p.x - at.x, p.y - at.y);
+  const nearest = ENCOUNTER_PLACES.map(({ place }) => ({ place, ...encounterPlace(t, place) })).reduce((a, p) =>
+    far(p) < far(a) ? p : a,
+  );
+  return {
+    x: nearest.x,
+    y: nearest.y,
+    onto: placeStack(t, nearest.place)?.id ?? null,
+    area,
+    spot: null,
+    refused: refusal(area, cardIds, defs),
   };
 }
 

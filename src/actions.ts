@@ -24,9 +24,28 @@ export function isDocked(t: Table, id: string): boolean {
   return !!t.dock?.includes(id)
 }
 
-/** A deck (in the sidebar or on the table) or a storybook place: it stays where it is, even when empty. */
+/** A deck (in the sidebar or on the table), a storybook place or an Encounter Deck place: it stays where it is, even when empty. */
 export function isFixed(s: Stack): boolean {
-  return !!s.deck || !!s.slot
+  return !!s.deck || !!s.slot || !!s.place
+}
+
+/**
+ * How many cards at the bottom of a pile never leave it: the 'Time Passes' or 'Next Chapter' card on its place. They
+ * can't be taken, and shuffling, sorting or adding cards underneath leaves them at the bottom.
+ */
+export function pinned(s: Stack): number {
+  return (s.place === 'time-passes' || s.place === 'next-chapter') && s.cards.length ? 1 : 0
+}
+
+/** A pile's cards with `fn` applied to those above its pinned ones. */
+function abovePinned(s: Stack, fn: (cards: CardRef[]) => CardRef[]): CardRef[] {
+  const n = pinned(s)
+  return [...s.cards.slice(0, n), ...fn(s.cards.slice(n))]
+}
+
+/** A pile's cards with `cards` slid underneath, just above its pinned ones. */
+function underneath(s: Stack, cards: CardRef[]): CardRef[] {
+  return abovePinned(s, (rest) => [...cards, ...rest])
 }
 
 /** Every stack, on the table or in the sidebar. */
@@ -66,10 +85,23 @@ export function moveStack(t: Table, id: string, x: number, y: number): Table {
 /** Lift the top card off a stack and drop it at (x, y) as its own stack. */
 export function takeTop(t: Table, id: string, x: number, y: number): [Table, string | null] {
   const s = t.stacks[id]
-  if (!s?.cards.length) return [t, null]
+  if (!s || s.cards.length <= pinned(s)) return [t, null]
   if (s.cards.length === 1 && !isFixed(s)) return [moveStack(t, id, x, y), id]
   const top = s.cards[s.cards.length - 1]
   return addStack(withCards(t, s, s.cards.slice(0, -1)), x, y, [top], { rot: s.rot })
+}
+
+/**
+ * Move a whole pile to (x, y). A fixed one (an Encounter Deck place) stays: its cards above any pinned ones move, as a
+ * new pile. Returns the moved pile's id (null: nothing to move).
+ */
+export function liftPile(t: Table, id: string, x: number, y: number): [Table, string | null] {
+  const s = t.stacks[id]
+  if (!s) return [t, null]
+  if (!isFixed(s)) return [moveStack(t, id, x, y), id]
+  const n = pinned(s)
+  if (s.cards.length <= n) return [t, null]
+  return addStack(withCards(t, s, s.cards.slice(0, n)), x, y, s.cards.slice(n), { rot: s.rot })
 }
 
 /**
@@ -80,23 +112,19 @@ export function dropOnto(t: Table, sourceId: string, targetId: string, defs: Rec
   const dst = t.stacks[targetId]
   if (!dst?.deck || sourceId === targetId) return mergeStacks(t, sourceId, targetId, 'top')
   const [t2, cards] = takeCards(t, sourceId)
-  return insertIntoDeck(t2, dst.deck, cards, defs)
+  return insertIntoDeck(t2, t2.stacks[targetId], cards, defs)
 }
 
-/** Move all cards of `sourceId` onto (or under) `targetId`. */
+/** Move all cards of `sourceId` (but its pinned ones) onto (or under) `targetId`. */
 export function mergeStacks(t: Table, sourceId: string, targetId: string, where: 'top' | 'bottom'): Table {
-  const src = t.stacks[sourceId]
-  const dst = t.stacks[targetId]
-  if (!src || !dst || src === dst) return t
-  let cards: CardRef[]
-  if (where === 'top') {
-    cards = [...dst.cards, ...src.cards]
-  } else {
-    // Cards slid under a pile take on the facing of that pile's bottom card.
-    const faceUp = dst.cards[0]?.faceUp ?? src.cards[0].faceUp
-    cards = [...src.cards.map((c) => ({ ...c, faceUp })), ...dst.cards]
-  }
-  return removeStack(setStack(t, { ...dst, cards }), sourceId)
+  if (!t.stacks[sourceId] || !t.stacks[targetId] || sourceId === targetId) return t
+  const [t2, moved] = takeCards(t, sourceId)
+  const dst = t2.stacks[targetId]
+  if (!moved.length) return t
+  if (where === 'top') return setStack(t2, { ...dst, cards: [...dst.cards, ...moved] })
+  // Cards slid under a pile take on the facing of that pile's bottom card (above its pinned ones).
+  const faceUp = dst.cards[pinned(dst)]?.faceUp ?? moved[0].faceUp
+  return setStack(t2, { ...dst, cards: underneath(dst, moved.map((c) => ({ ...c, faceUp }))) })
 }
 
 /** Turn the top card over; a card lying turned on its place stays as it lies (Market Prices face up, the Encounter Bar face down). */
@@ -109,11 +137,11 @@ export function flipTop(t: Table, id: string): Table {
   return setStack(t, { ...s, cards })
 }
 
-/** Turn the whole pile over, like flipping a real deck. */
+/** Turn the whole pile over, like flipping a real deck (but its pinned cards). */
 export function flipStack(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!s?.cards.length || turnedSpot(t, id)) return t
-  return setStack(t, { ...s, cards: s.cards.map((c) => ({ ...c, faceUp: !c.faceUp })).reverse() })
+  if (!s || s.cards.length <= pinned(s) || turnedSpot(t, id)) return t
+  return setStack(t, { ...s, cards: abovePinned(s, (cards) => cards.map((c) => ({ ...c, faceUp: !c.faceUp })).reverse()) })
 }
 
 /** Turn a pile on the table; a Region Card in it never turns, nor a card lying turned on its place (Market Prices, Encounter Bar). */
@@ -123,31 +151,39 @@ export function rotateStack(t: Table, id: string, delta: number, defs: Record<st
   return setStack(t, { ...s, rot: ((((s.rot + delta) % 360) + 360) % 360) as Rotation })
 }
 
+/** Whether a pile has at least two cards to reorder (above its pinned ones). */
+function reorders(s: Stack | undefined): s is Stack {
+  return !!s && s.cards.length - pinned(s) >= 2
+}
+
 export function shuffleStack(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!s || s.cards.length < 2) return t
-  const cards = [...s.cards]
-  for (let i = cards.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[cards[i], cards[j]] = [cards[j], cards[i]]
-  }
+  if (!reorders(s)) return t
+  const cards = abovePinned(s, (rest) => {
+    const out = [...rest]
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[out[i], out[j]] = [out[j], out[i]]
+    }
+    return out
+  })
   return setStack(t, { ...s, cards })
 }
 
 export function sortStack(t: Table, id: string, defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
-  if (!s || s.cards.length < 2) return t
+  if (!reorders(s)) return t
   // Top of the pile (end of the array) holds the lowest number.
-  const cards = [...s.cards].sort((a, b) => compareCards(defs[b.id], defs[a.id]))
+  const cards = abovePinned(s, (rest) => [...rest].sort((a, b) => compareCards(defs[b.id], defs[a.id])))
   return setStack(t, { ...s, cards })
 }
 
-/** Place the top card at the bottom of the pile (e.g. after reading a Fate Number). */
+/** Place the top card at the bottom of the pile, above its pinned cards (e.g. after reading a Fate Number). */
 export function topToBottom(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!s || s.cards.length < 2) return t
+  if (!reorders(s)) return t
   const top = s.cards[s.cards.length - 1]
-  return setStack(t, { ...s, cards: [{ ...top, faceUp: s.cards[0].faceUp }, ...s.cards.slice(0, -1)] })
+  return setStack(t, { ...s, cards: underneath({ ...s, cards: s.cards.slice(0, -1) }, [{ ...top, faceUp: s.cards[pinned(s)].faceUp }]) })
 }
 
 /**
@@ -156,7 +192,7 @@ export function topToBottom(t: Table, id: string): Table {
  */
 export function drawTop(t: Table, id: string, at?: { x: number; y: number }): Table {
   const s = t.stacks[id]
-  if (!s || s.cards.length < (s.deck ? 1 : 2)) return t
+  if (!s || s.cards.length - pinned(s) < (isFixed(s) ? 1 : 2)) return t
   const x = at?.x ?? s.x + CARD_W + 40
   const y = at?.y ?? s.y
   const top = { ...s.cards[s.cards.length - 1], faceUp: true }
@@ -169,7 +205,7 @@ export function drawTop(t: Table, id: string, at?: { x: number; y: number }): Ta
 /** Pull one card (by index, bottom = 0) out of a pile onto the table. */
 export function extractCard(t: Table, id: string, index: number, x: number, y: number, faceUp = true): Table {
   const s = t.stacks[id]
-  if (!s || !s.cards[index]) return t
+  if (!s || !s.cards[index] || index < pinned(s)) return t
   const card = { ...s.cards[index], faceUp }
   const rest = s.cards.filter((_, i) => i !== index)
   return addStack(withCards(t, s, rest), x, y, [card])[0]
@@ -190,8 +226,9 @@ export function playCards(
   defs: Record<string, CardDef>,
 ): Table {
   const s = t.stacks[id]
-  const set = new Set(indices)
-  const picked = s?.cards.filter((_, i) => set.has(i)).map((c) => ({ ...c, faceUp: true })) ?? []
+  if (!s) return t
+  const set = new Set(indices.filter((i) => i >= pinned(s)))
+  const picked = s.cards.filter((_, i) => set.has(i)).map((c) => ({ ...c, faceUp: true }))
   if (!picked.length) return t
   const rest = s.cards.filter((_, i) => !set.has(i))
   if (ontoId === id) return setStack(t, { ...s, cards: [...rest, ...picked] })
@@ -256,7 +293,7 @@ export function stackTargetAt(t: Table, cx: number, cy: number, exclude: string 
 /** Take a card out of whatever pile holds it. */
 export function takeCard(t: Table, cardId: string): [Table, CardRef | null] {
   const where = locateCard(t, cardId)
-  if (!where) return [t, null]
+  if (!where || where.index < pinned(where.stack)) return [t, null]
   const { stack, index } = where
   return [withCards(t, stack, stack.cards.filter((_, i) => i !== index)), stack.cards[index]]
 }
@@ -310,15 +347,14 @@ export function clearBattlefield(t: Table, defs: Record<string, CardDef>): Table
 
 // ---------- decks ----------
 
-/** Put cards (bottom → top, kept in that order) into a deck, at the place its rules say. */
-function insertIntoDeck(t: Table, kind: DeckKind, cards: CardRef[], defs: Record<string, CardDef>, under = false): Table {
-  const deck = deckStack(t, kind)
-  if (!deck || !cards.length) return t
-  const spec = DECK_SPECS[kind]
+/** Put cards (bottom → top, kept in that order) into a deck's pile, at the place its rules say. */
+function insertIntoDeck(t: Table, deck: Stack | undefined, cards: CardRef[], defs: Record<string, CardDef>, under = false): Table {
+  if (!deck?.deck || !cards.length) return t
+  const spec = DECK_SPECS[deck.deck]
   const added = cards.map((c) => ({ ...c, faceUp: spec.faceUp }))
   if (spec.insert === 'sorted') return sortStack(setStack(t, { ...deck, cards: [...deck.cards, ...added] }), deck.id, defs)
   const bottom = under || spec.insert === 'bottom'
-  return setStack(t, { ...deck, cards: bottom ? [...added, ...deck.cards] : [...deck.cards, ...added] })
+  return setStack(t, { ...deck, cards: bottom ? underneath(deck, added) : [...deck.cards, ...added] })
 }
 
 /** Send cards (already taken off the table) back to their own decks. */
@@ -331,7 +367,7 @@ export function returnToDecks(t: Table, cards: CardRef[], defs: Record<string, C
     groups.set(kind, [...(groups.get(kind) ?? []), card])
   }
   let next = t
-  for (const [kind, group] of groups) next = insertIntoDeck(next, kind, group, defs)
+  for (const [kind, group] of groups) next = insertIntoDeck(next, deckStack(next, kind), group, defs)
   return next
 }
 
@@ -351,15 +387,16 @@ export function cardsToDecks(t: Table, id: string, indices: number[], defs: Reco
   return returnToDecks(withCards(t, s, s.cards.filter((_, i) => !set.has(i))), s.cards.filter((_, i) => set.has(i)), defs)
 }
 
-/** The cards of a pile, or only those given (in pile order). */
+/** The cards of a pile that may leave it (all but its pinned ones), or only those given (in pile order). */
 function cardsOf(t: Table, stackId: string, cardIds?: string[]): CardRef[] {
-  const cards = t.stacks[stackId]?.cards ?? []
+  const s = t.stacks[stackId]
+  const cards = s ? s.cards.slice(pinned(s)) : []
   if (!cardIds) return cards
   const ids = new Set(cardIds)
   return cards.filter((c) => ids.has(c.id))
 }
 
-/** Take cards (all of them if none given) out of a pile; an emptied table pile disappears. */
+/** Take cards (all of them if none given, but its pinned ones) out of a pile; an emptied table pile disappears. */
 function takeCards(t: Table, stackId: string, cardIds?: string[]): [Table, CardRef[]] {
   const s = t.stacks[stackId]
   const taken = cardsOf(t, stackId, cardIds)
@@ -376,14 +413,15 @@ export function notHeldBy(t: Table, stackId: string, kind: DeckKind, defs: Recor
 }
 
 /**
- * Slide a table pile, or cards picked out of any pile, under a deck, as the rules ask (X-cards under the
+ * Slide a table pile, or cards picked out of any pile, under the deck `deckId`, as the rules ask (X-cards under the
  * Encounter Deck, enemies under the Enemy Card, banished cards under Banned Cards).
  */
-export function putUnderDeck(t: Table, stackId: string, kind: DeckKind, defs: Record<string, CardDef>, cardIds?: string[]): Table {
+export function putUnderDeck(t: Table, stackId: string, deckId: string, defs: Record<string, CardDef>, cardIds?: string[]): Table {
   const s = t.stacks[stackId]
-  if (!s || s.deck === kind || s.slot === 'story' || notHeldBy(t, stackId, kind, defs, cardIds).length) return t
+  const kind = t.stacks[deckId]?.deck
+  if (!s || !kind || stackId === deckId || s.slot === 'story' || notHeldBy(t, stackId, kind, defs, cardIds).length) return t
   const [t2, cards] = takeCards(t, stackId, cardIds)
-  return insertIntoDeck(t2, kind, cards, defs, true)
+  return insertIntoDeck(t2, t2.stacks[deckId], cards, defs, true)
 }
 
 /** Slide cards picked out of a pile (e.g. a sidebar deck) under a table pile, face up as when taken out. */
@@ -392,7 +430,7 @@ export function putUnderPile(t: Table, stackId: string, cardIds: string[], targe
   const [t2, cards] = takeCards(t, stackId, cardIds)
   const target = t2.stacks[targetId]
   if (!cards.length || !target) return t
-  return setStack(t2, { ...target, cards: [...cards.map((c) => ({ ...c, faceUp: true })), ...target.cards] })
+  return setStack(t2, { ...target, cards: underneath(target, cards.map((c) => ({ ...c, faceUp: true }))) })
 }
 
 // ---------- storybook ----------

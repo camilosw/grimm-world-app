@@ -1,8 +1,8 @@
 import { addStack, mergeStacks, rearrange, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
 import { CARD_H, CARD_W, compareCards, family, TOKEN_SIZE } from './cards'
-import { allAreas, AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, deckPlace, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
+import { allAreas, AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, deckPlace, ENCOUNTER_PLACES, encounterPlace, GAP, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, TABLE_DECKS, type DeckKind } from './decks'
-import type { CardDef, CardManifest, CardRef, Stack, Table } from './types'
+import type { CardDef, CardManifest, CardRef, EncounterPlace, Stack, Table } from './types'
 
 function shuffled<T>(list: T[]): T[] {
   const out = [...list]
@@ -35,14 +35,12 @@ function deckContents(cards: CardDef[]): Record<DeckKind, CardDef[]> {
   const byType = (...types: string[]) => cards.filter((c) => c.type && types.includes(c.type))
   const sorted = (list: CardDef[]) => [...list].sort((a, b) => compareCards(b, a))
   const inOrder = (list: CardDef[]) => [...list].reverse()
-  const timePasses = cards.filter((c) => c.type === 'time' && c.name === 'Time Passes')
   const indexed = cards.some((c) => c.type)
   return {
     // Book Cover on top, then Chapter 1–14, the Epilogue and the Book Back Side.
     storybook: inOrder(byType('storybook')),
-    // Shuffled B-Encounter Cards with the 'Time Passes' card underneath.
-    encounter: [...timePasses, ...shuffled(byType('encounter-b', 'encounter'))],
-    time: cards.filter((c) => c.type === 'time' && c.name === 'Next Chapter'),
+    // Shuffled B-Encounter Cards, lying on the 'Time Passes' card (`initialTable()`).
+    encounter: shuffled(byType('encounter-b', 'encounter')),
     'x-encounters': sorted(byType('encounter-x')),
     // Without card types (scripts/index_cards.py not run) everything lands here.
     'lost-pages': indexed ? sorted(byType('lost-pages')) : inOrder(cards),
@@ -61,11 +59,13 @@ function deckContents(cards: CardDef[]): Record<DeckKind, CardDef[]> {
 
 /**
  * Sort the cards into decks as described in the rulebook, chapter 6.1
- * "Game Setup". The storybook and the (empty) decks built during play lie in
+ * "Game Setup". The storybook, the Encounter Deck (on the 'Time Passes' card,
+ * beside the 'Next Chapter' card) and the (empty) decks built during play lie in
  * their areas; all other decks start in the sidebar; the table itself is empty.
  */
 export function initialTable(manifest: CardManifest): Table {
-  const contents = deckContents(playableCards(manifest))
+  const cards = playableCards(manifest)
+  const contents = deckContents(cards)
   let table: Table = { stacks: {}, z: [], tokens: [], layout: LAYOUT, nextId: 1 }
   for (const spec of SIDEBAR_DECKS) {
     const cards = contents[spec.kind].map((c) => ({ id: c.id, faceUp: spec.faceUp }))
@@ -73,7 +73,23 @@ export function initialTable(manifest: CardManifest): Table {
   }
   table = { ...table, dock: table.z, z: [] }
   const story = contents.storybook.map((c) => ({ id: c.id, faceUp: false }))
-  return settle(layDecks(addStorySlots(table, story)))
+  // Face down: their hourglass backs show.
+  const timeCard = (name: string) => cards.filter((c) => c.type === 'time' && c.name === name).map((c) => ({ id: c.id, faceUp: false }))
+  const deck = contents.encounter.map((c) => ({ id: c.id, faceUp: DECK_SPECS.encounter.faceUp }))
+  const places = { 'time-passes': [...timeCard('Time Passes'), ...deck], 'next-chapter': timeCard('Next Chapter'), used: [] }
+  return settle(addEncounterPlaces(layDecks(addStorySlots(table, story)), places))
+}
+
+/**
+ * The Encounter Deck area's places (`ENCOUNTER_PLACES`), with these cards. The two with a time card hold the Encounter
+ * Deck, when it lies there.
+ */
+function addEncounterPlaces(t: Table, piles: Record<EncounterPlace, CardRef[]>): Table {
+  return ENCOUNTER_PLACES.reduce((next, { place }) => {
+    const p = encounterPlace(next, place)
+    const kind = place === 'used' ? { label: 'Used Cards' } : { label: DECK_SPECS.encounter.label, deck: 'encounter' as const }
+    return addStack(next, p.x, p.y, piles[place], { ...kind, place })[0]
+  }, t)
 }
 
 /** The storybook's two fixed places in its area: the face-down deck (right) and the revealed cards (left). */
@@ -83,16 +99,79 @@ function addStorySlots(t: Table, story: CardRef[], revealed: CardRef[] = []): Ta
   return t3
 }
 
-/** Deck names used by earlier versions of the app. */
-const OLD_LABELS: Record<string, DeckKind> = {
+/** Deck names used by earlier versions of the app (with the Time Card deck, now gone). */
+const OLD_LABELS: Record<string, string> = {
   ...Object.fromEntries(DECKS.map((d) => [d.label, d.kind])),
+  'Time Card': 'time',
   'Next Chapter': 'time',
 }
 
+/**
+ * Sidebar decks of older saves whose cards now lie in the Encounter Deck area: they stay in the sidebar until
+ * `layEncounterDeck` lays their cards out.
+ */
+const OLD_ENCOUNTER: string[] = ['encounter', 'time']
+
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
-  const laidOut = packAreas(clearDeckAreas(layDecks(raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(emptyHand(migrateDecks(t, defs), defs)))), defs)))))
-  return settle(placeOnSpots(laidOut, defs))
+  const migrated = addEncounterArea(emptyHand(migrateDecks(t, defs), defs))
+  const laidOut = packAreas(clearDeckAreas(layDecks(raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(migrated))), defs)))))
+  return settle(placeOnSpots(layEncounterDeck(laidOut, defs), defs))
+}
+
+/** Whether the Encounter Deck area's places are on the table (older saves don't have them). */
+const hasPlaces = (t: Table) => t.z.some((id) => t.stacks[id].place)
+
+/**
+ * The Encounter Deck area is new: until its places are laid out (`layEncounterDeck`), it lies right of everything on the
+ * table, so that it takes in none of the cards lying there, and the layout then moves it right of the Encounter Bar.
+ * Where the player moved the areas, it goes right of the bar as it lies, pushing the areas in its way aside.
+ */
+function addEncounterArea(t: Table): Table {
+  if (hasPlaces(t)) return t
+  const own = area('encounter')
+  const right = Math.max(
+    ...allAreas(t).map((a) => a.x + a.w),
+    ...t.z.map((id) => t.stacks[id].x + CARD_H),
+    ...t.tokens.map((k) => k.x + TOKEN_SIZE),
+  )
+  const shifts = { ...t.shifts, encounter: { x: Math.round(right + GAP - own.x), y: 0 } }
+  if (!t.anchors) return { ...t, shifts }
+  const bar = t.frames?.bar ?? allAreas(t).find((a) => a.id === 'bar')!
+  return { ...t, shifts, anchors: { ...t.anchors, encounter: { x: Math.round(bar.x + bar.w + GAP), y: Math.round(bar.y) } } }
+}
+
+/**
+ * The Encounter Deck and the time cards used to be sidebar decks: their cards go to the Encounter Deck area's places,
+ * the deck onto the 'Next Chapter' card if that was in it (and 'Time Passes' wasn't), else onto 'Time Passes'. Time
+ * cards lying elsewhere go to their places too. The piles and figures the area now lies on move right, past the areas.
+ */
+function layEncounterDeck(t: Table, defs: Record<string, CardDef>): Table {
+  if (hasPlaces(t)) return t
+  return rearrange(t, (t) => {
+    const old = (t.dock ?? []).filter((id) => OLD_ENCOUNTER.includes(t.stacks[id].deck ?? ''))
+    const isTime = (name: string) => (c: CardRef) => defs[c.id]?.type === 'time' && defs[c.id]?.name === name
+    const oldDeck = old.flatMap((id) => (t.stacks[id].deck === 'encounter' ? t.stacks[id].cards : []))
+    const onNextChapter = oldDeck.some(isTime('Next Chapter')) && !oldDeck.some(isTime('Time Passes'))
+    let next = t
+    const timeCard = (name: string): CardRef[] => {
+      const def = Object.values(defs).find((d) => d.type === 'time' && d.name === name)
+      const [t2, card] = def ? takeCard(next, def.id) : [next, null]
+      next = t2
+      return card ? [{ ...card, faceUp: false }] : []
+    }
+    const timePasses = timeCard('Time Passes')
+    const nextChapter = timeCard('Next Chapter')
+    const deck = old.flatMap((id) => next.stacks[id].cards).map((c) => ({ ...c, faceUp: DECK_SPECS.encounter.faceUp }))
+    const stacks = { ...next.stacks }
+    for (const id of old) delete stacks[id]
+    next = { ...next, stacks, dock: next.dock?.filter((id) => !old.includes(id)) }
+    return addEncounterPlaces(next, {
+      'time-passes': [...timePasses, ...(onNextChapter ? [] : deck)],
+      'next-chapter': [...nextChapter, ...(onNextChapter ? deck : [])],
+      used: [],
+    })
+  })
 }
 
 /** The hand is gone: cards still held in it go back to their decks. */
@@ -302,8 +381,10 @@ function migrateDecks(t: Table, defs: Record<string, CardDef>): Table {
     const isDeck = (id: string) => !!next.stacks[id].label
     next = { ...next, dock: next.z.filter(isDeck), z: next.z.filter((id) => !isDeck(id)) }
   }
-  // The table decks may still be in the sidebar of older saves: `layDecks` moves them to the table.
-  const inSidebar = next.dock!.filter((id) => !TABLE_DECKS.some((kind) => next.stacks[id].deck === kind))
+  // The table decks may still be in the sidebar of older saves: `layDecks` moves them to the table, `layEncounterDeck`
+  // the cards of the Encounter Deck and the Time Card deck.
+  const later = [...TABLE_DECKS, ...OLD_ENCOUNTER]
+  const inSidebar = next.dock!.filter((id) => !later.includes(next.stacks[id].deck ?? ''))
   const sidebarOk = SIDEBAR_DECKS.every((spec, i) => next.stacks[inSidebar[i]]?.deck === spec.kind) && inSidebar.length === SIDEBAR_DECKS.length
   const storyOk = !!storySlot(next, 'story') && !!storySlot(next, 'story-revealed')
   if (sidebarOk && storyOk) return next
@@ -314,7 +395,7 @@ function migrateDecks(t: Table, defs: Record<string, CardDef>): Table {
   const stacks = { ...next.stacks }
   let nextId = next.nextId
   const strays: CardRef[] = []
-  const known = new Map<DeckKind, Stack>()
+  const known = new Map<string, Stack>()
   for (const id of next.dock!) {
     const s = stacks[id]
     const kind = s.deck ?? OLD_LABELS[s.label ?? '']
@@ -327,10 +408,11 @@ function migrateDecks(t: Table, defs: Record<string, CardDef>): Table {
     stacks[s.id] = { ...s, label: spec.label, deck: spec.kind }
     return s.id
   })
-  const tableDecks = TABLE_DECKS.flatMap((kind) => {
+  const tableDecks = later.flatMap((kind) => {
     const s = known.get(kind)
     if (!s) return []
-    stacks[s.id] = { ...s, label: DECK_SPECS[kind].label, deck: kind }
+    // 'time' only names the Time Card deck of older saves, until `layEncounterDeck`.
+    stacks[s.id] = { ...s, label: DECK_SPECS[kind as DeckKind]?.label ?? s.label, deck: kind as DeckKind }
     return [s.id]
   })
   next = { ...next, stacks, dock: [...dock, ...tableDecks], nextId }

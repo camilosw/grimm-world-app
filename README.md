@@ -64,7 +64,8 @@ The Map area is just large enough for its places. The Encounter Bar, Character, 
 as their places and the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
 overlaps most), and the frame grows around it — there is no limit.
 
-The areas lie close together, a small gap apart, in three rows: the Map with the Encounter Bar right of it; below them
+The areas lie close together, a small gap apart, in three rows: the Map with the Encounter Bar and the Encounter Deck
+right of it (the Encounter Deck area moves right as the bar grows); below them
 Character, Storage, the Storybook and the four deck areas, two by two (Quest and Enemy Deck above Training Deck and Banned
 Cards); and Home below Character and Storage. The battlefield goes below them all. A growing area pushes the areas right
 of it and below it away, with everything lying in them (cards, places, figures), and Home moves down below any area it
@@ -116,6 +117,21 @@ cards, a second placeholder shows right of the last one, partly under it: a Y-ca
 the right of the row) goes last. Dropped on the row itself, it goes where you drop it. The bar takes Y-cards one at a time and nothing else, any number of them: it grows to the right. A card there
 can't be flipped or rotated (long-press it and tap **Other side** to read it); dragged out, it is an ordinary upright
 card again. Reordering and taking cards away work as for Money Cards (below).
+
+**Encounter Deck.** The Encounter Deck lies on the table in its own area, right of the Encounter Bar, with three
+places: **Time Passes**, **Next Chapter** and **Used Cards**. The 'Time Passes' and 'Next Chapter' cards lie face down
+(hourglass up) at the bottom of their places for good: they can't be dragged, taken out (Find, Browse) or put anywhere
+else, and **Shuffle**, **Sort**, **Top → bottom**, **Turn pile over** and cards slid under the deck all leave them at the
+bottom (double-tap still flips one over, to read it). A new game starts with the shuffled B-Encounter Cards on the
+'Time Passes' card. The **⤮ Shuffle** button below each time card's place shuffles the cards lying on it (the time card
+stays at the bottom). A pile on the table shuffled (with this button or **Shuffle** in the action bar) shows it: its
+top cards split to both sides and slide back together. The deck works like the other table decks: drag it to take its top card; tap it for **Draw**,
+**Shuffle** and the rest. Drag the `⠿` grip to move all its cards (but the time card) onto another place, e.g. onto
+'Next Chapter' once 'Time Passes' comes up. Used cards go on the Used Cards place (on top, as dropped); its grip moves
+the whole pile. The places only take Encounter Cards: a card dropped anywhere in the area goes onto the place nearest
+to where it is dropped; cards dropped on the deck go under it, just above the time card. Cards going back "under the
+Encounter Deck" (a drop on the sidebar, **Return to deck**, **Put under…** on the deck) go under the deck wherever it
+lies: on whichever of the two time cards has more cards on it.
 
 **Character and Alignment Card places.** The Character area has a place for the Character Card at its top center and,
 half under its left side, one for the Alignment Card (dashed outlines). Wherever you drop one of these cards on the
@@ -183,9 +199,9 @@ hold (table below); others are refused. Each works like a sidebar deck: drag it 
 stays (as its placeholder) when its last card is taken. Cards taken out remember it, so **Return to deck** (or a drop
 on the sidebar) puts a Quest, Enemy or training card back into its deck; banished cards go back to their own decks.
 
-**🂠 Decks sidebar (left).** The other 10 decks of the game, sorted as in the rulebook (chapter 6.1); the table starts
-empty apart from the storybook and the four decks in their areas. The title card is left out; it isn't needed to
-play.
+**🂠 Decks sidebar (left).** The other 8 decks of the game, sorted as in the rulebook (chapter 6.1); the table starts
+empty apart from the storybook, the Encounter Deck and the four decks in their areas. The title card is left out; it
+isn't needed to play.
 
 | On a deck  | Action                                             |
 | ---------- | -------------------------------------------------- |
@@ -205,7 +221,7 @@ in the Browse panel, then tap the deck (in the sidebar or on the table). A deck 
 
 | Deck           | Holds                                                             |
 | -------------- | ----------------------------------------------------------------- |
-| Encounter Deck | B- and X-Encounter Cards, the 'Time Passes' / 'Next Chapter' card |
+| Encounter Deck | B- and X-Encounter Cards                                          |
 | Quest Deck     | Quest Cards Y705–Y707                                             |
 | Enemy Deck     | Y013 and the Enemy Cards Y800–Y849                                |
 | Training Deck  | Y012 and the training cards Y749–Y799                             |

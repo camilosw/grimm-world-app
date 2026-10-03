@@ -1,17 +1,21 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { dropOnto, flipTop, isFixed, moveArea, moveStack, moveToken, notHeldBy, settleSpots, stackTargetAt, storyAt, takeTop } from './actions'
+import { dropOnto, flipTop, isFixed, liftPile, moveArea, moveStack, moveToken, notHeldBy, pinned, settleSpots, stackTargetAt, storyAt, takeTop } from './actions'
 import {
   acceptsText,
   allAreas,
   coveredSide,
   deckPlace,
   drawOrder,
+  ENCOUNTER_PLACES,
+  encounterPlace,
   ENEMY_COLS,
   enemyOrigin,
   fanHasPlace,
   fanRow,
   freePlaces,
   placement,
+  placeStack,
+  SHUFFLE_BUTTON,
   snapArea,
   spotsOf,
   stacksOnSpot,
@@ -56,6 +60,10 @@ interface Props {
   onStoryDrop: (stackId: string, whole: boolean) => void
   /** The ⓘ of an area: open the rules about it. */
   onAreaRules: (areaId: string) => void
+  /** The Shuffle button below an Encounter Deck place. */
+  onShufflePlace: (stackId: string) => void
+  /** The pile just shuffled, shown shuffling (`n` restarts the animation). */
+  shuffled: { id: string; n: number } | null
 }
 
 type Target =
@@ -188,10 +196,12 @@ export function TableView(props: Props) {
     else if (tokenEl) target = { kind: 'token', id: tokenEl.dataset.token! }
     else if (stackEl) {
       const id = stackEl.dataset.stack!
-      const slot = table.stacks[id]?.slot
-      // A deck lying on the table stays: dragging it takes its top card.
-      const whole = !table.stacks[id]?.deck && (!!el.closest('[data-grip]') || (table.stacks[id]?.cards.length ?? 0) <= 1)
-      target = slot ? { kind: 'slot', id, slot } : { kind: 'stack', id, whole }
+      const s = table.stacks[id]
+      const grip = !!el.closest('[data-grip]')
+      // A deck lying on the table stays: dragging it takes its top card. An Encounter Deck place stays too: its grip
+      // moves its cards but the time card.
+      const whole = s?.place ? grip : !s?.deck && (grip || (s?.cards.length ?? 0) <= 1)
+      target = s?.slot ? { kind: 'slot', id, slot: s.slot } : { kind: 'stack', id, whole }
     }
     const timer = window.setTimeout(() => {
       // The face-down storybook can't be looked at.
@@ -231,6 +241,8 @@ export function TableView(props: Props) {
         const loose = g.target.slot === 'story-revealed' && top && defs[top.id]?.type !== 'storybook'
         g.target = loose ? { kind: 'stack', id: g.target.id, whole: false } : { kind: 'bg' }
       }
+      // A time card alone on its place stays there.
+      if (g.target.kind === 'stack' && movedCards(g.target).length === 0) g.target = { kind: 'bg' }
       const pos = itemPos(g.target)
       if (g.target.kind === 'bg' || !pos) {
         gesture.current = { type: 'pan', x: p.x, y: p.y }
@@ -309,16 +321,23 @@ export function TableView(props: Props) {
    */
   function storyDrop(target: { id: string; whole: boolean }, x: number, y: number) {
     if (!storyAt(table, x + CARD_W / 2, y + CARD_H / 2)) return undefined
+    return notHeldBy(table, target.id, 'storybook', defs, movedCards(target)).length ? undefined : storySlot(table, 'story')
+  }
+
+  /** The cards a drag moves: the whole pile (but its pinned cards), or its top card (none, when that is pinned). */
+  function movedCards(target: { id: string; whole: boolean }) {
     const s = table.stacks[target.id]
-    const cards = (target.whole ? s.cards : s.cards.slice(-1)).map((c) => c.id)
-    return notHeldBy(table, target.id, 'storybook', defs, cards).length ? undefined : storySlot(table, 'story')
+    if (!s) return []
+    const n = pinned(s)
+    const cards = target.whole ? s.cards.slice(n) : s.cards.length > n ? s.cards.slice(-1) : []
+    return cards.map((c) => c.id)
   }
 
   /** Where a dragged pile (or its top card) would really land, and why it can't go there. */
   function destination(target: { id: string; whole: boolean }, x: number, y: number, dropOn: string | null) {
-    const s = table.stacks[target.id]
-    const cards = (target.whole ? s.cards : s.cards.slice(-1)).map((c) => c.id)
-    return placement(table, cards, defs, x, y, dropOn, target.whole ? target.id : null)
+    // A fixed pile (an Encounter Deck place) stays: its cards leave it as a new pile.
+    const moving = target.whole && !isFixed(table.stacks[target.id]) ? target.id : null
+    return placement(table, movedCards(target), defs, x, y, dropOn, moving)
   }
 
   function commitDrag(d: Drag) {
@@ -334,8 +353,8 @@ export function TableView(props: Props) {
     // Put back where it came from (a card dropped back on its deck).
     if (onto === target.id) return
     update((t) => {
-      if (target.whole) return onto ? dropOnto(t, target.id, onto, defs) : moveStack(t, target.id, dest.x, dest.y)
-      const [t2, newId] = takeTop(t, target.id, dest.x, dest.y)
+      if (target.whole && !isFixed(t.stacks[target.id])) return onto ? dropOnto(t, target.id, onto, defs) : moveStack(t, target.id, dest.x, dest.y)
+      const [t2, newId] = target.whole ? liftPile(t, target.id, dest.x, dest.y) : takeTop(t, target.id, dest.x, dest.y)
       return onto && newId ? dropOnto(t2, newId, onto, defs) : t2
     })
     const source = table.stacks[target.id]
@@ -446,6 +465,36 @@ export function TableView(props: Props) {
           })
         })}
         {allAreas(shownTable).flatMap((area) => {
+          // The Encounter Deck area's places, shown while empty (their piles cover them), with a Shuffle button below each
+          // time card's (it stays at the bottom).
+          if (area.id === 'encounter')
+            return ENCOUNTER_PLACES.flatMap(({ place, label, hint }) => {
+              const at = encounterPlace(shownTable, place)
+              const s = placeStack(shownTable, place)
+              const state = s && drag?.dropOn === s.id ? (drag.area?.ok ? ' accept' : ' refuse') : ''
+              const spot = (
+                <div key={`place-${place}`} className={`card-spot${state}`} style={cardBox(at.x, at.y, false)}>
+                  <span>
+                    {label}
+                    {hint && <small>{hint}</small>}
+                  </span>
+                </div>
+              )
+              if (!s || !pinned(s)) return [spot]
+              return [
+                spot,
+                <button
+                  key={`shuffle-${place}`}
+                  className="place-button"
+                  data-ui
+                  disabled={s.cards.length - pinned(s) < 2}
+                  onClick={() => props.onShufflePlace(s.id)}
+                  style={{ left: at.x, top: at.y + CARD_H + SHUFFLE_BUTTON.gap, width: CARD_W, height: SHUFFLE_BUTTON.h }}
+                >
+                  ⤮ Shuffle
+                </button>,
+              ]
+            })
           // The place of a deck lying on the table, shown while it is empty (its pile covers it).
           if (!area.deck) return []
           const spec = DECK_SPECS[area.deck]
@@ -463,9 +512,9 @@ export function TableView(props: Props) {
           const s = shownTable.stacks[id]
           let shown = s
           if (dragStack?.id === id) {
-            // A pile moved as a whole is drawn above everything (below).
-            if (dragStack.whole) return null
-            shown = { ...s, cards: s.cards.slice(0, -1) }
+            // A pile moved as a whole is drawn above everything (below); a fixed one leaves its pinned cards.
+            if (dragStack.whole && !isFixed(s)) return null
+            shown = { ...s, cards: s.cards.slice(0, dragStack.whole ? pinned(s) : -1) }
           }
           if (s.slot) return <SlotView key={id} stack={shown} defs={defs} size={imgSize} dropTarget={drag?.dropOn === id} />
           if (!shown.cards.length) return null
@@ -481,13 +530,14 @@ export function TableView(props: Props) {
               covered={covered.get(id) ?? null}
               turn={turned.get(id) ?? null}
               sliding={sliding.has(id)}
-              fixed={!!s.deck}
+              fixed={!!s.deck && !s.place}
+              shuffle={props.shuffled?.id === id ? props.shuffled.n : null}
             />
           )
         })}
         {dragStack?.whole && drag && !ghost && table.stacks[dragStack.id] && (
           <StackView
-            stack={{ ...table.stacks[dragStack.id], x: drag.x, y: drag.y }}
+            stack={{ ...table.stacks[dragStack.id], x: drag.x, y: drag.y, cards: table.stacks[dragStack.id].cards.slice(pinned(table.stacks[dragStack.id])) }}
             defs={defs}
             size={imgSize}
             selected={selection?.kind === 'stack' && selection.id === dragStack.id}
@@ -594,9 +644,14 @@ interface StackViewProps {
   sliding: boolean
   /** A deck lying on its place in its area, named by it: it shows how many cards it holds but can't be moved as a whole. */
   fixed?: boolean
+  /** Set while the pile shows being shuffled; a new value restarts it. */
+  shuffle?: number | null
 }
 
-function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding, fixed }: StackViewProps) {
+/** Most cards shown splitting and sliding back together while a pile is shuffled. */
+const SHUFFLE_CARDS = 4
+
+function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding, fixed, shuffle }: StackViewProps) {
   const top = stack.cards[stack.cards.length - 1]
   const count = stack.cards.length
   const landscape = isLandscape(defs[top.id]) || !!turn
@@ -619,6 +674,18 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
       >
         <img src={cardImage(top.id, faceUp, size)} alt={cardLabel(defs[top.id])} draggable={false} />
       </div>
+      {/* Being shuffled: its top cards (not a pinned time card) split to both sides and slide back in, one after another. */}
+      {shuffle != null &&
+        stack.cards.slice(Math.max(pinned(stack), count - SHUFFLE_CARDS)).map((c, i) => (
+          <div
+            key={`${shuffle}-${i}`}
+            className={`card shuffle-card${i % 2 ? ' right' : ''}${turn ? turnedClass(turn) : landscapeClass(landscape, c.faceUp)}`}
+            style={{ rotate: landscape ? undefined : `${stack.rot}deg`, animationDelay: `${i * 60}ms` }}
+            aria-hidden
+          >
+            <img src={cardImage(c.id, c.faceUp, size)} alt="" draggable={false} />
+          </div>
+        ))}
       {fixed ? (
         count > 1 && <div className="slot-count">{count}</div>
       ) : (
@@ -628,7 +695,7 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
           </div>
         )
       )}
-      {stack.label && !fixed && <div className="stack-label">{stack.label}</div>}
+      {stack.label && !fixed && !stack.place && <div className="stack-label">{stack.label}</div>}
     </div>
   )
 }

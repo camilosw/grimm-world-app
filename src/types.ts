@@ -52,9 +52,17 @@ export interface Stack {
   deck?: DeckKind
   /** Fixed places on the table: the face-down storybook and its revealed cards. */
   slot?: StorySlot
+  /** The Encounter Deck area's fixed places: the time card under the deck, and the used cards. */
+  place?: EncounterPlace
 }
 
 export type StorySlot = 'story' | 'story-revealed'
+
+/**
+ * The Encounter Deck area's places, left to right: the 'Time Passes' and 'Next Chapter' cards, each for good at the
+ * bottom of its place, with the Encounter Deck lying on one of them, and the used Encounter Cards.
+ */
+export type EncounterPlace = 'time-passes' | 'next-chapter' | 'used'
 
 export interface Token {
   id: string

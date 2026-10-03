@@ -45,6 +45,9 @@ function usePanel(key: string): [boolean, () => void] {
 
 const sameZone = (a: Zone | null, b: Zone | null) => JSON.stringify(a) === JSON.stringify(b)
 
+/** How long a pile on the table shows being shuffled (see `.shuffle-card` in styles.css). */
+const SHUFFLE_MS = 900
+
 const DECKS_IN_SIDEBAR = (t: Table) => (t.dock ?? []).map((id) => t.stacks[id])
 
 const TOKENS: { label: string; color: string; shape: Token['shape'] }[] = [
@@ -88,6 +91,9 @@ export default function App() {
   /** Sidebar decks a dragged card would go back to. */
   const [homeHover, setHomeHover] = useState<string[]>([])
   const noticeTimer = useRef<number | undefined>(undefined)
+  /** The table pile just shuffled, shown shuffling for a moment (`n` restarts the animation). */
+  const [shuffled, setShuffled] = useState<{ id: string; n: number } | null>(null)
+  const shuffleTimer = useRef<number | undefined>(undefined)
   const areaRef = useRef<HTMLDivElement>(null)
 
   const defs = useMemo<Record<string, CardDef>>(
@@ -165,6 +171,13 @@ export default function App() {
     setNotice({ text, ok })
     window.clearTimeout(noticeTimer.current)
     noticeTimer.current = window.setTimeout(() => setNotice(null), 2500)
+  }
+
+  const shuffle = (stackId: string) => {
+    update((t) => A.shuffleStack(t, stackId))
+    setShuffled((prev) => ({ id: stackId, n: (prev?.n ?? 0) + 1 }))
+    window.clearTimeout(shuffleTimer.current)
+    shuffleTimer.current = window.setTimeout(() => setShuffled(null), SHUFFLE_MS)
   }
 
   /**
@@ -334,7 +347,7 @@ export default function App() {
     }
     if (target.deck) {
       if (!heldBy(sourceId, target.deck, DECK_SPECS[target.deck].label, cardIds)) return
-      update((t) => A.putUnderDeck(t, sourceId, target.deck!, defs, cardIds))
+      update((t) => A.putUnderDeck(t, sourceId, targetId, defs, cardIds))
     } else {
       const cards = cardIds ?? table.stacks[sourceId].cards.map((c) => c.id)
       const p = placeAt(cards, target.x, target.y, targetId)
@@ -405,10 +418,13 @@ export default function App() {
   const docked = !!selectedStack && A.isDocked(table, selectedStack.id)
   // Decks, in the sidebar or on the table, stay where they are and keep their cards.
   const isDeck = !!selectedStack?.deck
+  // The Encounter Deck area's places stay too, and so do the time cards at the bottom of theirs.
+  const isPlace = !!selectedStack?.place
+  const free = selectedStack ? count - A.pinned(selectedStack) : 0
   // A card lying turned on its place stays as it lies (Market Prices face up, Encounter Bar face down) and can't be rotated.
   const fixed = !!selectedStack && !!turnedSpot(table, selectedStack.id)
-  /** Decks draw several cards; a pile on the table needs at least two. */
-  const many = count > (isDeck ? 0 : 1)
+  /** Decks and places draw several cards; a pile on the table needs at least two. */
+  const many = free > (isDeck || isPlace ? 0 : 1)
 
   return (
     <div className="app">
@@ -494,6 +510,11 @@ export default function App() {
             setDialog({ kind: 'chapter', stackId, cardIds: whole ? undefined : top && [top.id] })
           }}
           onAreaRules={(areaId) => openRules(AREA_RULES[areaId])}
+          shuffled={shuffled}
+          onShufflePlace={(stackId) => {
+            shuffle(stackId)
+            notify('Encounter Deck shuffled', true)
+          }}
         />
         {notice && <div className={`notice${notice.ok ? ' ok' : ''}`}>{notice.text}</div>}
         {putUnder && (
@@ -525,7 +546,7 @@ export default function App() {
           {many && (
             <button
               onClick={() => {
-                const at = isDeck && topCard ? dropAt([topCard.id]) : undefined
+                const at = (isDeck || isPlace) && topCard ? dropAt([topCard.id]) : undefined
                 if (at !== null) act((t, id) => A.drawTop(t, id, at))
               }}
             >
@@ -533,7 +554,7 @@ export default function App() {
             </button>
           )}
           {count > 0 && !fixed && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
-          {count > 1 && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
+          {free > 1 && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
           {count > 1 && (
             <button
               className={browseId === selectedStack.id ? 'on' : ''}
@@ -542,17 +563,17 @@ export default function App() {
               ☰ Browse
             </button>
           )}
-          {count > 1 && <button onClick={() => act(A.shuffleStack)}>⤮ Shuffle</button>}
-          {count > 1 && <button onClick={() => act((t, id) => A.sortStack(t, id, defs))}>⇅ Sort</button>}
+          {free > 1 && <button onClick={() => shuffle(selectedStack.id)}>⤮ Shuffle</button>}
+          {free > 1 && <button onClick={() => act((t, id) => A.sortStack(t, id, defs))}>⇅ Sort</button>}
           {topCard && <button onClick={() => setDialog({ kind: 'inspect', card: topCard })}>🔍 View</button>}
-          {!isDeck && !fixed && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
+          {!isDeck && !isPlace && !fixed && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
             <button onClick={() => act((t, id) => A.rotateStack(t, id, 90, defs))}>↻ Rotate</button>
           )}
-          {!isDeck && <button onClick={() => setPutUnder({ stackId: selectedStack.id })}>⤵ Put under…</button>}
-          {count > 1 && <button onClick={() => act(A.flipStack)}>⇵ Turn pile over</button>}
-          {!isDeck && <button onClick={() => act(A.bringToFront)}>▲ Front</button>}
-          {!isDeck && <button onClick={() => act(A.sendToBack)}>▼ Back</button>}
-          {!isDeck && (
+          {(!isDeck || isPlace) && free > 0 && <button onClick={() => setPutUnder({ stackId: selectedStack.id })}>⤵ Put under…</button>}
+          {free > 1 && <button onClick={() => act(A.flipStack)}>⇵ Turn pile over</button>}
+          {!isDeck && !isPlace && <button onClick={() => act(A.bringToFront)}>▲ Front</button>}
+          {!isDeck && !isPlace && <button onClick={() => act(A.sendToBack)}>▼ Back</button>}
+          {!isDeck && free > 0 && (
             <button
               onClick={() => {
                 notify(`Back to ${homeNames(selectedStack.cards)}`, true)
@@ -562,8 +583,12 @@ export default function App() {
               ↩ Return to deck
             </button>
           )}
-          {!isDeck && <button onClick={() => setDialog({ kind: 'rename', stackId: selectedStack.id })}>✎ Name</button>}
-          <button onClick={() => openRules(selectedStack.deck ? DECK_RULES[selectedStack.deck] : cardRule(topCard && defs[topCard.id]))}>
+          {!isDeck && !isPlace && <button onClick={() => setDialog({ kind: 'rename', stackId: selectedStack.id })}>✎ Name</button>}
+          <button
+            onClick={() =>
+              openRules(selectedStack.deck ? DECK_RULES[selectedStack.deck] : isPlace ? DECK_RULES.encounter : cardRule(topCard && defs[topCard.id]))
+            }
+          >
             📖 Rules
           </button>
         </footer>

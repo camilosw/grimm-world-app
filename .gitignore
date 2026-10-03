@@ -36,3 +36,5 @@ public/booklets/
 # Vercel CLI link and build output
 .vercel
 .env*
+
+.playwright-cli
