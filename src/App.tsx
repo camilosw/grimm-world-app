@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, tokenSize } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
-import { allAreas, areaForCard, battlefieldInUse, COMBAT_AREAS, onGrid, placement, PLAY_AREAS, turnedSpot, upsideDownSpot, type Area } from './areas'
+import { allAreas, areaForCard, battlefieldInUse, COMBAT_AREAS, facedSpot, onGrid, placement, PLAY_AREAS, turnedSpot, upsideDownSpot, type Area } from './areas'
 import { DECK_SPECS, homeDeck, returnsCards, type DeckKind } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
@@ -533,9 +533,11 @@ export default function App() {
   const free = selectedStack ? A.unpinned(selectedStack).length : 0
   // A card lying turned on its place stays as it lies (Market Prices face up, Encounter Bar face down) and can't be rotated.
   const fixed = !!selectedStack && !!turnedSpot(table, selectedStack.id)
+  // Nor turned over, nor one lying face up for good (Broken Items, Status Upgrades & Items).
+  const faced = !!selectedStack && !!facedSpot(table, selectedStack.id)
   // A Terrain Card on the battlefield lies face up.
   const onBattlefield = !!selectedStack && onGrid(table, selectedStack.id)
-  // A card lying upside down on its place (Actions area, Titles, Skills) can't be rotated either.
+  // A card lying upside down on its place (Actions area, Titles, Skills, Broken Items, Status Upgrades & Items) can't be rotated either.
   const upsideDown = !!selectedStack && !!upsideDownSpot(table, selectedStack.id)
   /** Decks and places draw several cards; a pile on the table needs at least two. */
   const many = free > (isDeck || isPlace ? 0 : 1)
@@ -695,7 +697,7 @@ export default function App() {
               🂠 Draw
             </button>
           )}
-          {count > 0 && !fixed && !onBattlefield && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
+          {count > 0 && !faced && !onBattlefield && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
           {free > 1 && !topPinned && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
           {count > 1 && (
             <button

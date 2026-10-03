@@ -24,7 +24,7 @@ import {
   spotsOf,
   stacksOnSpot,
   terrainPlaces,
-  turnedSpot,
+  facedSpot,
   type Area,
   type Side,
   type Spot,
@@ -323,7 +323,7 @@ export function TableView(props: Props) {
     const last = lastTap.current
     if (last && last.id === target.id && now - last.time < DOUBLE_TAP_MS) {
       lastTap.current = null
-      const fixed = turnedSpot(table, target.id)
+      const fixed = facedSpot(table, target.id)
       if (fixed) return props.onRefuse(`Cards on the ${fixed.label} place lie face ${fixed.faceDown ? 'down' : 'up'}`)
       if (onGrid(table, target.id)) return props.onRefuse('Terrain Cards on the Battlefield lie face up')
       update((t) => flipTop(t, target.id))

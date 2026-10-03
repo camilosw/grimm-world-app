@@ -157,6 +157,14 @@ there. Titles always stay below the skills: a title dragged along the column is 
 skill among the skills (drop it on the other half of the placeholder to move it to the other group). Other cards are
 refused. Any number of each: the area grows up with the column.
 
+**Status Upgrades & Items.** Right of the Character Card lies a row of Status Upgrades, Conditions and equipped items
+(rulebook 4.1, 4.7.5, 7.3.8), under a "Status Upgrades & Items" placeholder: the first slid under its right side, each
+further one likewise under the one before. The cards lie face up and upside down, so that only the strip of status values
+printed upside down along their left edge shows, the right way up (as in rulebook figure 18); a card put there face down
+turns face up, and they can't be turned over or rotated there. It takes Y-cards and Encounter Cards: drop one on or near
+the placeholder, or on the row, to add it there; other cards are refused on it. Any number of them: the area grows right
+with the row.
+
 **Quest Cards.** Below the Character Card lies a column of Quest Cards, under a "Quest Cards" placeholder: the first
 slid under its bottom edge so that only its bottom quarter shows, each further one likewise under the one before. It
 takes any Y-card (Lost Pages): drop one on or near the placeholder, or on the column, to add it there (where you drop
@@ -165,6 +173,14 @@ it, or at the end); other cards are refused on it. Any number of them: the area 
 **Storage Card place.** The Storage area has a place for the Storage Card at its top center. It takes any Y-card, since the
 Storage Card is one of them: a Y-card dropped on or near it snaps onto it, and other cards are refused there. Unlike
 the Character and Alignment Cards, Y-cards are not pulled there from elsewhere on the table.
+
+**Broken Items.** Above the Storage Card lies a column of broken items (rulebook 4.7.4, 7.2.4), under a "Broken Items"
+placeholder: the first slid under its top edge, each further one likewise under the one before. The cards lie face up
+and upside down, so that only the item strip printed upside down at the bottom of an Encounter Card shows, the right way
+up, with the item's name and repair costs (as in rulebook figure 16); a card put there face down turns face up, and they
+can't be turned over or rotated there. It takes Encounter Cards and Y-cards (some items are printed on Y-cards): drop
+one on or near the placeholder, or on the column, to add it there; other cards are refused on it. Any number of them:
+the area grows up with the column.
 
 **Money Cards.** Right of the Storage Card lies a row of up to three Money Cards (rulebook 4.3): the first slid half
 under the right side of the Storage Card, each further one half under the one before, so the amounts on their right
