@@ -73,7 +73,7 @@ export function initialTable(manifest: CardManifest): Table {
 }
 
 /**
- * The Training Card (Y012) and the Banned Cards card (Y011) on top of their decks, face up, for good (`DeckSpec.keeps`),
+ * The Enemy Card (Y013), the Training Card (Y012) and the Banned Cards card (Y011) on top of their decks, face up, for good (`DeckSpec.keeps`),
  * taken from wherever they are.
  */
 function addDeckCards(t: Table, defs: Record<string, CardDef>): Table {

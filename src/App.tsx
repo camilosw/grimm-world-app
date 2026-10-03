@@ -339,7 +339,7 @@ export default function App() {
     if (!s) return
     if (zone.kind === 'tray') return setAside((t) => A.toTray(t, stackId, whole ? 'all' : 'top', zone.before))
     if (s.deck && !returnsCards(s.deck)) return zone.kind === 'deck' && notify("Cards can't move from one deck to another")
-    // A deck's card on top for good (Y012, Y011) keeps the cards under it.
+    // A deck's card on top for good (Y013, Y012, Y011) keeps the cards under it.
     if (!whole && A.pinnedOnTop(s)) return
     const moved = whole ? A.unpinned(s) : A.unpinned(s).slice(-1)
     if (!moved.length) return
@@ -505,7 +505,7 @@ export default function App() {
   const isDeck = !!selectedStack?.deck
   // The Encounter Deck area's places stay too, and so do the time cards at the bottom of theirs.
   const isPlace = !!selectedStack?.place
-  // The Damage Card stays on top of its place for good, the Training and Banned Cards cards on top of their decks:
+  // The Damage Card stays on top of its place for good, the Enemy, Training and Banned Cards cards on top of their decks:
   // nothing is drawn from them, nor their top card moved under the rest.
   const isDamage = selectedStack?.place === 'damage'
   const topPinned = !!selectedStack && A.pinnedOnTop(selectedStack) > 0

@@ -46,8 +46,8 @@ export function pinned(s: Stack): number {
 }
 
 /**
- * How many cards at the top of a pile never leave it: the Damage Card on its place, the Training Card (Y012) and the
- * Banned Cards card (Y011) on their decks (`DeckSpec.keeps`). The cards under it can (they go back to the hand once
+ * How many cards at the top of a pile never leave it: the Damage Card on its place, the Enemy Card (Y013), the Training
+ * Card (Y012) and the Banned Cards card (Y011) on their decks (`DeckSpec.keeps`). The cards under it can (they go back to the hand once
  * healed, or are taken out by browsing the deck), but dragging the pile doesn't take them, nor does drawing; the Damage
  * Card's grip moves them all.
  */

@@ -139,7 +139,7 @@ export const DECKS: DeckSpec[] = [
     insert: "top",
     holds: (d) => yIn(d, [705, 707]),
   },
-  // The Enemy Card Y013 with the Enemy Cards Y800–Y849 underneath (Y009), each lying as it was put there.
+  // The Enemy Card Y013, on top for good, with the Enemy Cards Y800–Y849 underneath (Y009), each lying as it was put there.
   {
     kind: "enemy",
     label: "Enemy Deck",
@@ -147,6 +147,7 @@ export const DECKS: DeckSpec[] = [
     holdsText: "Y013, Y800–Y849",
     insert: "bottom",
     holds: (d) => yIn(d, [13, 13], [800, 849]),
+    keeps: "Y013",
   },
   // The Training Card Y012, on top for good, with training cards (Y749–Y799) underneath (Y003).
   {
