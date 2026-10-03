@@ -312,7 +312,7 @@ beside any figure already there, and can be dragged anywhere. A figure lying in 
 
 **☰ Browse** opens a panel over the bottom half of the screen with the pile's cards, top card first. The table above
 stays in use (pan, zoom, move cards) until you close the panel with ✕ or tap **Browse** again. Filter by number or
-name, switch between **Fronts** and **Backs** (it opens on the backs), and swipe up and down to scroll. Selected cards
+name, switch between **Backs** and **Fronts** (it opens on the backs; cards dragged out land showing the side shown), and swipe up and down to scroll. Selected cards
 move in their numbered order, card 1 on top; the pile they come from keeps its order. The actions for the selected
 cards (or those picked at random) appear in a row of their own below the bar.
 
@@ -324,8 +324,8 @@ cards (or those picked at random) appear in a row of their own below the bar.
 | 🔍 or long-press    | Read it at full size                                                                |
 | **Take out face up** | Put the selected cards face up on the table as one pile (**Take out face down**: face down) |
 | **Put under…**      | Then tap a pile, a deck or the storybook to slide the selected cards under it       |
-| Drag `⠿ n cards`    | Put all the selected cards where you drop it, face up, like dragging a selected card's grip |
-| Drag its `⠿` grip   | Put it (with the other selected cards, if it is selected) where you drop it: on the table or a pile, with the same area rules as any drop, or on the sidebar to send a table pile's cards back to their decks |
+| Drag `⠿ n cards`    | Put all the selected cards where you drop it, like dragging a selected card's grip |
+| Drag its `⠿` grip   | Put it (with the other selected cards, if it is selected) where you drop it, showing the side the panel shows: on the table or a pile, with the same area rules as any drop, or on the sidebar to send a table pile's cards back to their decks |
 
 **⚔ Battle** builds the battlefield of a Conflict Card in its own framed area. Type the Terrain Cards row by row, adding
 `v` to cards whose arrows point down and `-` for empty cells, e.g. `01 07v 15v` / `19 30 31`. Check the preview, then

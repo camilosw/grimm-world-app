@@ -123,15 +123,16 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
   const thumb = useDragOut<string>({ onTap: togglePick, onLongPress: view })
   const grip = useDragOut<string>({
     onTap: togglePick,
-    onDrop: (cardId, x, y) => onDrop(draggedWith(cardId), x, y, true),
+    onDrop: (cardId, x, y) => onDrop(draggedWith(cardId), x, y, fronts),
     onHover: (d) => onDragHover(d ? draggedWith(d.item) : [], d),
   })
   // The cards picked at random go by the bar's grip, so the grid doesn't show which they are
-  // (face down); the selected ones may go by a grip of their own too (face up).
+  // (face down); the selected ones may go by a grip of their own too. Dragged cards land
+  // showing the side the panel shows.
   const group = (kind: Group) => (kind === 'unseen' ? unseen : chosen)
   const groupGrip = useDragOut<Group>({
     onTap: () => {},
-    onDrop: (kind, x, y) => onDrop(group(kind), x, y, kind === 'chosen'),
+    onDrop: (kind, x, y) => onDrop(group(kind), x, y, kind === 'chosen' && fronts),
     onHover: (d) => onDragHover(d ? group(d.item) : [], d),
   })
   /** Take cards out onto the table, as one pile. */
@@ -183,11 +184,11 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
           }}
         />
         <div className="segmented" role="group" aria-label="Card side">
-          <button className={fronts ? 'on' : ''} aria-pressed={fronts} onClick={() => setFronts(true)}>
-            Fronts
-          </button>
           <button className={fronts ? '' : 'on'} aria-pressed={!fronts} onClick={() => setFronts(false)}>
             Backs
+          </button>
+          <button className={fronts ? 'on' : ''} aria-pressed={fronts} onClick={() => setFronts(true)}>
+            Fronts
           </button>
         </div>
         {pickable.length > 0 && (
