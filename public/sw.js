@@ -1,6 +1,6 @@
 // Offline support. App shell and card/rule images are cached as they are used;
 // pages are network-first (so a deploy shows up), everything else cache-first.
-const CACHE = 'grimm-world-v1'
+const CACHE = 'grimm-world-v2'
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.add('/')).then(() => self.skipWaiting()))

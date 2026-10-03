@@ -62,17 +62,23 @@ ENCOUNTERS = range(86, 138)
 # Numbers OCR gets wrong or cannot read, checked by eye. Enemy cards only show
 # their number in tiny print; X-cards 120/130 print the landscape letter "B".
 KNOWN = {
-    "120": "X05", "130": "X17", "312": "Y507", "379": "Y676a", "393": "Y800", "394": "Y800",
-    "395": "Y800", "396": "Y800", "397": "Y800", "399": "Y800", "409": "Y811", "410": "Y812",
-    "413": "Y815", "419": "Y817", "421": "Y817", "426": "Y821", "472": "Y951", "494": "Y011",
-    "496": "Y013", "497": "Y014a", "498": "Y014b", "499": "Y014c", "263": "Y511a", "331": "Y711",
-    "437": "Y701a",
+    "120": "X05", "130": "X17", "312": "Y507", "379": "Y676a", "393": "Y800e", "394": "Y800f",
+    "395": "Y800g", "396": "Y800h", "397": "Y800i", "398": "Y800j", "399": "Y800k", "400": "Y800l",
+    "409": "Y811", "410": "Y812", "413": "Y815b", "417": "Y816b", "419": "Y817a", "420": "Y817b",
+    "421": "Y817c", "426": "Y821b", "472": "Y951", "494": "Y011", "496": "Y013", "497": "Y014a",
+    "498": "Y014b", "499": "Y014c", "263": "Y511a", "331": "Y711", "437": "Y701a", "144": "Y036a",
+    "145": "Y036b", "146": "Y036c", "353": "Y105e", "448": "Y731e", "449": "Y731f",
+    # Read right, but on one side only.
+    "142": "Y034", "143": "Y035", "147": "Y037", "342": "Y736a", "343": "Y736b", "344": "Y736c",
+    "345": "Y736d", "484": "Y705", "485": "Y705", "486": "Y706", "487": "Y706", "488": "Y706",
+    "489": "Y707", "490": "Y707", "491": "Y707", "492": "Y707", "493": "Y010", "495": "Y012",
 }
 LOST_PAGES = range(138, 541)
 
 # OCR quirks: lowercase letters, "O" for zero, numbers split into several
-# boxes or glued to the following title ("Y410The ...").
-CODE_RE = re.compile(r"([BXYQ])[-. ]?([0-9O]{2,3})((?-i:[a-d])?)", re.IGNORECASE)
+# boxes or glued to the following title ("Y410The ..."). Suffixes run up to
+# "l" (Y800a-l).
+CODE_RE = re.compile(r"([BXYQ])[-. ]?([0-9O]{2,3})((?-i:[a-l])?)", re.IGNORECASE)
 
 
 class Reader:
@@ -126,7 +132,7 @@ def label(reader: Reader, index: int, card_id: str) -> dict:
         code = reader.code(card_id, "front", (0, 0, 750, 110), "BX")
         return {"type": encounter_type(code), **({"code": code} if code else {})}
 
-    # Lost Pages: the front has the full number (incl. a/b/c suffix), the
+    # Lost Pages: the front has the full number (incl. its a, b, c… suffix), the
     # back repeats it without the suffix. Combine both for robustness.
     front = reader.code(card_id, "front", (0, 0, 750, 110), "Y")
     back = reader.code(card_id, "back", (450, 0, 750, 150), "Y")
