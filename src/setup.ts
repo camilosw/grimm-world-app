@@ -5,7 +5,7 @@ import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, TABLE
 import type { CardDef, CardManifest, CardRef, EncounterPlace, Stack, Table } from './types'
 
 /** Current version of the area layout (`Table.layout`). */
-const LAYOUT = 7
+const LAYOUT = 8
 
 /** The Encounter Bar before it became a row of landscape cards (`Table.layout` < 3): six cards wide, two high. */
 const OLD_BAR = { w: 6 * CARD_W + 2 * AREA_PAD, h: 2 * CARD_H + AREA_HEADER + AREA_PAD }
@@ -385,8 +385,9 @@ function clearDeckAreas(t: Table): Table {
 /**
  * The areas used to lie near places leaving room for them to grow, far apart (`Table.layout` < 5); now each lies next
  * to the one before it (`settleLayout()`), moving with its cards. The same lays out the Actions area, new since
- * (`Table.layout` < 6, `addHandArea`), and the Training Deck area, taller since for its Browse button (`Table.layout`
- * < 7). The piles and figures lying outside the areas that an area now lies on move right, past the areas.
+ * (`Table.layout` < 6, `addHandArea`), the Training Deck area, taller since for its Browse button (`Table.layout`
+ * < 7), and the areas in their rows since, the Encounter Bar on top (`Table.layout` < 8). The piles and figures lying
+ * outside the areas that an area now lies on move right, past the areas.
  */
 function packAreas(t: Table): Table {
   if ((t.layout ?? 0) >= LAYOUT) return t

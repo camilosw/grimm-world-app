@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, tokenSize } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
-import { allAreas, areaForCard, battlefieldArea, battlefieldOrigin, placement, turnedSpot, upsideDownSpot, type Area } from './areas'
+import { allAreas, areaForCard, battlefieldArea, battlefieldOrigin, placement, PLAY_AREAS, turnedSpot, upsideDownSpot, type Area } from './areas'
 import { DECK_SPECS, homeDeck, returnsCards, type DeckKind } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
@@ -112,34 +112,54 @@ export default function App() {
     [manifest],
   )
 
-  /** Zoom and pan so that the given table rectangle fills the screen. */
-  const fitRect = useCallback((minX: number, minY: number, maxX: number, maxY: number) => {
+  /** The view in which the given table rectangle fills the screen. */
+  const rectView = useCallback((minX: number, minY: number, maxX: number, maxY: number): View | null => {
     const el = areaRef.current
-    if (!el) return
+    if (!el) return null
     const pad = 40
     const scale = clampScale(Math.min(1, (el.clientWidth - pad * 2) / (maxX - minX), (el.clientHeight - pad * 2) / (maxY - minY)))
-    setView({
+    return {
       scale,
       x: (el.clientWidth - (maxX - minX) * scale) / 2 - minX * scale,
       y: (el.clientHeight - (maxY - minY) * scale) / 2 - minY * scale,
-    })
+    }
   }, [])
 
-  const fit = useCallback(
-    (t: Table) => {
-      const items = [
-        ...t.z.map((id) => t.stacks[id]).map((s) => ({ x: s.x, y: s.y - 50, w: CARD_W, h: CARD_H + 90 })),
-        ...t.tokens.map((k) => ({ x: k.x, y: k.y, w: tokenSize(k), h: tokenSize(k) })),
-        ...allAreas(t),
-      ]
-      fitRect(
+  /** Zoom and pan so that the given table rectangle fills the screen. */
+  const fitRect = useCallback(
+    (minX: number, minY: number, maxX: number, maxY: number) => {
+      const v = rectView(minX, minY, maxX, maxY)
+      if (v) setView(v)
+    },
+    [rectView],
+  )
+
+  /** The view showing the areas used in every round (`PLAY_AREAS`), or with `whole`, everything on the table. */
+  const fitView = useCallback(
+    (t: Table, whole = false) => {
+      const items = whole
+        ? [
+            ...t.z.map((id) => t.stacks[id]).map((s) => ({ x: s.x, y: s.y - 50, w: CARD_W, h: CARD_H + 90 })),
+            ...t.tokens.map((k) => ({ x: k.x, y: k.y, w: tokenSize(k), h: tokenSize(k) })),
+            ...allAreas(t),
+          ]
+        : allAreas(t).filter((a) => PLAY_AREAS.includes(a.id))
+      return rectView(
         Math.min(...items.map((i) => i.x)),
         Math.min(...items.map((i) => i.y)),
         Math.max(...items.map((i) => i.x + i.w)),
         Math.max(...items.map((i) => i.y + i.h)),
       )
     },
-    [fitRect],
+    [rectView],
+  )
+
+  const fit = useCallback(
+    (t: Table, whole = false) => {
+      const v = fitView(t, whole)
+      if (v) setView(v)
+    },
+    [fitView],
   )
 
   useEffect(() => {
@@ -460,11 +480,12 @@ export default function App() {
 
   const buildBattlefield = (rows: (A.TerrainSlot | null)[][]) => {
     if (!table) return
-    // Below the areas as they lie, without the battlefield being replaced.
-    const { x, y } = battlefieldOrigin({ ...table, battlefield: null })
+    // Where it goes among the areas as they lie, without the battlefield being replaced.
+    const size = { cols: Math.max(1, ...rows.map((r) => r.length)), rows: rows.length }
+    const { x, y } = battlefieldOrigin(table, size)
     update((t) => A.buildBattlefield(t, rows, defs, x, y))
     setSelection(null)
-    showArea(battlefieldArea({ x, y, cols: Math.max(1, ...rows.map((r) => r.length)), rows: rows.length }))
+    showArea(battlefieldArea({ x, y, ...size }))
   }
 
   const exportSave = () => {
@@ -545,7 +566,15 @@ export default function App() {
         <button onClick={() => setDialog({ kind: 'battle' })}>
           ⚔ <span>Battle</span>
         </button>
-        <button onClick={() => fit(table)} aria-label="Fit table">
+        <button
+          onClick={() => {
+            // Showing the play areas already: show the whole table.
+            const play = fitView(table)
+            const same = !!play && Math.abs(play.scale - view.scale) < 1e-3 && Math.abs(play.x - view.x) < 1 && Math.abs(play.y - view.y) < 1
+            fit(table, same)
+          }}
+          aria-label="Fit the play areas, again for the whole table"
+        >
           ⤢ <span>Fit</span>
         </button>
         <button onClick={() => setDialog({ kind: 'menu' })} aria-label="Menu">
@@ -791,7 +820,7 @@ export default function App() {
             <button
               onClick={() => {
                 setDialog(null)
-                fit(table)
+                fit(table, true)
               }}
             >
               ⤢ Whole table

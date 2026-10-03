@@ -77,8 +77,8 @@ const PLACE_GAP = 40;
  * below the Training Deck): its distance from the card, and height.
  */
 export const PLACE_BUTTON = { gap: 24, h: 76 };
-// Right of the Encounter Bar, and moving right as it grows (`settleLayout()`): the three places of the Encounter Deck
-// area side by side (`ENCOUNTER_PLACES`), with a Shuffle button below each time card's.
+// The three places of the Encounter Deck area side by side (`ENCOUNTER_PLACES`), with a Shuffle button below each time
+// card's.
 const encounter = {
   x: bar.x + bar.w + GAP,
   y: 0,
@@ -101,7 +101,7 @@ const story = {
 };
 /** Table decks with a Browse button below their place: the Training Deck, whose cards are all taken to train. */
 export const BROWSE_DECKS: DeckKind[] = ["training"];
-// Right of the Storybook area, one card each, two by two as laid out (`settleLayout()`): the decks built during play,
+// One card each, two by two right of the Actions area as laid out (`settleLayout()`): the decks built during play,
 // each on its place (see `deckPlace()`), with its Browse button below it (`BROWSE_DECKS`).
 const deckBox = box(1, 1);
 const deckArea = (i: number) => ({
@@ -145,8 +145,9 @@ const home = {
 };
 /** Part of a hand card's height showing above the card lying on it: the strip of an Action Card, turned upside down. */
 const HAND_SHOWS = 0.22;
-// Right of the table decks' areas: the hand, a column of Y-cards growing down, and right of it the discard pile above
-// the Damage Card (see SPOTS). Drawn only as large as its cards need (`measure()`): this size just places its spots.
+// Right of the Character area as laid out: the hand, a column of Y-cards growing down, and right of it the discard
+// pile above the Damage Card (see SPOTS). Drawn only as large as its cards need (`measure()`): this size just places
+// its spots.
 const hand = {
   x: deckArea(TABLE_DECKS.length).x,
   y: character.y,
@@ -850,8 +851,8 @@ export function deckPlace(t: Table, kind: DeckKind): Point {
 }
 
 /**
- * Where the battlefield is laid out: at the left edge, below the other areas (`battlefieldOrigin()`). This height is
- * where it lay below the areas' own places, for migrating older saves.
+ * Where a battlefield is laid out among areas the player has moved: at the left edge, below them (`battlefieldOrigin()`).
+ * This height is where it lay below the areas' own places, for migrating older saves.
  */
 export const BATTLEFIELD_ORIGIN = { x: 0, y: character.y + character.h + GAP };
 /** Columns to the right of the Terrain Cards for Enemy Cards with their Hit Point Cards. */
@@ -897,7 +898,7 @@ type Rect = { x: number; y: number; w: number; h: number };
 /**
  * Areas drawn only as large as what lies in them needs: their places (a fanned row as far as its next place) and the
  * piles lying on or overlapping them. Each grows around the cards added to it, pushing the areas right of it and below
- * it away (`settleLayout()`); the Encounter Bar only grows right, pushing the Encounter Deck area along.
+ * it away (`settleLayout()`); the Encounter Bar only grows right, until the Storybook area beside it moves down.
  */
 const GROWING = ["bar", "character", "storage", "hand", "home"];
 
@@ -1062,20 +1063,69 @@ function battlefieldTop(areas: Rect[]): number {
   return Math.max(...areas.map(bottomOf)) + GAP;
 }
 
-/** Where a battlefield built now goes: below the areas as they lie. */
-export function battlefieldOrigin(t: Table): Point {
-  const areas = allAreas(t).filter((a) => a.id !== "battlefield");
-  return { x: BATTLEFIELD_ORIGIN.x, y: battlefieldTop(areas) };
+/**
+ * Where a battlefield of `cols` × `rows` Terrain Cards built now goes: where `packedPlaces()` lays it out, or, once the
+ * player has moved the areas, below them all at the left edge.
+ */
+export function battlefieldOrigin(
+  t: Table,
+  b: Pick<Battlefield, "cols" | "rows">,
+): Point {
+  const t0 = { ...t, battlefield: null };
+  const areas = allAreas(t0);
+  if (t.anchors) return { x: BATTLEFIELD_ORIGIN.x, y: battlefieldTop(areas) };
+  const laid = packedPlaces(t0, new Map(areas.map((a) => [a.id, a])));
+  const { w } = battlefieldArea({ x: 0, y: 0, ...b });
+  return battlefieldPlace(laid, w);
 }
 
-/** Columns of the table decks' block of areas right of the Storybook area. */
-const DECK_COLS = 2;
+/** Lowest point of the areas reaching under an area from `x`, `w` wide (closer than `GAP` beside it), or `top`. */
+function bottomUnder(areas: Iterable<Rect>, x: number, w: number, top: number): number {
+  let bottom = top;
+  for (const r of areas)
+    if (r.x < x + w + GAP && rightOf(r) + GAP > x)
+      bottom = Math.max(bottom, bottomOf(r) + GAP);
+  return bottom;
+}
+
+/** Where `packedPlaces()` puts a battlefield `w` wide: right of the Home area, below the areas it reaches under. */
+function battlefieldPlace(laid: Map<string, Rect>, w: number): Point {
+  const home = laid.get("home")!;
+  const x = rightOf(home) + GAP;
+  const below = [...laid].filter(([id]) => !ABOVE_PLAY.includes(id));
+  return { x, y: bottomUnder(below.map(([, r]) => r), x, w, home.y) };
+}
+
+/** The areas of the two top rows, above the character's areas: the battlefield and the Home area lie below them. */
+const ABOVE_PLAY = ["bar", "map", "encounter", "storybook"];
+
+/** The decks' block of areas right of the Actions area, two by two: each row left to right. */
+const DECK_BLOCK: DeckKind[][] = [
+  ["banned", "enemy"],
+  ["quest", "training"],
+];
 
 /**
- * Where the areas lie packed together, each `GAP` from the one before however they grew: the Map with the Encounter
- * Bar and the Encounter Deck right of it; below them the Character, Storage and Storybook areas, each right of the one before, the table
- * decks' areas two by two right of the Storybook, and the Actions area right of them; the Home area below the Character and Storage areas (and below any
- * other area it reaches under), and the battlefield below them all, at the left edge.
+ * The areas used in every round (rulebook 7.1): the two top rows, the character's row and the decks drawn from or
+ * banished to most, beside it. **Fit** shows these, and the battlefield while there is one.
+ */
+export const PLAY_AREAS = [
+  ...ABOVE_PLAY,
+  "storage",
+  "character",
+  "hand",
+  ...DECK_BLOCK[0],
+  "battlefield",
+];
+
+/**
+ * Where the areas lie packed together, each `GAP` from the one before however they grew, in rows:
+ * - the Encounter Bar on its own, growing right;
+ * - the Map, the Encounter Deck and the Storybook, its bottom in line with theirs (it is taller), beside the bar while
+ *   the bar leaves room for it, else down in line with the Map;
+ * - Storage, Character and Actions, the table decks' areas two by two right of them (Banned Cards and the Enemy Deck,
+ *   below them the Quest and Training Deck);
+ * - below them the Home area at the left edge and the battlefield right of it, each below every area it reaches under.
  */
 function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
   const laid = new Map<string, Rect>();
@@ -1089,37 +1139,37 @@ function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
     laid.set(id, { x: a.x + dx, y: a.y + dy, w: a.w, h: a.h });
     return laid.get(id)!;
   };
-  const map = put("map", {});
-  const bar = put("bar", { x: rightOf(map) + GAP, y: map.y });
-  const encounter = put("encounter", { x: rightOf(bar) + GAP, y: map.y });
-  const top = Math.max(bottomOf(map), bottomOf(bar), bottomOf(encounter)) + GAP;
-  const character = put("character", { x: map.x, y: top });
-  const storage = put("storage", { x: rightOf(character) + GAP, y: top });
-  const story = put("storybook", { x: rightOf(storage) + GAP, y: top });
-  TABLE_DECKS.forEach((kind, i) => {
-    const left = i % DECK_COLS ? laid.get(TABLE_DECKS[i - 1])! : story;
-    const above = i >= DECK_COLS ? laid.get(TABLE_DECKS[i - DECK_COLS]) : null;
-    put(kind, {
-      x: rightOf(left) + GAP,
-      y: above ? bottomOf(above) + GAP : top,
-    });
+  const bar = put("bar", { x: 0, y: 0 });
+  const top = bottomOf(bar) + GAP;
+  const map = put("map", { x: 0, y: top });
+  const encounter = put("encounter", { x: rightOf(map) + GAP, y: top });
+  const x = rightOf(encounter) + GAP;
+  const story = now.get("storybook")!;
+  const raised = Math.max(bottomOf(map), bottomOf(encounter)) - story.h;
+  const storybook = put("storybook", {
+    x,
+    y: crowd(bar, { ...story, x, y: raised }) ? top : raised,
   });
-  put("hand", {
-    x: Math.max(...TABLE_DECKS.map((kind) => rightOf(laid.get(kind)!))) + GAP,
-    y: top,
-  });
-  // Below every area it reaches under (always the Character area).
-  const homeRight = character.x + now.get("home")!.w;
-  const over = [...laid]
-    .filter(([id]) => id !== "map" && id !== "bar" && id !== "encounter")
-    .map(([, r]) => r)
-    .filter((r) => r.x < homeRight + GAP && rightOf(r) + GAP > character.x);
-  put("home", { x: character.x, y: Math.max(...over.map(bottomOf)) + GAP });
+  const row = Math.max(bottomOf(map), bottomOf(encounter), bottomOf(storybook)) + GAP;
+  const storage = put("storage", { x: 0, y: row });
+  const character = put("character", { x: rightOf(storage) + GAP, y: row });
+  const hand = put("hand", { x: rightOf(character) + GAP, y: row });
+  DECK_BLOCK.forEach((kinds, i) =>
+    kinds.forEach((kind, j) => {
+      const left = j ? laid.get(kinds[j - 1])! : hand;
+      const above = i ? laid.get(DECK_BLOCK[i - 1][j])! : null;
+      put(
+        kind,
+        above
+          ? { x: above.x, y: bottomOf(above) + GAP }
+          : { x: rightOf(left) + GAP, y: row },
+      );
+    }),
+  );
+  const home = now.get("home")!;
+  put("home", { x: 0, y: bottomUnder(laid.values(), 0, home.w, row) });
   if (now.has("battlefield"))
-    put("battlefield", {
-      x: BATTLEFIELD_ORIGIN.x,
-      y: battlefieldTop([...laid.values()]),
-    });
+    put("battlefield", battlefieldPlace(laid, now.get("battlefield")!.w));
   return laid;
 }
 
