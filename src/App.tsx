@@ -10,6 +10,7 @@ import { RulesPanel } from './RulesPanel'
 import { Sidebar } from './Sidebar'
 import { loadSaved, redo, resetTable, undo, update, useHistory, useTable } from './store'
 import { TableView, type Selection, type Zone } from './Table'
+import { Tray } from './Tray'
 import type { CardDef, CardManifest, CardRef, Table, Token, View } from './types'
 
 type Dialog =
@@ -50,6 +51,9 @@ const SHUFFLE_MS = 900
 
 const DECKS_IN_SIDEBAR = (t: Table) => (t.dock ?? []).map((id) => t.stacks[id])
 
+/** How close to the right edge of the table (screen pixels) a dragged card opens the hidden sidebar of cards set aside. */
+const TRAY_EDGE = 48
+
 const TOKENS: { label: string; color: string; shape: Token['shape'] }[] = [
   { label: 'Player marker', color: '#e8e2d6', shape: 'cube' },
   { label: 'Character', color: '#8a8f98', shape: 'pawn' },
@@ -66,7 +70,12 @@ function isValidTable(t: Table | null, manifest: CardManifest): t is Table {
   const ids = [...Object.values(t.stacks).flatMap((s) => s.cards), ...(t.hand ?? [])].map((c) => c.id)
   const known = new Set(manifest.cards.map((c) => c.id))
   const unique = new Set(ids)
-  return unique.size === ids.length && ids.every((id) => known.has(id)) && playableCards(manifest).every((c) => unique.has(c.id))
+  return (
+    unique.size === ids.length &&
+    ids.every((id) => known.has(id)) &&
+    playableCards(manifest).every((c) => unique.has(c.id)) &&
+    (t.tray ?? []).every((id) => t.stacks[id])
+  )
 }
 
 export default function App() {
@@ -83,6 +92,8 @@ export default function App() {
   const [browseId, setBrowseId] = useState<string | null>(null)
   const closeBrowse = useCallback(() => setBrowseId(null), [])
   const [sidebarOpen, toggleSidebar] = usePanel('grimm-world:sidebar-open')
+  /** The right sidebar of cards set aside is open, not minimized to a narrow bar. */
+  const [trayOpen, toggleTray] = usePanel('grimm-world:tray-open')
   const [zoneHover, setZoneHover] = useState<Zone | null>(null)
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null)
   const [rules, setRules] = useState<RulesManifest | null>(null)
@@ -255,18 +266,52 @@ export default function App() {
       document.querySelector(`[data-deck="${stackId}"]`)?.scrollIntoView({ block: 'nearest' })
       return setSelection({ kind: 'stack', id: stackId })
     }
+    if (A.inTray(table, stackId)) {
+      if (!trayOpen) toggleTray()
+      requestAnimationFrame(() => document.querySelector(`[data-tray-pile="${stackId}"]`)?.scrollIntoView({ block: 'nearest' }))
+      return setSelection({ kind: 'stack', id: stackId })
+    }
     const scale = Math.max(view.scale, 0.6)
     setView({ scale, x: el.clientWidth / 2 - (s.x + CARD_W / 2) * scale, y: el.clientHeight / 2 - (s.y + CARD_H / 2) * scale })
     setSelection({ kind: 'stack', id: stackId })
   }
 
-  /** Drop zone (sidebar deck, sidebar) under a screen point. */
+  /** Drop zone (sidebar deck, sidebar, the right sidebar of cards set aside) under a screen point. */
   const zoneAt = (clientX: number, clientY: number): Zone | null => {
     const el = document.elementFromPoint(clientX, clientY)
+    const pile = el?.closest<HTMLElement>('[data-tray-pile]')
+    if (pile) {
+      // Before the set-aside pile dropped on, or after it when dropped on its lower half.
+      const id = pile.dataset.trayPile!
+      const r = pile.getBoundingClientRect()
+      if (clientY < r.top + r.height / 2) return { kind: 'tray', before: id }
+      const tray = table?.tray ?? []
+      return { kind: 'tray', before: tray[tray.indexOf(id) + 1] ?? null }
+    }
+    if (el?.closest('[data-tray]')) return { kind: 'tray', before: null }
     const deck = el?.closest<HTMLElement>('[data-deck]')
     if (deck) return { kind: 'deck', id: deck.dataset.deck! }
     if (el?.closest('[data-dock]')) return { kind: 'dock' }
+    // Hidden while nothing is set aside: it appears when a card is dragged to the right edge of the table.
+    const r = areaRef.current?.getBoundingClientRect()
+    const edge = r && clientX > r.right - TRAY_EDGE && clientX <= r.right && clientY >= r.top && clientY <= r.bottom
+    if (edge && !document.querySelector('[data-tray]')) return { kind: 'tray', before: null }
     return null
+  }
+
+  /** Cards (by id) dragged over a drop zone (or off it: null): light it up, and the sidebar decks they would go back to. */
+  const hoverZone = (zone: Zone | null, cardIds: string[]) => {
+    setZoneHover((prev) => (sameZone(prev, zone) ? prev : zone))
+    if (zone && table) {
+      const kinds = new Set(cardIds.map((id) => defs[id] && homeDeck(table, defs[id])))
+      setHomeHover(DECKS_IN_SIDEBAR(table).filter((d) => d.deck && kinds.has(d.deck)).map((d) => d.id))
+    }
+  }
+
+  /** Tell the player that cards went into the minimized sidebar, where they can't see them. */
+  const setAside = (fn: (t: Table) => Table) => {
+    if (!trayOpen && table?.tray?.length) notify('Set aside', true)
+    update(fn)
   }
 
   /** Table position for a card dropped at a screen point, or null if outside the table. */
@@ -288,6 +333,7 @@ export default function App() {
     // Wherever it lands on the sidebar, a card goes back to its own deck; one taken off a deck on the table stays there.
     const s = table?.stacks[stackId]
     if (!s) return
+    if (zone.kind === 'tray') return setAside((t) => A.toTray(t, stackId, whole ? 'all' : 'top', zone.before))
     if (s.deck) return zone.kind === 'deck' && notify("Cards can't move from one deck to another")
     const moved = whole ? A.unpinned(s) : A.unpinned(s).slice(-1)
     if (!moved.length) return
@@ -301,6 +347,7 @@ export default function App() {
     const indices = cardIds.map((id) => stack?.cards.findIndex((c) => c.id === id) ?? -1).filter((i) => i >= 0)
     if (!table || !indices.length) return
     const zone = zoneAt(clientX, clientY)
+    if (zone?.kind === 'tray') return setAside((t) => A.toTray(t, stackId, cardIds, zone.before))
     if (zone) {
       if (!stack?.deck) {
         notify(`Back to ${homeNames(cardIds.map((id) => ({ id, faceUp: true })))}`, true)
@@ -350,6 +397,9 @@ export default function App() {
     if (target.deck) {
       if (!heldBy(sourceId, target.deck, DECK_SPECS[target.deck].label, cardIds)) return
       update((t) => A.putUnderDeck(t, sourceId, targetId, defs, cardIds))
+    } else if (A.inTray(table, targetId)) {
+      // Set aside, the pile belongs to no area.
+      update((t) => (cardIds ? A.putUnderPile(t, sourceId, cardIds, targetId) : A.mergeStacks(t, sourceId, targetId, 'bottom')))
     } else {
       const cards = cardIds ?? table.stacks[sourceId].cards.map((c) => c.id)
       const p = placeAt(cards, target.x, target.y, targetId)
@@ -363,6 +413,7 @@ export default function App() {
   /** The top card of a sidebar deck was released at a screen point. */
   const dropFromDeck = (deckId: string, clientX: number, clientY: number) => {
     const zone = zoneAt(clientX, clientY)
+    if (zone?.kind === 'tray') return setAside((t) => A.toTray(t, deckId, 'top', zone.before))
     if (zone?.kind === 'deck' && zone.id !== deckId) return notify("Cards can't move from one deck to another")
     if (zone) return
     const at = worldAt(clientX, clientY)
@@ -375,6 +426,29 @@ export default function App() {
     update((t) => {
       const [t2, newId] = A.takeTop(t, deckId, p.x, p.y)
       return newId && p.onto ? A.dropOnto(t2, newId, p.onto, defs) : t2
+    })
+  }
+
+  /** A set-aside pile was dragged out of the right sidebar and released at a screen point. */
+  const dropFromTray = (stackId: string, clientX: number, clientY: number) => {
+    const s = table?.stacks[stackId]
+    if (!table || !s) return
+    const zone = zoneAt(clientX, clientY)
+    if (zone?.kind === 'tray') return update((t) => A.toTray(t, stackId, 'all', zone.before))
+    if (zone) {
+      notify(`Back to ${homeNames(s.cards)}`, true)
+      return update((t) => A.stackToDecks(t, stackId, 'all', defs))
+    }
+    const at = worldAt(clientX, clientY)
+    if (!at) return
+    const cardIds = s.cards.map((c) => c.id)
+    if (onStory(at, cardIds)) return setDialog({ kind: 'chapter', stackId })
+    const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
+    const p = placeAt(cardIds, at.x, at.y, target)
+    if (!p) return
+    update((t) => {
+      const t2 = A.fromTray(t, stackId, p.x, p.y)
+      return p.onto ? A.dropOnto(t2, stackId, p.onto, defs) : t2
     })
   }
 
@@ -418,6 +492,9 @@ export default function App() {
   const count = selectedStack?.cards.length ?? 0
   const topCard = selectedStack?.cards[count - 1]
   const docked = !!selectedStack && A.isDocked(table, selectedStack.id)
+  // A pile set aside in the right sidebar lies upright there, in no particular place.
+  const aside = !!selectedStack && A.inTray(table, selectedStack.id)
+  const trayPiles = (table.tray ?? []).map((id) => table.stacks[id])
   // Decks, in the sidebar or on the table, stay where they are and keep their cards.
   const isDeck = !!selectedStack?.deck
   // The Encounter Deck area's places stay too, and so do the time cards at the bottom of theirs.
@@ -476,11 +553,12 @@ export default function App() {
           decks={(table.dock ?? []).map((id) => table.stacks[id])}
           defs={defs}
           selectedId={selectedStack && docked ? selectedStack.id : null}
-          hoverIds={zoneHover ? homeHover : []}
+          hoverIds={zoneHover && zoneHover.kind !== 'tray' ? homeHover : []}
           onTap={(id) => (putUnder ? putUnderTarget(id) : setSelection({ kind: 'stack', id }))}
           onDoubleTap={(id) => update((t) => A.flipTop(t, id))}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
           onDrop={dropFromDeck}
+          onDragHover={(d) => hoverZone(d && zoneAt(d.x, d.y), [])}
         />
       )}
       <div className="table-area" ref={areaRef}>
@@ -499,13 +577,7 @@ export default function App() {
           }
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
           zoneAt={zoneAt}
-          onZoneHover={(zone, cardIds) => {
-            setZoneHover((prev) => (sameZone(prev, zone) ? prev : zone))
-            if (zone && table) {
-              const kinds = new Set(cardIds.map((id) => defs[id] && homeDeck(table, defs[id])))
-              setHomeHover(DECKS_IN_SIDEBAR(table).filter((d) => d.deck && kinds.has(d.deck)).map((d) => d.id))
-            }
-          }}
+          onZoneHover={hoverZone}
           onZoneDrop={dropOnZone}
           onClearBattlefield={() => update((t) => A.clearBattlefield(t, defs))}
           onRefuse={notify}
@@ -538,6 +610,21 @@ export default function App() {
           </div>
         )}
       </div>
+      {(trayPiles.length > 0 || zoneHover?.kind === 'tray') && (
+        <Tray
+          piles={trayPiles}
+          defs={defs}
+          collapsed={!trayOpen && trayPiles.length > 0}
+          onCollapse={(collapsed) => collapsed === trayOpen && toggleTray()}
+          selectedId={aside ? selectedStack!.id : null}
+          hover={zoneHover?.kind === 'tray' ? zoneHover : null}
+          onTap={(id) => (putUnder ? putUnderTarget(id) : setSelection({ kind: 'stack', id }))}
+          onDoubleTap={(id) => update((t) => A.flipTop(t, id))}
+          onInspect={(card) => setDialog({ kind: 'inspect', card })}
+          onDragHover={(d) => hoverZone(d && zoneAt(d.x, d.y), d ? (table.stacks[d.item]?.cards.map((c) => c.id) ?? []) : [])}
+          onDrop={dropFromTray}
+        />
+      )}
       {rulesOpen && rules && <RulesPanel rules={rules} target={rulesTarget} onClose={() => setRulesOpen(false)} />}
       </div>
 
@@ -550,6 +637,7 @@ export default function App() {
           dropAt={dropAt}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
           onDrop={(cardIds, x, y) => dropFromBrowse(browseId, cardIds, x, y)}
+          onDragHover={(cardIds, at) => hoverZone(at && zoneAt(at.x, at.y), table.stacks[browseId]?.deck ? [] : cardIds)}
           onPutUnder={(cardIds) => setPutUnder({ stackId: browseId, cardIds })}
           onClose={closeBrowse}
         />
@@ -560,7 +648,7 @@ export default function App() {
           {many && !topPinned && (
             <button
               onClick={() => {
-                const at = (isDeck || isPlace) && topCard ? dropAt([topCard.id]) : undefined
+                const at = (isDeck || isPlace || aside) && topCard ? dropAt([topCard.id]) : undefined
                 if (at !== null) act((t, id) => A.drawTop(t, id, at))
               }}
             >
@@ -580,13 +668,23 @@ export default function App() {
           {free > 1 && <button onClick={() => shuffle(selectedStack.id)}>⤮ Shuffle</button>}
           {free > 1 && <button onClick={() => act((t, id) => A.sortStack(t, id, defs))}>⇅ Sort</button>}
           {topCard && <button onClick={() => setDialog({ kind: 'inspect', card: topCard })}>🔍 View</button>}
-          {!isDeck && !isPlace && !fixed && !upsideDown && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
+          {!isDeck && !isPlace && !aside && !fixed && !upsideDown && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
             <button onClick={() => act((t, id) => A.rotateStack(t, id, 90, defs))}>↻ Rotate</button>
           )}
           {(!isDeck || isPlace) && free > 0 && <button onClick={() => setPutUnder({ stackId: selectedStack.id })}>⤵ Put under…</button>}
           {free > 1 && <button onClick={() => act(A.flipStack)}>⇵ Turn pile over</button>}
-          {!isDeck && !isPlace && <button onClick={() => act(A.bringToFront)}>▲ Front</button>}
-          {!isDeck && !isPlace && <button onClick={() => act(A.sendToBack)}>▼ Back</button>}
+          {!isDeck && !isPlace && !aside && <button onClick={() => act(A.bringToFront)}>▲ Front</button>}
+          {!isDeck && !isPlace && !aside && <button onClick={() => act(A.sendToBack)}>▼ Back</button>}
+          {aside && (
+            <button
+              onClick={() => {
+                const at = dropAt(selectedStack.cards.map((c) => c.id))
+                if (at) act((t, id) => A.fromTray(t, id, at.x, at.y))
+              }}
+            >
+              ⤴ To table
+            </button>
+          )}
           {!isDeck && free > 0 && (
             <button
               onClick={() => {

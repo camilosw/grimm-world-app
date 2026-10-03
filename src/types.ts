@@ -89,6 +89,8 @@ export interface Table {
   z: string[]
   /** Ids of the decks kept in the sidebar, top to bottom. */
   dock?: string[]
+  /** Ids of the piles set aside in the right sidebar (e.g. the setup cards), top to bottom. */
+  tray?: string[]
   battlefield?: Battlefield | null
   /** The sidebar deck each card last came out of, so it can go back there. */
   origin?: Record<string, DeckKind>

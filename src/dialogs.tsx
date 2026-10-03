@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { extractCard, isPinned, locateCard, playCards, type TerrainSlot } from './actions'
+import { extractCard, inTray, isPinned, locateCard, playCards, type TerrainSlot } from './actions'
 import { cardImage, cardLabel, compareCards, isLandscape, landscapeClass, matchesQuery, queryTerms } from './cards'
 import { CardGhost } from './CardGhost'
 import { update } from './store'
@@ -76,6 +76,8 @@ interface BrowseProps {
   onInspect: (card: CardRef) => void
   /** Cards were dragged out of the panel and released at this screen point. */
   onDrop: (cardIds: string[], clientX: number, clientY: number) => void
+  /** Cards are being dragged out of the panel, to this screen point (null: the drag ended). */
+  onDragHover: (cardIds: string[], at: { x: number; y: number } | null) => void
   /** "Put under…" the selected cards: the player then taps the pile or deck to put them under. */
   onPutUnder: (cardIds: string[]) => void
   onClose: () => void
@@ -86,7 +88,7 @@ interface BrowseProps {
  * screen so the table stays in use: tap cards to select them, then take them
  * out, or drag a card's ⠿ grip (with the other selected cards) onto the table.
  */
-export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, onPutUnder, onClose }: BrowseProps) {
+export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, onDragHover, onPutUnder, onClose }: BrowseProps) {
   const stack = table.stacks[stackId]
   const [query, setQuery] = useState('')
   const [fronts, setFronts] = useState(true)
@@ -108,7 +110,11 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
   const view = (cardId: string) => onInspect({ id: cardId, faceUp: fronts })
   // Swipes on a card scroll the list; only the grip drags.
   const thumb = useDragOut<string>({ onTap: togglePick, onLongPress: view })
-  const grip = useDragOut<string>({ onTap: togglePick, onDrop: (cardId, x, y) => onDrop(draggedWith(cardId), x, y) })
+  const grip = useDragOut<string>({
+    onTap: togglePick,
+    onDrop: (cardId, x, y) => onDrop(draggedWith(cardId), x, y),
+    onHover: (d) => onDragHover(d ? draggedWith(d.item) : [], d),
+  })
 
   // The pile disappears when its last card is taken out.
   useEffect(() => {
@@ -233,8 +239,10 @@ export function FindDialog({ table, defs, dropAt, onShow, onInspect, onClose }: 
           const where = locateCard(table, def.id)
           if (!where) return null
           const { stack, index } = where
-          // Storybook cards stay in the storybook; a deck is a pile even with one card left.
-          const inPile = (stack.cards.length > 1 || !!stack.deck) && !stack.slot
+          // Storybook cards stay in the storybook; a deck is a pile even with one card left. A card set aside can be
+          // taken onto the table too.
+          const aside = inTray(table, stack.id)
+          const inPile = (stack.cards.length > 1 || !!stack.deck || aside) && !stack.slot
           return (
             <div key={def.id} className="grid-card">
               <button className="thumb" onClick={() => onInspect({ id: def.id, faceUp: true })}>
@@ -242,7 +250,7 @@ export function FindDialog({ table, defs, dropAt, onShow, onInspect, onClose }: 
               </button>
               <div className="grid-caption">
                 <span>{cardLabel(def)}</span>
-                <span className="muted">{stack.slot ? 'in the Storybook' : inPile ? `in ${stack.label ?? 'pile'}` : 'on table'}</span>
+                <span className="muted">{stack.slot ? 'in the Storybook' : aside ? 'set aside' : inPile ? `in ${stack.label ?? 'pile'}` : 'on table'}</span>
               </div>
               <div className="card-actions">
                 {/* A card pinned to its pile (the Damage Card, the Training and Banned Cards cards) stays there. */}
@@ -331,7 +339,7 @@ export function BattlefieldDialog({ table, defs, onBuild, onClear, onRules, onCl
   const unknown = rows.flat().filter((s) => s && !byCode.has(s.code))
   const count = rows.flat().filter(Boolean).length
   const cols = Math.max(1, ...rows.map((r) => r.length))
-  const looseTerrain = Object.values(table.stacks).filter(
+  const looseTerrain = table.z.map((id) => table.stacks[id]).filter(
     (s) => s.cards.length === 1 && defs[s.cards[0].id]?.type === 'terrain',
   ).length
 

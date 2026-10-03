@@ -3,7 +3,7 @@ import { cardImage, cardLabel, isLandscape, landscapeClass } from './cards'
 import { CardGhost } from './CardGhost'
 import { DECK_SPECS } from './decks'
 import type { CardDef, CardRef, Stack } from './types'
-import { useDragOut } from './useDragOut'
+import { useDragOut, type DragOut } from './useDragOut'
 
 interface Props {
   decks: Stack[]
@@ -16,12 +16,14 @@ interface Props {
   onInspect: (card: CardRef) => void
   /** The top card of a deck was dragged and released at this screen point. */
   onDrop: (deckId: string, clientX: number, clientY: number) => void
+  /** The top card of a deck is being dragged (null: the drag ended). */
+  onDragHover: (drag: DragOut<string> | null) => void
 }
 
 const DOUBLE_TAP_MS = 300
 
 /** The decks, kept out of the way on the left side of the screen. */
-export function Sidebar({ decks, defs, selectedId, hoverIds, onTap, onDoubleTap, onInspect, onDrop }: Props) {
+export function Sidebar({ decks, defs, selectedId, hoverIds, onTap, onDoubleTap, onInspect, onDrop, onDragHover }: Props) {
   const lastTap = useRef<{ id: string; time: number } | null>(null)
   const top = (deckId: string) => {
     const deck = decks.find((d) => d.id === deckId)
@@ -42,6 +44,7 @@ export function Sidebar({ decks, defs, selectedId, hoverIds, onTap, onDoubleTap,
       if (card) onInspect(card)
     },
     onDrop,
+    onHover: onDragHover,
   })
   const dragged = drag && top(drag.item)
 

@@ -17,11 +17,16 @@ function setStack(t: Table, s: Stack): Table {
 function removeStack(t: Table, id: string): Table {
   const stacks = { ...t.stacks }
   delete stacks[id]
-  return { ...t, stacks, z: t.z.filter((z) => z !== id), dock: t.dock?.filter((d) => d !== id) }
+  return { ...t, stacks, z: t.z.filter((z) => z !== id), dock: t.dock?.filter((d) => d !== id), tray: t.tray?.filter((d) => d !== id) }
 }
 
 export function isDocked(t: Table, id: string): boolean {
   return !!t.dock?.includes(id)
+}
+
+/** Whether a pile is set aside in the right sidebar. */
+export function inTray(t: Table, id: string): boolean {
+  return !!t.tray?.includes(id)
 }
 
 /**
@@ -72,9 +77,9 @@ function underneath(s: Stack, cards: CardRef[]): CardRef[] {
   return abovePinned(s, (rest) => [...cards, ...rest])
 }
 
-/** Every stack, on the table or in the sidebar. */
+/** Every stack, on the table, in the sidebar or set aside. */
 function allStacks(t: Table): Stack[] {
-  return [...t.z, ...(t.dock ?? [])].map((id) => t.stacks[id])
+  return [...t.z, ...(t.dock ?? []), ...(t.tray ?? [])].map((id) => t.stacks[id])
 }
 
 /** Put cards on the table as a new stack (on top of everything). */
@@ -313,6 +318,41 @@ export function stackTargetAt(t: Table, cx: number, cy: number, exclude: string 
     if (Math.hypot(s.x + CARD_W / 2 - cx, s.y + CARD_H / 2 - cy) < reach) return s
   }
   return null
+}
+
+// ---------- set aside ----------
+
+/**
+ * Set cards aside in the right sidebar: a whole pile (but its pinned cards), its top card, or the cards given (picked
+ * in the Browse panel, face up as when taken out). They go before the set-aside pile `before`, else last. A pile that
+ * moves whole keeps its id (one already set aside just moves along the sidebar); it lies upright there.
+ */
+export function toTray(t: Table, id: string, which: 'all' | 'top' | string[], before: string | null = null): Table {
+  const s = t.stacks[id]
+  if (!s || before === id) return t
+  const free = unpinned(s)
+  const cards = which === 'all' ? free : which === 'top' ? (pinnedOnTop(s) ? [] : free.slice(-1)) : cardsOf(t, id, which).map((c) => ({ ...c, faceUp: true }))
+  if (!cards.length) return t
+  const insert = (tray: string[], at: string) => {
+    const i = before ? tray.indexOf(before) : -1
+    return i < 0 ? [...tray, at] : [...tray.slice(0, i), at, ...tray.slice(i)]
+  }
+  if (!isFixed(s) && cards.length === s.cards.length) {
+    const tray = insert((t.tray ?? []).filter((x) => x !== id), id)
+    return { ...t, z: t.z.filter((z) => z !== id), tray, stacks: { ...t.stacks, [id]: { ...s, rot: 0, cards } } }
+  }
+  const out = new Set(cards.map((c) => c.id))
+  const t2 = withCards(t, s, s.cards.filter((c) => !out.has(c.id)))
+  const [newStack, nextId] = newId(t2, 's')
+  const stack: Stack = { id: newStack, x: 0, y: 0, rot: 0, cards }
+  return { ...t2, nextId, stacks: { ...t2.stacks, [newStack]: stack }, tray: insert(t2.tray ?? [], newStack) }
+}
+
+/** Put a set-aside pile back on the table at (x, y), on top of everything. */
+export function fromTray(t: Table, id: string, x: number, y: number): Table {
+  const s = t.stacks[id]
+  if (!s || !inTray(t, id)) return t
+  return { ...t, tray: t.tray!.filter((x) => x !== id), z: [...t.z, id], stacks: { ...t.stacks, [id]: { ...s, x, y } } }
 }
 
 // ---------- battlefield ----------

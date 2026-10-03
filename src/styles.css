@@ -924,6 +924,198 @@ button.on {
   opacity: 0.7;
 }
 
+/* ---------- cards set aside (right sidebar) ---------- */
+
+.tray {
+  position: relative;
+  flex: 0 0 auto;
+  /* Set by dragging the left edge; the cards fill it. */
+  width: var(--tray-width, 220px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #1a1411;
+  border-left: 1px solid #000;
+  z-index: 2;
+  transition: background 0.15s ease;
+}
+
+.tray.drop-hint {
+  background: #2c4a33;
+  box-shadow: inset 0 0 0 3px #7fe3a0;
+}
+
+.tray-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 4px 6px 4px 14px;
+  border-bottom: 1px solid #000;
+}
+
+.tray-bar h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tray-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px max(12px, env(safe-area-inset-right)) 24px 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.tray-pile {
+  position: relative;
+  flex: 0 0 auto;
+  /* Vertical swipes scroll the list; other drags take the pile out. */
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.tray-pile.dragging {
+  opacity: 0.3;
+}
+
+/* Cards dragged here go before this pile. */
+.tray-pile.insert-before::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  height: 4px;
+  border-radius: 2px;
+  background: #7fe3a0;
+}
+
+.tray-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 750 / 1050;
+  border-radius: 4%/2.9%;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);
+}
+
+.tray-card.landscape {
+  aspect-ratio: 1050 / 750;
+}
+
+.tray-card > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.tray-pile.selected .tray-card {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.tray-name {
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.tray-drop {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  min-height: 72px;
+  padding: 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+}
+
+.tray-drop.on {
+  color: var(--text);
+  border-color: #7fe3a0;
+}
+
+/* A wide touch target on the left edge, with a visible grip in the middle (as the rulebook's). */
+.tray-resize {
+  position: absolute;
+  left: -12px;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  z-index: 4;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.tray-resize::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 6px;
+  height: 56px;
+  transform: translateY(-50%);
+  border-radius: 3px;
+  background: #6b5646;
+  box-shadow: 0 0 0 1px #000;
+}
+
+.tray-resize:hover::after,
+.tray-resize:active::after {
+  background: var(--gold);
+}
+
+/* Minimized: a narrow bar with the number of cards; a tap opens it again. */
+.tray.collapsed {
+  width: calc(44px + env(safe-area-inset-right));
+}
+
+.tray-open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0 14px;
+  padding-right: env(safe-area-inset-right);
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: 18px;
+}
+
+.tray-count {
+  min-width: 28px;
+  padding: 2px 6px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(20, 14, 10, 0.92);
+  border: 1px solid #6b5646;
+  border-radius: 999px;
+}
+
+.tray-title {
+  writing-mode: vertical-rl;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
 /* ---------- table areas ---------- */
 
 .area {

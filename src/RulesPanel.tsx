@@ -158,7 +158,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
   useLayoutEffect(() => {
     const panel = panelRef.current
     const main = panel?.parentElement
-    const table = panel?.previousElementSibling
+    const table = main?.querySelector('.table-area')
     if (!width || !main || !table) return
     setOverlay(width > main.getBoundingClientRect().right - table.getBoundingClientRect().left - MIN_TABLE)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -214,7 +214,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
     onPointerMove: (e: React.PointerEvent) => {
       const panel = panelRef.current
       const main = panel?.parentElement
-      const table = panel?.previousElementSibling
+      const table = main?.querySelector('.table-area')
       if (!resizing.current || !panel || !main || !table) return
       const mainBox = main.getBoundingClientRect()
       // Beside the table, which keeps at least MIN_TABLE; beyond that over it, up to MIN_EDGE from the left.

@@ -34,8 +34,11 @@ import { useFlip } from './useFlip'
 
 export type Selection = { kind: 'stack' | 'token'; id: string } | null
 
-/** Places outside the table that accept cards: a sidebar deck, or the sidebar itself. */
-export type Zone = { kind: 'deck'; id: string } | { kind: 'dock' }
+/**
+ * Places outside the table that accept cards: a sidebar deck, the sidebar itself, or the right sidebar of cards set
+ * aside (before the set-aside pile `before`, else last).
+ */
+export type Zone = { kind: 'deck'; id: string } | { kind: 'dock' } | { kind: 'tray'; before: string | null }
 
 interface Props {
   table: TableState

@@ -14,18 +14,21 @@ interface Options<T> {
   onLongPress?: (item: T) => void
   /** The item was dragged and released at this screen point. Without it, moving the finger cancels the press (e.g. to let a list scroll). */
   onDrop?: (item: T, clientX: number, clientY: number) => void
+  /** The dragged item moved (or the drag ended: null), e.g. to show where it would land. */
+  onHover?: (drag: DragOut<T> | null) => void
 }
 
 /**
  * Pointer handling for things that live outside the table (sidebar, browse panel):
  * tap, long-press, or drag a card out with a floating ghost image.
  */
-export function useDragOut<T>({ onTap, onLongPress, onDrop }: Options<T>) {
+export function useDragOut<T>({ onTap, onLongPress, onDrop, onHover }: Options<T>) {
   const [drag, setDrag] = useState<DragOut<T> | null>(null)
   const press = useRef<{ item: T; x: number; y: number; timer: number; active: boolean; done: boolean } | null>(null)
 
   const end = () => {
     if (press.current) window.clearTimeout(press.current.timer)
+    if (press.current?.active) onHover?.(null)
     press.current = null
     setDrag(null)
   }
@@ -48,7 +51,9 @@ export function useDragOut<T>({ onTap, onLongPress, onDrop }: Options<T>) {
       if (!onDrop) return end()
       if (!p.active) window.clearTimeout(p.timer)
       p.active = true
-      setDrag({ item: p.item, x: e.clientX, y: e.clientY })
+      const next = { item: p.item, x: e.clientX, y: e.clientY }
+      setDrag(next)
+      onHover?.(next)
     },
     onPointerUp: (e: React.PointerEvent) => {
       const p = press.current
