@@ -246,7 +246,8 @@ export interface Spot {
   upsideDown?: boolean;
   /**
    * A pile dropped on its row (of any number of cards, `fan.count: Infinity`) is spread out on it, one card per place,
-   * its bottom card first (`settleSpots()`): the hand, taking back the cards under the Damage Card or the discard pile.
+   * its top card still lying on top of the others (`settleSpots()`): the hand, taking back the cards under the Damage
+   * Card or the discard pile, its bottom card first; the Encounter Bar, its top card first.
    */
   takesPiles?: boolean;
   /** Cards dropped on its pile go under it, not on top (the Damage Card, with the Action Cards lost as damage under it). */
@@ -562,6 +563,7 @@ export const SPOTS: Spot[] = [
     turn: "left",
     faceDown: true,
     addsFirst: true,
+    takesPiles: true,
   },
   {
     id: "character",
@@ -967,11 +969,17 @@ function measure(t: Table): Measured {
   if (t.battlefield) fixed.push(battlefieldArea(t.battlefield));
   const owner = new Map<string, string>();
   const loose: string[] = [];
+  // A pile on a spot belongs to the spot's area, even lying over another one: a pile spread out on the Encounter Bar
+  // reaches over the Encounter Deck area until the bar's frame has grown around it.
+  const onSpot = new Map(
+    spots.flatMap((sp) => stacksOnSpot(t, sp).map((id) => [id, sp.area])),
+  );
   for (const id of t.z) {
     const s = t.stacks[id];
     const area = s.slot
       ? "storybook"
-      : fixed.find((a) => inRect(a, s.x + CARD_W / 2, s.y + CARD_H / 2))?.id;
+      : (onSpot.get(id) ??
+        fixed.find((a) => inRect(a, s.x + CARD_W / 2, s.y + CARD_H / 2))?.id);
     if (area) owner.set(id, area);
     else loose.push(id);
   }

@@ -540,8 +540,9 @@ export function storyAt(t: Table, x: number, y: number): boolean {
 export function settleSpots(t: Table): Table {
   let next = t
   const spots = spotsOf(t)
-  // A pile dropped on the hand is spread out, one card per place, in pile order: its other cards just after its bottom
-  // one, closer than the next card, which the row's layout below closes up.
+  // A pile dropped on the hand or the Encounter Bar is spread out, one card per place, its top card still on top: its
+  // other cards just after its first one, closer than the next card, which the row's layout below closes up. In the
+  // hand each card lies on the one before, so its bottom card comes first; in the bar on the one after, its top card.
   for (const spot of spots.filter((s) => s.takesPiles)) {
     const [a, b] = spotPlaces(spot, 2)
     const dx = Math.sign(b.x - a.x)
@@ -549,8 +550,9 @@ export function settleSpots(t: Table): Table {
     for (const id of fanRow(next, spot)) {
       const s = next.stacks[id]
       if (s.cards.length < 2) continue
-      next = setStack(next, { ...s, cards: s.cards.slice(0, 1) })
-      s.cards.slice(1).forEach((card, i) => {
+      const cards = spot.overlaps ? s.cards : [...s.cards].reverse()
+      next = setStack(next, { ...s, cards: cards.slice(0, 1) })
+      cards.slice(1).forEach((card, i) => {
         const d = ((i + 1) / s.cards.length) * 0.4
         next = addStack(next, s.x + dx * d, s.y + dy * d, [card], { rot: s.rot })[0]
       })

@@ -445,7 +445,8 @@ export function TableView(props: Props) {
           if (spot.fan && !fanHasPlace(shownTable, spot)) return []
           const row = spot.addsFirst ? fanRow(shownTable, spot) : []
           // Where the dragged card goes: after the row's last card (not counting the card itself), else before its first.
-          const others = row.filter((id) => id !== dragStack?.id)
+          // Taken from the table itself: the preview spreads a dragged pile out into cards that aren't on it.
+          const others = spot.addsFirst ? fanRow(table, spot).filter((id) => id !== dragStack?.id) : []
           const toEnd = !!drag?.to && others.length > 0 && drag.to.x > table.stacks[others[others.length - 1]].x
           return freePlaces(shownTable, spot).map((at, i) => {
             const end = i > 0
