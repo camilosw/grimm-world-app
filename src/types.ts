@@ -52,8 +52,8 @@ export interface Stack {
   deck?: DeckKind
   /** Fixed places on the table: the face-down storybook and its revealed cards. */
   slot?: StorySlot
-  /** The Encounter Deck area's fixed places: the time card under the deck, and the used cards. */
-  place?: EncounterPlace
+  /** Fixed places: the Encounter Deck area's (the time card under the deck, and the used cards) and the Damage Card's. */
+  place?: Place
 }
 
 export type StorySlot = 'story' | 'story-revealed'
@@ -63,6 +63,9 @@ export type StorySlot = 'story' | 'story-revealed'
  * bottom of its place, with the Encounter Deck lying on one of them, and the used Encounter Cards.
  */
 export type EncounterPlace = 'time-passes' | 'next-chapter' | 'used'
+
+/** The table's fixed places: the Encounter Deck area's, and the Damage Card's in the Actions area, with the cards under it. */
+export type Place = EncounterPlace | 'damage'
 
 export interface Token {
   id: string

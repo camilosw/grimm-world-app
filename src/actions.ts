@@ -1,4 +1,4 @@
-import { allAreas, anchorsAfterMove, AREA_HEADER, AREA_PAD, areaForCard, fanRow, settleLayout, spotPlace, spotPlaces, spotsOf, stacksOnSpot, turnedSpot } from './areas'
+import { allAreas, anchorsAfterMove, AREA_HEADER, AREA_PAD, areaForCard, fanRow, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, turnedSpot, upsideDownSpot } from './areas'
 import { CARD_H, CARD_W, compareCards, family, isLandscape, TOKEN_SIZE } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
@@ -24,7 +24,10 @@ export function isDocked(t: Table, id: string): boolean {
   return !!t.dock?.includes(id)
 }
 
-/** A deck (in the sidebar or on the table), a storybook place or an Encounter Deck place: it stays where it is, even when empty. */
+/**
+ * A deck (in the sidebar or on the table), a storybook place, an Encounter Deck place or the Damage Card's: it stays where
+ * it is, even when empty.
+ */
 export function isFixed(s: Stack): boolean {
   return !!s.deck || !!s.slot || !!s.place
 }
@@ -37,10 +40,29 @@ export function pinned(s: Stack): number {
   return (s.place === 'time-passes' || s.place === 'next-chapter') && s.cards.length ? 1 : 0
 }
 
-/** A pile's cards with `fn` applied to those above its pinned ones. */
+/**
+ * How many cards at the top of a pile never leave it: the Damage Card on its place. The cards under it can (they go
+ * back to the hand once healed), but dragging the pile doesn't take them, nor does drawing; its grip moves them all.
+ */
+export function pinnedOnTop(s: Stack): number {
+  return s.place === 'damage' && s.cards.length ? 1 : 0
+}
+
+/** Whether the card at `index` (bottom = 0) is pinned to its pile. */
+function isPinned(s: Stack, index: number): boolean {
+  return index < pinned(s) || index >= s.cards.length - pinnedOnTop(s)
+}
+
+/** The cards of a pile that may leave it: all but its pinned ones, in pile order. */
+export function unpinned(s: Stack): CardRef[] {
+  return s.cards.filter((_, i) => !isPinned(s, i))
+}
+
+/** A pile's cards with `fn` applied to those between its pinned ones. */
 function abovePinned(s: Stack, fn: (cards: CardRef[]) => CardRef[]): CardRef[] {
-  const n = pinned(s)
-  return [...s.cards.slice(0, n), ...fn(s.cards.slice(n))]
+  const lo = pinned(s)
+  const hi = s.cards.length - pinnedOnTop(s)
+  return [...s.cards.slice(0, lo), ...fn(s.cards.slice(lo, hi)), ...s.cards.slice(hi)]
 }
 
 /** A pile's cards with `cards` slid underneath, just above its pinned ones. */
@@ -85,32 +107,32 @@ export function moveStack(t: Table, id: string, x: number, y: number): Table {
 /** Lift the top card off a stack and drop it at (x, y) as its own stack. */
 export function takeTop(t: Table, id: string, x: number, y: number): [Table, string | null] {
   const s = t.stacks[id]
-  if (!s || s.cards.length <= pinned(s)) return [t, null]
+  if (!s || s.cards.length <= pinned(s) || pinnedOnTop(s)) return [t, null]
   if (s.cards.length === 1 && !isFixed(s)) return [moveStack(t, id, x, y), id]
   const top = s.cards[s.cards.length - 1]
   return addStack(withCards(t, s, s.cards.slice(0, -1)), x, y, [top], { rot: s.rot })
 }
 
 /**
- * Move a whole pile to (x, y). A fixed one (an Encounter Deck place) stays: its cards above any pinned ones move, as a
+ * Move a whole pile to (x, y). A fixed one (an Encounter Deck place, the Damage Card's) stays: its unpinned cards move, as a
  * new pile. Returns the moved pile's id (null: nothing to move).
  */
 export function liftPile(t: Table, id: string, x: number, y: number): [Table, string | null] {
   const s = t.stacks[id]
   if (!s) return [t, null]
   if (!isFixed(s)) return [moveStack(t, id, x, y), id]
-  const n = pinned(s)
-  if (s.cards.length <= n) return [t, null]
-  return addStack(withCards(t, s, s.cards.slice(0, n)), x, y, s.cards.slice(n), { rot: s.rot })
+  const moved = unpinned(s)
+  if (!moved.length) return [t, null]
+  return addStack(withCards(t, s, s.cards.filter((_, i) => isPinned(s, i))), x, y, moved, { rot: s.rot })
 }
 
 /**
- * Put a pile on top of another, or into a deck lying on the table at the place its rules say (`insertIntoDeck()`: on
- * top of the Quest Deck, under the Enemy, Training and Banned Cards).
+ * Put a pile on top of another (under it, on the Damage Card's place), or into a deck lying on the table at the place
+ * its rules say (`insertIntoDeck()`: on top of the Quest Deck, under the Enemy, Training and Banned Cards).
  */
 export function dropOnto(t: Table, sourceId: string, targetId: string, defs: Record<string, CardDef>): Table {
   const dst = t.stacks[targetId]
-  if (!dst?.deck || sourceId === targetId) return mergeStacks(t, sourceId, targetId, 'top')
+  if (!dst?.deck || sourceId === targetId) return mergeStacks(t, sourceId, targetId, slidesUnder(t, targetId) ? 'bottom' : 'top')
   const [t2, cards] = takeCards(t, sourceId)
   return insertIntoDeck(t2, t2.stacks[targetId], cards, defs)
 }
@@ -140,20 +162,23 @@ export function flipTop(t: Table, id: string): Table {
 /** Turn the whole pile over, like flipping a real deck (but its pinned cards). */
 export function flipStack(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!s || s.cards.length <= pinned(s) || turnedSpot(t, id)) return t
+  if (!s || !unpinned(s).length || turnedSpot(t, id)) return t
   return setStack(t, { ...s, cards: abovePinned(s, (cards) => cards.map((c) => ({ ...c, faceUp: !c.faceUp })).reverse()) })
 }
 
-/** Turn a pile on the table; a Region Card in it never turns, nor a card lying turned on its place (Market Prices, Encounter Bar). */
+/**
+ * Turn a pile on the table; a Region Card in it never turns, nor a card lying turned on its place (Market Prices,
+ * Encounter Bar) or upside down on it (Actions area).
+ */
 export function rotateStack(t: Table, id: string, delta: number, defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
-  if (!s || s.cards.some((c) => isLandscape(defs[c.id])) || turnedSpot(t, id)) return t
+  if (!s || s.cards.some((c) => isLandscape(defs[c.id])) || turnedSpot(t, id) || upsideDownSpot(t, id)) return t
   return setStack(t, { ...s, rot: ((((s.rot + delta) % 360) + 360) % 360) as Rotation })
 }
 
-/** Whether a pile has at least two cards to reorder (above its pinned ones). */
+/** Whether a pile has at least two cards to reorder (between its pinned ones). */
 function reorders(s: Stack | undefined): s is Stack {
-  return !!s && s.cards.length - pinned(s) >= 2
+  return !!s && unpinned(s).length >= 2
 }
 
 export function shuffleStack(t: Table, id: string): Table {
@@ -181,7 +206,7 @@ export function sortStack(t: Table, id: string, defs: Record<string, CardDef>): 
 /** Place the top card at the bottom of the pile, above its pinned cards (e.g. after reading a Fate Number). */
 export function topToBottom(t: Table, id: string): Table {
   const s = t.stacks[id]
-  if (!reorders(s)) return t
+  if (!reorders(s) || pinnedOnTop(s)) return t
   const top = s.cards[s.cards.length - 1]
   return setStack(t, { ...s, cards: underneath({ ...s, cards: s.cards.slice(0, -1) }, [{ ...top, faceUp: s.cards[pinned(s)].faceUp }]) })
 }
@@ -192,7 +217,7 @@ export function topToBottom(t: Table, id: string): Table {
  */
 export function drawTop(t: Table, id: string, at?: { x: number; y: number }): Table {
   const s = t.stacks[id]
-  if (!s || s.cards.length - pinned(s) < (isFixed(s) ? 1 : 2)) return t
+  if (!s || pinnedOnTop(s) || s.cards.length - pinned(s) < (isFixed(s) ? 1 : 2)) return t
   const x = at?.x ?? s.x + CARD_W + 40
   const y = at?.y ?? s.y
   const top = { ...s.cards[s.cards.length - 1], faceUp: true }
@@ -205,7 +230,7 @@ export function drawTop(t: Table, id: string, at?: { x: number; y: number }): Ta
 /** Pull one card (by index, bottom = 0) out of a pile onto the table. */
 export function extractCard(t: Table, id: string, index: number, x: number, y: number, faceUp = true): Table {
   const s = t.stacks[id]
-  if (!s || !s.cards[index] || index < pinned(s)) return t
+  if (!s || !s.cards[index] || isPinned(s, index)) return t
   const card = { ...s.cards[index], faceUp }
   const rest = s.cards.filter((_, i) => i !== index)
   return addStack(withCards(t, s, rest), x, y, [card])[0]
@@ -227,7 +252,7 @@ export function playCards(
 ): Table {
   const s = t.stacks[id]
   if (!s) return t
-  const set = new Set(indices.filter((i) => i >= pinned(s)))
+  const set = new Set(indices.filter((i) => !isPinned(s, i)))
   const picked = s.cards.filter((_, i) => set.has(i)).map((c) => ({ ...c, faceUp: true }))
   if (!picked.length) return t
   const rest = s.cards.filter((_, i) => !set.has(i))
@@ -293,7 +318,7 @@ export function stackTargetAt(t: Table, cx: number, cy: number, exclude: string 
 /** Take a card out of whatever pile holds it. */
 export function takeCard(t: Table, cardId: string): [Table, CardRef | null] {
   const where = locateCard(t, cardId)
-  if (!where || where.index < pinned(where.stack)) return [t, null]
+  if (!where || isPinned(where.stack, where.index)) return [t, null]
   const { stack, index } = where
   return [withCards(t, stack, stack.cards.filter((_, i) => i !== index)), stack.cards[index]]
 }
@@ -371,26 +396,29 @@ export function returnToDecks(t: Table, cards: CardRef[], defs: Record<string, C
   return next
 }
 
-/** A table pile (or its top card) goes back to the decks its cards belong to. */
+/** A table pile (or its top card) goes back to the decks its cards belong to, but its pinned cards (the Damage Card). */
 export function stackToDecks(t: Table, id: string, which: 'top' | 'all', defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
   if (!s?.cards.length || s.deck) return t
-  const moved = which === 'top' ? s.cards.slice(-1) : s.cards
-  return returnToDecks(withCards(t, s, which === 'top' ? s.cards.slice(0, -1) : []), moved, defs)
+  const free = unpinned(s)
+  const moved = which === 'top' ? free.slice(-1) : free
+  if (!moved.length) return t
+  const out = new Set(moved.map((c) => c.id))
+  return returnToDecks(withCards(t, s, s.cards.filter((c) => !out.has(c.id))), moved, defs)
 }
 
-/** Some cards (by index) of a table pile go back to their decks. */
+/** Some cards (by index) of a table pile go back to their decks, but its pinned ones. */
 export function cardsToDecks(t: Table, id: string, indices: number[], defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
   if (!s || s.deck) return t
-  const set = new Set(indices)
+  const set = new Set(indices.filter((i) => !isPinned(s, i)))
   return returnToDecks(withCards(t, s, s.cards.filter((_, i) => !set.has(i))), s.cards.filter((_, i) => set.has(i)), defs)
 }
 
 /** The cards of a pile that may leave it (all but its pinned ones), or only those given (in pile order). */
 function cardsOf(t: Table, stackId: string, cardIds?: string[]): CardRef[] {
   const s = t.stacks[stackId]
-  const cards = s ? s.cards.slice(pinned(s)) : []
+  const cards = s ? unpinned(s) : []
   if (!cardIds) return cards
   const ids = new Set(cardIds)
   return cards.filter((c) => ids.has(c.id))
@@ -503,13 +531,29 @@ export function storyAt(t: Table, x: number, y: number): boolean {
 // ---------- spots ----------
 
 /**
- * Lay the spots out: close the gaps in fanned spots (Money Cards, Goods), their piles lying on the first places in row
- * order, and lay cards on a spot that turns them straight and face up (Market Prices) or face down (Encounter Bar), as
- * they must lie there.
+ * Lay the spots out: spread out piles dropped on the hand, close the gaps in fanned spots (Money Cards, Goods), their
+ * piles lying on the first places in row order, and lay cards on a spot that turns them straight and face up (Market Prices) or face down (Encounter Bar), or
+ * upside down (Actions area), as they must lie there.
  */
 export function settleSpots(t: Table): Table {
   let next = t
   const spots = spotsOf(t)
+  // A pile dropped on the hand is spread out, one card per place, in pile order: its other cards just after its bottom
+  // one, closer than the next card, which the row's layout below closes up.
+  for (const spot of spots.filter((s) => s.takesPiles)) {
+    const [a, b] = spotPlaces(spot, 2)
+    const dx = Math.sign(b.x - a.x)
+    const dy = Math.sign(b.y - a.y)
+    for (const id of fanRow(next, spot)) {
+      const s = next.stacks[id]
+      if (s.cards.length < 2) continue
+      next = setStack(next, { ...s, cards: s.cards.slice(0, 1) })
+      s.cards.slice(1).forEach((card, i) => {
+        const d = ((i + 1) / s.cards.length) * 0.4
+        next = addStack(next, s.x + dx * d, s.y + dy * d, [card], { rot: s.rot })[0]
+      })
+    }
+  }
   for (const spot of spots.filter((s) => s.fan)) {
     const row = fanRow(next, spot)
     const places = spotPlaces(spot, row.length)
@@ -524,6 +568,12 @@ export function settleSpots(t: Table): Table {
     for (const id of stacksOnSpot(next, spot)) {
       const s = next.stacks[id]
       if (s.rot || s.cards.some((c) => c.faceUp !== faceUp)) next = setStack(next, { ...s, rot: 0, cards: s.cards.map((c) => ({ ...c, faceUp })) })
+    }
+  }
+  for (const spot of spots.filter((s) => s.upsideDown)) {
+    for (const id of stacksOnSpot(next, spot)) {
+      const s = next.stacks[id]
+      if (s.rot !== 180) next = setStack(next, { ...s, rot: 180 })
     }
   }
   return next

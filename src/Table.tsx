@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { dropOnto, flipTop, isFixed, liftPile, moveArea, moveStack, moveToken, notHeldBy, pinned, settleSpots, stackTargetAt, storyAt, takeTop } from './actions'
+import { dropOnto, flipTop, isFixed, liftPile, moveArea, moveStack, moveToken, notHeldBy, pinned, pinnedOnTop, settleSpots, stackTargetAt, storyAt, takeTop, unpinned } from './actions'
 import {
   acceptsText,
   allAreas,
@@ -12,6 +12,7 @@ import {
   enemyOrigin,
   fanHasPlace,
   fanRow,
+  freeCovered,
   freePlaces,
   placement,
   placeStack,
@@ -199,7 +200,7 @@ export function TableView(props: Props) {
       const s = table.stacks[id]
       const grip = !!el.closest('[data-grip]')
       // A deck lying on the table stays: dragging it takes its top card. An Encounter Deck place stays too: its grip
-      // moves its cards but the time card.
+      // moves its cards but the time card; so does the Damage Card's, its grip moving the cards under the Damage Card.
       const whole = s?.place ? grip : !s?.deck && (grip || (s?.cards.length ?? 0) <= 1)
       target = s?.slot ? { kind: 'slot', id, slot: s.slot } : { kind: 'stack', id, whole }
     }
@@ -328,8 +329,8 @@ export function TableView(props: Props) {
   function movedCards(target: { id: string; whole: boolean }) {
     const s = table.stacks[target.id]
     if (!s) return []
-    const n = pinned(s)
-    const cards = target.whole ? s.cards.slice(n) : s.cards.length > n ? s.cards.slice(-1) : []
+    const free = unpinned(s)
+    const cards = target.whole ? free : pinnedOnTop(s) ? [] : free.slice(-1)
     return cards.map((c) => c.id)
   }
 
@@ -444,8 +445,9 @@ export function TableView(props: Props) {
           return freePlaces(shownTable, spot).map((at, i) => {
             const end = i > 0
             // A covered spot only shows the part beside the card lying on it. The Encounter Bar's free place lies under
-            // its first card, though the cards put there go on top; its place after the last card lies under that card.
-            const side = end ? 'left' : row.length ? 'right' : coveredSide(spot)
+            // its first card, though the cards put there go on top; its place after the last card lies under that card. So
+            // does the hand's place after its last card, though the card put there goes on top.
+            const side = end ? 'left' : row.length ? 'right' : freeCovered(shownTable, spot)
             const hover = drag?.spot === spot.id && (!spot.addsFirst || end === toEnd)
             const state = hover ? (drag.area?.ok ? ' accept' : ' refuse') : ''
             const box = cardBox(at.x, at.y, !!spot.landscape)
@@ -514,7 +516,7 @@ export function TableView(props: Props) {
           if (dragStack?.id === id) {
             // A pile moved as a whole is drawn above everything (below); a fixed one leaves its pinned cards.
             if (dragStack.whole && !isFixed(s)) return null
-            shown = { ...s, cards: s.cards.slice(0, dragStack.whole ? pinned(s) : -1) }
+            shown = { ...s, cards: dragStack.whole ? s.cards.filter((c) => !unpinned(s).includes(c)) : s.cards.slice(0, -1) }
           }
           if (s.slot) return <SlotView key={id} stack={shown} defs={defs} size={imgSize} dropTarget={drag?.dropOn === id} />
           if (!shown.cards.length) return null
@@ -537,7 +539,7 @@ export function TableView(props: Props) {
         })}
         {dragStack?.whole && drag && !ghost && table.stacks[dragStack.id] && (
           <StackView
-            stack={{ ...table.stacks[dragStack.id], x: drag.x, y: drag.y, cards: table.stacks[dragStack.id].cards.slice(pinned(table.stacks[dragStack.id])) }}
+            stack={{ ...table.stacks[dragStack.id], x: drag.x, y: drag.y, cards: unpinned(table.stacks[dragStack.id]) }}
             defs={defs}
             size={imgSize}
             selected={selection?.kind === 'stack' && selection.id === dragStack.id}
@@ -674,9 +676,9 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
       >
         <img src={cardImage(top.id, faceUp, size)} alt={cardLabel(defs[top.id])} draggable={false} />
       </div>
-      {/* Being shuffled: its top cards (not a pinned time card) split to both sides and slide back in, one after another. */}
+      {/* Being shuffled: its top cards (not a pinned card) split to both sides and slide back in, one after another. */}
       {shuffle != null &&
-        stack.cards.slice(Math.max(pinned(stack), count - SHUFFLE_CARDS)).map((c, i) => (
+        unpinned(stack).slice(-SHUFFLE_CARDS).map((c, i) => (
           <div
             key={`${shuffle}-${i}`}
             className={`card shuffle-card${i % 2 ? ' right' : ''}${turn ? turnedClass(turn) : landscapeClass(landscape, c.faceUp)}`}

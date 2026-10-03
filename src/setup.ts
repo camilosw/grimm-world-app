@@ -1,4 +1,4 @@
-import { addStack, mergeStacks, rearrange, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
+import { addStack, isFixed, mergeStacks, rearrange, returnToDecks, settle, settleSpots, sortStack, takeCard } from './actions'
 import { CARD_H, CARD_W, compareCards, family, TOKEN_SIZE } from './cards'
 import { allAreas, AREA_HEADER, AREA_PAD, AREAS, BATTLEFIELD_ORIGIN, deckPlace, ENCOUNTER_PLACES, encounterPlace, GAP, SPOTS, spotPlace, spotsOf, stacksOnSpot, STORY_SLOTS } from './areas'
 import { DECK_SPECS, DECKS, deckStack, homeDeck, SIDEBAR_DECKS, storySlot, TABLE_DECKS, type DeckKind } from './decks'
@@ -14,7 +14,7 @@ function shuffled<T>(list: T[]): T[] {
 }
 
 /** Current version of the area layout (`Table.layout`). */
-const LAYOUT = 5
+const LAYOUT = 6
 
 /** The Encounter Bar before it became a row of landscape cards (`Table.layout` < 3): six cards wide, two high. */
 const OLD_BAR = { w: 6 * CARD_W + 2 * AREA_PAD, h: 2 * CARD_H + AREA_HEADER + AREA_PAD }
@@ -77,7 +77,24 @@ export function initialTable(manifest: CardManifest): Table {
   const timeCard = (name: string) => cards.filter((c) => c.type === 'time' && c.name === name).map((c) => ({ id: c.id, faceUp: false }))
   const deck = contents.encounter.map((c) => ({ id: c.id, faceUp: DECK_SPECS.encounter.faceUp }))
   const places = { 'time-passes': [...timeCard('Time Passes'), ...deck], 'next-chapter': timeCard('Next Chapter'), used: [] }
-  return settle(addEncounterPlaces(layDecks(addStorySlots(table, story)), places))
+  const defs = Object.fromEntries(cards.map((c) => [c.id, c]))
+  return settle(addDamagePlace(addEncounterPlaces(layDecks(addStorySlots(table, story)), places), defs))
+}
+
+/**
+ * The Damage Card's place in the Actions area, with the Damage Card (Y010) face up on it for good, taken from wherever it
+ * is. Cards lying on that place already (from before it was fixed) stay, under it.
+ */
+function addDamagePlace(t: Table, defs: Record<string, CardDef>): Table {
+  if (t.z.some((id) => t.stacks[id].place === 'damage')) return t
+  const spot = spotsOf(t).find((s) => s.id === 'damage')!
+  const def = Object.values(defs).find((d) => d.code === 'Y010')
+  let [next, card] = def ? takeCard(t, def.id) : [t, null]
+  const there = next.z.map((id) => next.stacks[id]).find((s) => s.x === spot.x && s.y === spot.y && !isFixed(s))
+  const under = there?.cards ?? []
+  for (const c of under) next = takeCard(next, c.id)[0]
+  const cards = [...under, ...(card ? [{ ...card, faceUp: true }] : [])]
+  return addStack(next, spot.x, spot.y, cards, { label: 'Damage Card', place: 'damage' })[0]
 }
 
 /**
@@ -114,13 +131,13 @@ const OLD_ENCOUNTER: string[] = ['encounter', 'time']
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
-  const migrated = addEncounterArea(emptyHand(migrateDecks(t, defs), defs))
+  const migrated = addHandArea(addEncounterArea(emptyHand(migrateDecks(t, defs), defs)))
   const laidOut = packAreas(clearDeckAreas(layDecks(raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(migrated))), defs)))))
-  return settle(placeOnSpots(layEncounterDeck(laidOut, defs), defs))
+  return settle(placeOnSpots(addDamagePlace(layEncounterDeck(laidOut, defs), defs), defs))
 }
 
 /** Whether the Encounter Deck area's places are on the table (older saves don't have them). */
-const hasPlaces = (t: Table) => t.z.some((id) => t.stacks[id].place)
+const hasPlaces = (t: Table) => t.z.some((id) => ENCOUNTER_PLACES.some((p) => p.place === t.stacks[id].place))
 
 /**
  * The Encounter Deck area is new: until its places are laid out (`layEncounterDeck`), it lies right of everything on the
@@ -139,6 +156,27 @@ function addEncounterArea(t: Table): Table {
   if (!t.anchors) return { ...t, shifts }
   const bar = t.frames?.bar ?? allAreas(t).find((a) => a.id === 'bar')!
   return { ...t, shifts, anchors: { ...t.anchors, encounter: { x: Math.round(bar.x + bar.w + GAP), y: Math.round(bar.y) } } }
+}
+
+/**
+ * The Actions area (id `hand`) is new (`Table.layout` < 6): it lies right of everything on the table, so that it takes in none of the
+ * cards lying there, until `packAreas` lays it out right of the table decks' areas. Where the player moved the areas, it
+ * goes right of them, level with the Character area.
+ */
+function addHandArea(t: Table): Table {
+  if ((t.layout ?? 0) >= 6) return t
+  const own = area('hand')
+  const areas = allAreas(t).filter((a) => a.id !== 'hand')
+  const right = Math.max(
+    ...areas.map((a) => a.x + a.w),
+    ...t.z.map((id) => t.stacks[id].x + CARD_H),
+    ...t.tokens.map((k) => k.x + TOKEN_SIZE),
+  )
+  const shifts = { ...t.shifts, hand: { x: Math.round(right + GAP - own.x), y: 0 } }
+  if (!t.anchors) return { ...t, shifts }
+  const x = Math.max(...areas.map((a) => a.x + a.w)) + GAP
+  const y = areas.find((a) => a.id === 'character')!.y
+  return { ...t, shifts, anchors: { ...t.anchors, hand: { x: Math.round(x), y: Math.round(y) } } }
 }
 
 /**
@@ -340,8 +378,9 @@ function clearDeckAreas(t: Table): Table {
 
 /**
  * The areas used to lie near places leaving room for them to grow, far apart (`Table.layout` < 5); now each lies next
- * to the one before it (`settleLayout()`), moving with its cards. The piles and figures lying outside the areas that an
- * area now lies on move right, past the areas.
+ * to the one before it (`settleLayout()`), moving with its cards. The same lays out the Actions area, new since
+ * (`Table.layout` < 6, `addHandArea`). The piles and figures lying outside the areas that an area now lies on move
+ * right, past the areas.
  */
 function packAreas(t: Table): Table {
   if ((t.layout ?? 0) >= LAYOUT) return t

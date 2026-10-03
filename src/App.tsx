@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, TOKEN_SIZE } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
-import { allAreas, areaForCard, battlefieldArea, battlefieldOrigin, placement, turnedSpot, type Area } from './areas'
+import { allAreas, areaForCard, battlefieldArea, battlefieldOrigin, placement, turnedSpot, upsideDownSpot, type Area } from './areas'
 import { DECK_SPECS, homeDeck, type DeckKind } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
@@ -289,7 +289,9 @@ export default function App() {
     const s = table?.stacks[stackId]
     if (!s) return
     if (s.deck) return zone.kind === 'deck' && notify("Cards can't move from one deck to another")
-    notify(`Back to ${homeNames(whole ? s.cards : s.cards.slice(-1))}`, true)
+    const moved = whole ? A.unpinned(s) : A.unpinned(s).slice(-1)
+    if (!moved.length) return
+    notify(`Back to ${homeNames(moved)}`, true)
     update((t) => A.stackToDecks(t, stackId, whole ? 'all' : 'top', defs))
   }
 
@@ -420,9 +422,13 @@ export default function App() {
   const isDeck = !!selectedStack?.deck
   // The Encounter Deck area's places stay too, and so do the time cards at the bottom of theirs.
   const isPlace = !!selectedStack?.place
-  const free = selectedStack ? count - A.pinned(selectedStack) : 0
+  // The Damage Card stays on top of its place for good: nothing is drawn from it, nor its top card moved under the rest.
+  const isDamage = selectedStack?.place === 'damage'
+  const free = selectedStack ? A.unpinned(selectedStack).length : 0
   // A card lying turned on its place stays as it lies (Market Prices face up, Encounter Bar face down) and can't be rotated.
   const fixed = !!selectedStack && !!turnedSpot(table, selectedStack.id)
+  // A card lying upside down on its place (Actions area) can't be rotated either.
+  const upsideDown = !!selectedStack && !!upsideDownSpot(table, selectedStack.id)
   /** Decks and places draw several cards; a pile on the table needs at least two. */
   const many = free > (isDeck || isPlace ? 0 : 1)
 
@@ -543,7 +549,7 @@ export default function App() {
 
       {selectedStack && !putUnder && (
         <footer className="actions">
-          {many && (
+          {many && !isDamage && (
             <button
               onClick={() => {
                 const at = (isDeck || isPlace) && topCard ? dropAt([topCard.id]) : undefined
@@ -554,7 +560,7 @@ export default function App() {
             </button>
           )}
           {count > 0 && !fixed && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
-          {free > 1 && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
+          {free > 1 && !isDamage && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
           {count > 1 && (
             <button
               className={browseId === selectedStack.id ? 'on' : ''}
@@ -566,7 +572,7 @@ export default function App() {
           {free > 1 && <button onClick={() => shuffle(selectedStack.id)}>⤮ Shuffle</button>}
           {free > 1 && <button onClick={() => act((t, id) => A.sortStack(t, id, defs))}>⇅ Sort</button>}
           {topCard && <button onClick={() => setDialog({ kind: 'inspect', card: topCard })}>🔍 View</button>}
-          {!isDeck && !isPlace && !fixed && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
+          {!isDeck && !isPlace && !fixed && !upsideDown && !selectedStack.cards.some((c) => isLandscape(defs[c.id])) && (
             <button onClick={() => act((t, id) => A.rotateStack(t, id, 90, defs))}>↻ Rotate</button>
           )}
           {(!isDeck || isPlace) && free > 0 && <button onClick={() => setPutUnder({ stackId: selectedStack.id })}>⤵ Put under…</button>}
@@ -586,7 +592,7 @@ export default function App() {
           {!isDeck && !isPlace && <button onClick={() => setDialog({ kind: 'rename', stackId: selectedStack.id })}>✎ Name</button>}
           <button
             onClick={() =>
-              openRules(selectedStack.deck ? DECK_RULES[selectedStack.deck] : isPlace ? DECK_RULES.encounter : cardRule(topCard && defs[topCard.id]))
+              openRules(selectedStack.deck ? DECK_RULES[selectedStack.deck] : isPlace && !isDamage ? DECK_RULES.encounter : cardRule(topCard && defs[topCard.id]))
             }
           >
             📖 Rules

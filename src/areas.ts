@@ -1,6 +1,21 @@
-import { CARD_H, CARD_W, cardBox, family, TOKEN_SIZE, type Family, type Turn } from "./cards";
+import {
+  CARD_H,
+  CARD_W,
+  cardBox,
+  family,
+  TOKEN_SIZE,
+  type Family,
+  type Turn,
+} from "./cards";
 import { DECK_SPECS, TABLE_DECKS, type DeckKind } from "./decks";
-import type { Battlefield, CardDef, EncounterPlace, Stack, StorySlot, Table } from "./types";
+import type {
+  Battlefield,
+  CardDef,
+  EncounterPlace,
+  Stack,
+  StorySlot,
+  Table,
+} from "./types";
 
 /** A framed part of the table reserved for certain cards (rulebook chapters 4 and 10). */
 export interface Area {
@@ -118,6 +133,16 @@ const home = {
   y: story.y + story.h + GAP,
   ...box(HOME_LEFT + 1 + HOME_RIGHT, 1 + HOUSE_ABOVE_SHOWS + HOUSE_BELOW_SHOWS),
 };
+/** Part of a hand card's height showing above the card lying on it: the strip of an Action Card, turned upside down. */
+const HAND_SHOWS = 0.22;
+// Right of the table decks' areas: the hand, a column of Y-cards growing down, and right of it the discard pile above
+// the Damage Card (see SPOTS). Drawn only as large as its cards need (`measure()`): this size just places its spots.
+const hand = {
+  x: deckArea(TABLE_DECKS.length).x,
+  y: character.y,
+  w: 2 * CARD_W + PLACE_GAP + AREA_PAD * 2,
+  h: 2 * CARD_H + PLACE_GAP + AREA_HEADER + AREA_PAD,
+};
 
 export const AREAS: Area[] = [
   {
@@ -155,6 +180,7 @@ export const AREAS: Area[] = [
       deck: kind,
     }),
   ),
+  { id: "hand", label: "Actions", ...hand, accepts: ["lost-pages"] },
   { id: "home", label: "Home", ...home, accepts: ["lost-pages", "encounter"] },
 ];
 
@@ -205,6 +231,20 @@ export interface Spot {
    * running right).
    */
   addsFirst?: boolean;
+  /**
+   * The fanned row has no card covering it and runs toward this side, each card lying on top of the one before, of which
+   * the `shows` part is left showing (the hand in the Actions area: down, the top of each card showing above the next).
+   */
+  overlaps?: Side;
+  /** Its cards lie turned 180° (the Actions area's), so they can't be rotated there. */
+  upsideDown?: boolean;
+  /**
+   * A pile dropped on its row (of any number of cards, `fan.count: Infinity`) is spread out on it, one card per place,
+   * its bottom card first (`settleSpots()`): the hand, taking back the cards under the Damage Card or the discard pile.
+   */
+  takesPiles?: boolean;
+  /** Cards dropped on its pile go under it, not on top (the Damage Card, with the Action Cards lost as damage under it). */
+  slidesUnder?: boolean;
 }
 
 type Point = { x: number; y: number };
@@ -214,9 +254,22 @@ function fanMax(spot: Spot): number {
   return spot.fan?.count ?? 1;
 }
 
-/** Whether a spot lies below or above the card covering it, so its row runs down or up. */
-function vertical(spot: Spot): boolean {
+const OPPOSITE: Record<Side, Side> = {
+  left: "right",
+  right: "left",
+  top: "bottom",
+  bottom: "top",
+};
+
+/** Which way a fanned spot's row runs: away from the card covering it, the way its cards lie on each other, else right. */
+function growth(spot: Spot): Side {
   const side = coveredSide(spot);
+  return spot.overlaps ?? (side ? OPPOSITE[side] : "right");
+}
+
+/** Whether a spot's row runs down or up. */
+function vertical(spot: Spot): boolean {
+  const side = growth(spot);
   return side === "top" || side === "bottom";
 }
 
@@ -228,8 +281,8 @@ function lyingSize(spot: Spot): { w: number; h: number } {
 
 /** Signed distance between the places of a fanned spot (negative: the row grows to the left or up). */
 function fanStep(spot: Spot): number {
-  const side = coveredSide(spot);
-  const dir = side === "right" || side === "bottom" ? -1 : 1;
+  const side = growth(spot);
+  const dir = side === "left" || side === "top" ? -1 : 1;
   const size = lyingSize(spot);
   return dir * (spot.shows ?? 0.5) * (vertical(spot) ? size.h : size.w);
 }
@@ -376,6 +429,28 @@ export function turnedSpot(t: Table, id: string): Spot | undefined {
   return spotsOf(t).find((s) => s.turn && stacksOnSpot(t, s).includes(id));
 }
 
+/** Whether pile `id` lies on a spot taking the cards dropped on it underneath (the Damage Card's). */
+export function slidesUnder(t: Table, id: string): boolean {
+  return spotsOf(t).some((s) => s.slidesUnder && stacksOnSpot(t, s).includes(id));
+}
+
+/** The spot laying the cards on it upside down (the Actions area's) that pile `id` lies on, if any. */
+export function upsideDownSpot(t: Table, id: string): Spot | undefined {
+  return spotsOf(t).find(
+    (s) => s.upsideDown && stacksOnSpot(t, s).includes(id),
+  );
+}
+
+/**
+ * Which side of a spot's free place lies under a card, so only the rest of it shows: under the card covering the spot,
+ * or, in a row whose cards lie on the one before, under its last card.
+ */
+export function freeCovered(t: Table, spot: Spot): Side | null {
+  if (spot.overlaps)
+    return fanRow(t, spot).length ? OPPOSITE[spot.overlaps] : null;
+  return coveredSide(spot);
+}
+
 /** Which side of a spot's card is covered by the card of the spot it lies under. */
 export function coveredSide(spot: Spot): Side | null {
   // Where they lie in `SPOTS`: moved with their area, they lie the same way side by side.
@@ -419,6 +494,7 @@ const regionGrid = {
   x: map.x + AREA_PAD + marketStrip,
   y: map.y + AREA_HEADER,
 };
+const handSpot = { x: hand.x + AREA_PAD, y: hand.y + AREA_HEADER };
 /** Place of the i-th Region Card (left to right, top to bottom): a portrait card's, the Region Card lies across it. */
 const regionPlace = (i: number) => ({
   x: regionGrid.x + (i % 2) * CARD_H + (CARD_H - CARD_W) / 2,
@@ -566,6 +642,51 @@ export const SPOTS: Spot[] = [
     fillsArea: true,
     fan: { count: 1 },
   },
+  // The Y-cards in the hand (Action Cards, rulebook 4.7.7), upside down, so the strip printed upside down at the bottom
+  // of an Action Card reads the right way up at the top. Each lies on the one before, a little lower, leaving the top
+  // of the one before showing (`HAND_SHOWS`). Y-cards dropped anywhere in the area but on the discard pile go into
+  // it. Any number of them: the area grows down with the column.
+  {
+    id: "hand",
+    label: "Hand",
+    hint: "Y-Cards",
+    area: "hand",
+    family: "lost-pages",
+    attracts: false,
+    ...handSpot,
+    shows: HAND_SHOWS,
+    fan: { count: Infinity },
+    overlaps: "bottom",
+    fillsArea: true,
+    upsideDown: true,
+    takesPiles: true,
+  },
+  // Right of the hand: the cards played from it (rulebook 8.2.1.1.1), upside down too, in one pile.
+  {
+    id: "discard",
+    label: "Discard",
+    hint: "Y-Cards",
+    area: "hand",
+    family: "lost-pages",
+    attracts: false,
+    x: handSpot.x + CARD_W + PLACE_GAP,
+    y: handSpot.y,
+    upsideDown: true,
+  },
+  // Below the discard pile: the Damage Card, upright and there for good (a fixed place, `pinnedOnTop()` in actions.ts),
+  // with the Action Cards discarded as damage under it (rulebook 4.7.9), so they aren't mixed up with the played ones.
+  // Cards dropped on it go under it.
+  {
+    id: "damage",
+    label: "Damage Card",
+    hint: "Y010",
+    area: "hand",
+    family: "lost-pages",
+    attracts: false,
+    x: handSpot.x + CARD_W + PLACE_GAP,
+    y: handSpot.y + CARD_H + PLACE_GAP,
+    slidesUnder: true,
+  },
   // In the middle of the Home area. The House Card is a Y-card; its extensions lie under it (rulebook 10).
   {
     id: "house",
@@ -665,7 +786,11 @@ export const STORY_SLOTS = {
  * bottom of theirs (`pinned()` in actions.ts), the Encounter Deck on one of them (`deckStack()`); the used Encounter
  * Cards lie on the third until they go back under the deck. Each holds Encounter Cards only.
  */
-export const ENCOUNTER_PLACES: { place: EncounterPlace; label: string; hint?: string }[] = [
+export const ENCOUNTER_PLACES: {
+  place: EncounterPlace;
+  label: string;
+  hint?: string;
+}[] = [
   { place: "time-passes", label: "Time Passes" },
   { place: "next-chapter", label: "Next Chapter" },
   { place: "used", label: "Used Cards", hint: "Encounter Cards" },
@@ -743,7 +868,7 @@ type Rect = { x: number; y: number; w: number; h: number };
  * piles lying on or overlapping them. Each grows around the cards added to it, pushing the areas right of it and below
  * it away (`settleLayout()`); the Encounter Bar only grows right, pushing the Encounter Deck area along.
  */
-const GROWING = ["bar", "character", "storage", "home"];
+const GROWING = ["bar", "character", "storage", "hand", "home"];
 
 const NO_SHIFT: Point = { x: 0, y: 0 };
 
@@ -911,8 +1036,8 @@ const DECK_COLS = 2;
 
 /**
  * Where the areas lie packed together, each `GAP` from the one before however they grew: the Map with the Encounter
- * Bar and the Encounter Deck right of it; below them the Character, Storage and Storybook areas, each right of the one before, and the table
- * decks' areas two by two right of the Storybook; the Home area below the Character and Storage areas (and below any
+ * Bar and the Encounter Deck right of it; below them the Character, Storage and Storybook areas, each right of the one before, the table
+ * decks' areas two by two right of the Storybook, and the Actions area right of them; the Home area below the Character and Storage areas (and below any
  * other area it reaches under), and the battlefield below them all, at the left edge.
  */
 function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
@@ -937,7 +1062,14 @@ function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
   TABLE_DECKS.forEach((kind, i) => {
     const left = i % DECK_COLS ? laid.get(TABLE_DECKS[i - 1])! : story;
     const above = i >= DECK_COLS ? laid.get(TABLE_DECKS[i - DECK_COLS]) : null;
-    put(kind, { x: rightOf(left) + GAP, y: above ? bottomOf(above) + GAP : top });
+    put(kind, {
+      x: rightOf(left) + GAP,
+      y: above ? bottomOf(above) + GAP : top,
+    });
+  });
+  put("hand", {
+    x: Math.max(...TABLE_DECKS.map((kind) => rightOf(laid.get(kind)!))) + GAP,
+    y: top,
   });
   // Below every area it reaches under (always the Character area).
   const homeRight = character.x + now.get("home")!.w;
@@ -947,7 +1079,10 @@ function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
     .filter((r) => r.x < homeRight + GAP && rightOf(r) + GAP > character.x);
   put("home", { x: character.x, y: Math.max(...over.map(bottomOf)) + GAP });
   if (now.has("battlefield"))
-    put("battlefield", { x: BATTLEFIELD_ORIGIN.x, y: battlefieldTop([...laid.values()]) });
+    put("battlefield", {
+      x: BATTLEFIELD_ORIGIN.x,
+      y: battlefieldTop([...laid.values()]),
+    });
   return laid;
 }
 
@@ -975,8 +1110,11 @@ function pushAside(laid: Rect[], r: Rect): Rect {
     const left = { ...r, x: Math.floor(hit.x - GAP - r.w) };
     const up = { ...r, y: Math.floor(hit.y - GAP - r.h) };
     const far = (c: Rect) => Math.abs(c.x - r.x) + Math.abs(c.y - r.y);
-    const nearest = (cs: Rect[]) => cs.reduce((a, c) => (far(c) < far(a) ? c : a));
-    const free = [right, down, left, up].filter((c) => !laid.some((l) => crowd(l, c)));
+    const nearest = (cs: Rect[]) =>
+      cs.reduce((a, c) => (far(c) < far(a) ? c : a));
+    const free = [right, down, left, up].filter(
+      (c) => !laid.some((l) => crowd(l, c)),
+    );
     if (free.length) return nearest(free);
     r = nearest([right, down]);
   }
@@ -984,7 +1122,9 @@ function pushAside(laid: Rect[], r: Rect): Rect {
 
 /** Where the player put each area (`Table.anchors`): an area not put anywhere yet (a new battlefield) where it lies. */
 function anchorsOf(t: Table, areas: Area[]): Record<string, Point> {
-  return Object.fromEntries(areas.map((a) => [a.id, t.anchors?.[a.id] ?? { x: a.x, y: a.y }]));
+  return Object.fromEntries(
+    areas.map((a) => [a.id, t.anchors?.[a.id] ?? { x: a.x, y: a.y }]),
+  );
 }
 
 /**
@@ -992,13 +1132,24 @@ function anchorsOf(t: Table, areas: Area[]): Record<string, Point> {
  * its way, which pushes it aside (`pushAside()`). They are laid out top to bottom, then left to right, so an area
  * growing pushes the areas below and right of it away, and they move back as it shrinks; `first` goes first.
  */
-function anchoredPlaces(areas: Area[], anchors: Record<string, Point>, first?: string): Map<string, Rect> {
+function anchoredPlaces(
+  areas: Area[],
+  anchors: Record<string, Point>,
+  first?: string,
+): Map<string, Rect> {
   const rank = (a: Area) => (a.id === first ? 0 : 1);
   const order = [...areas].sort(
-    (a, b) => rank(a) - rank(b) || anchors[a.id].y - anchors[b.id].y || anchors[a.id].x - anchors[b.id].x,
+    (a, b) =>
+      rank(a) - rank(b) ||
+      anchors[a.id].y - anchors[b.id].y ||
+      anchors[a.id].x - anchors[b.id].x,
   );
   const laid = new Map<string, Rect>();
-  for (const a of order) laid.set(a.id, pushAside([...laid.values()], { ...anchors[a.id], w: a.w, h: a.h }));
+  for (const a of order)
+    laid.set(
+      a.id,
+      pushAside([...laid.values()], { ...anchors[a.id], w: a.w, h: a.h }),
+    );
   return laid;
 }
 
@@ -1014,12 +1165,31 @@ export function snapArea(t: Table, id: string, x: number, y: number): Point {
   if (!a) return { x: Math.round(x), y: Math.round(y) };
   const others = areas.filter((o) => o.id !== id);
   const snap = (v: number, lines: number[]) => {
-    const l = lines.reduce((a, c) => (Math.abs(c - v) < Math.abs(a - v) ? c : a), Infinity);
+    const l = lines.reduce(
+      (a, c) => (Math.abs(c - v) < Math.abs(a - v) ? c : a),
+      Infinity,
+    );
     return Math.round(Math.abs(l - v) < SNAP ? l : v);
   };
   return {
-    x: snap(x, others.flatMap((o) => [o.x, rightOf(o) + GAP, rightOf(o) - a.w, o.x - GAP - a.w])),
-    y: snap(y, others.flatMap((o) => [o.y, bottomOf(o) + GAP, bottomOf(o) - a.h, o.y - GAP - a.h])),
+    x: snap(
+      x,
+      others.flatMap((o) => [
+        o.x,
+        rightOf(o) + GAP,
+        rightOf(o) - a.w,
+        o.x - GAP - a.w,
+      ]),
+    ),
+    y: snap(
+      y,
+      others.flatMap((o) => [
+        o.y,
+        bottomOf(o) + GAP,
+        bottomOf(o) - a.h,
+        o.y - GAP - a.h,
+      ]),
+    ),
   };
 }
 
@@ -1027,7 +1197,12 @@ export function snapArea(t: Table, id: string, x: number, y: number): Point {
  * Where the player puts the areas by dropping area `id` with its top-left corner at (x, y) (`Table.anchors`): it lies
  * there, and the areas in its way are pushed aside and stay there. Null when the area doesn't move.
  */
-export function anchorsAfterMove(t: Table, id: string, x: number, y: number): Record<string, Point> | null {
+export function anchorsAfterMove(
+  t: Table,
+  id: string,
+  x: number,
+  y: number,
+): Record<string, Point> | null {
   const areas = allAreas(t);
   const area = areas.find((a) => a.id === id);
   if (!area || (area.x === x && area.y === y)) return null;
@@ -1040,7 +1215,11 @@ export function anchorsAfterMove(t: Table, id: string, x: number, y: number): Re
     if (a.id === id) continue;
     const p = after.get(a.id)!;
     const q = before.get(a.id)!;
-    if (p.x !== q.x || p.y !== q.y || crowd(dropped, { ...anchors[a.id], w: a.w, h: a.h }))
+    if (
+      p.x !== q.x ||
+      p.y !== q.y ||
+      crowd(dropped, { ...anchors[a.id], w: a.w, h: a.h })
+    )
       moved[a.id] = { x: p.x, y: p.y };
   }
   return moved;
@@ -1056,7 +1235,9 @@ export function settleLayout(t: Table): Table {
   const { areas, owner } = measure(t);
   const now = new Map(areas.map((a) => [a.id, a]));
   const anchors = t.anchors && anchorsOf(t, areas);
-  const places = anchors ? anchoredPlaces(areas, anchors) : packedPlaces(t, now);
+  const places = anchors
+    ? anchoredPlaces(areas, anchors)
+    : packedPlaces(t, now);
   const delta = new Map<string, Point>();
   const laid = new Map<string, Rect>();
   for (const [id, p] of places) {
@@ -1075,8 +1256,14 @@ export function settleLayout(t: Table): Table {
     !anchors ||
     (!!a &&
       Object.keys(a).length === Object.keys(anchors).length &&
-      Object.entries(anchors).every(([id, p]) => a[id]?.x === p.x && a[id]?.y === p.y));
-  if (!moves.length && GROWING.every((id) => same(t.frames?.[id], frames[id])) && kept(t.anchors))
+      Object.entries(anchors).every(
+        ([id, p]) => a[id]?.x === p.x && a[id]?.y === p.y,
+      ));
+  if (
+    !moves.length &&
+    GROWING.every((id) => same(t.frames?.[id], frames[id])) &&
+    kept(t.anchors)
+  )
     return t;
 
   const stacks = { ...t.stacks };
@@ -1207,7 +1394,10 @@ function spotAt(
   // An unlimited row reaches one place past its last card; taking new cards first, also its free place before them.
   const places = (spot: Spot) => {
     if (spot.addsFirst)
-      return [...freePlaces(t, spot), ...spotPlaces(spot, fanRow(t, spot).length)];
+      return [
+        ...freePlaces(t, spot),
+        ...spotPlaces(spot, fanRow(t, spot).length),
+      ];
     const n =
       fanMax(spot) === Infinity ? fanRow(t, spot).length + 1 : fanMax(spot);
     return spotPlaces(spot, n);
@@ -1252,7 +1442,9 @@ export function drawOrder(t: Table): string[] {
   const spots = spotsOf(t);
   for (const spot of spots) {
     if (!spot.under && !spot.fan) continue;
-    const below = stacksOnSpot(t, spot).reverse();
+    // Later places lie under earlier ones, unless each card lies on the one before (the hand).
+    const row = stacksOnSpot(t, spot);
+    const below = spot.overlaps ? row : row.reverse();
     if (!below.length) continue;
     // Under the lowest card of the covering spot (the last of a fanned row, e.g. the outer house extension).
     const cover = spots.find((s) => s.id === spot.under);
@@ -1394,9 +1586,10 @@ function ontoPlace(
   at: Point,
 ): Placement {
   const far = (p: Point) => Math.hypot(p.x - at.x, p.y - at.y);
-  const nearest = ENCOUNTER_PLACES.map(({ place }) => ({ place, ...encounterPlace(t, place) })).reduce((a, p) =>
-    far(p) < far(a) ? p : a,
-  );
+  const nearest = ENCOUNTER_PLACES.map(({ place }) => ({
+    place,
+    ...encounterPlace(t, place),
+  })).reduce((a, p) => (far(p) < far(a) ? p : a));
   return {
     x: nearest.x,
     y: nearest.y,
@@ -1444,9 +1637,9 @@ function areaSpot(
   return spot && { spot, place: { x: spot.x, y: spot.y } };
 }
 
-/** A fanned spot takes one card per place, not a pile. */
+/** A fanned spot takes one card per place, not a pile (unless it spreads a pile out on its row, as the hand does). */
 function oneEach(spot: Spot, cardIds: string[]): string | null {
-  return spot.fan && cardIds.length > 1
+  return spot.fan && !spot.takesPiles && cardIds.length > 1
     ? `Put ${FAMILY_NAMES[spot.family]} on the ${spot.label} place one at a time`
     : null;
 }

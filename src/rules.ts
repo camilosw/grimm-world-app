@@ -50,6 +50,7 @@ export const AREA_RULES: Record<string, string> = {
   enemy: '6.2.2',
   training: '6.2.3',
   banned: '4.7.10',
+  hand: '4.7.7',
 }
 
 /** Rulebook sections explaining each deck. */

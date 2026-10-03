@@ -60,14 +60,14 @@ npm run deploy     # vercel build --prod && vercel deploy --prebuilt --prod
 the cards that belong there; while you drag, it lights up green (allowed) or red (refused), and a refused card goes
 back where it came from. Space outside the areas takes any card. **📍 Areas** jumps to an area.
 
-The Map area is just large enough for its places. The Encounter Bar, Character, Storage and Home areas are only as large
+The Map area is just large enough for its places. The Encounter Bar, Character, Storage, Actions and Home areas are only as large
 as their places and the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
 overlaps most), and the frame grows around it — there is no limit.
 
 The areas lie close together, a small gap apart, in three rows: the Map with the Encounter Bar and the Encounter Deck
 right of it (the Encounter Deck area moves right as the bar grows); below them
 Character, Storage, the Storybook and the four deck areas, two by two (Quest and Enemy Deck above Training Deck and Banned
-Cards); and Home below Character and Storage. The battlefield goes below them all. A growing area pushes the areas right
+Cards), then Actions; and Home below Character and Storage. The battlefield goes below them all. A growing area pushes the areas right
 of it and below it away, with everything lying in them (cards, places, figures), and Home moves down below any area it
 grows under. An area growing toward the one before it (Storage or Home growing left with their Goods, say) moves itself
 instead. Pushed areas move back as the area pushing them shrinks. Undo puts everything back as it was.
@@ -91,6 +91,7 @@ places as it shrinks. **📍 Areas → ↺ Reset layout** packs the areas togeth
 | Enemy Deck    | the Enemy Deck: Y013 and the Enemy Cards Y800–Y849                                                                       |
 | Training Deck | the Training Deck: Y012 and the training cards Y749–Y799                                                                 |
 | Banned Cards  | the Banned Cards pile: Y011 and any banished card                                                                        |
+| Actions       | Y-Cards, upside down: the hand (a column), the discard pile and the Damage Card (see below)                              |
 | Battlefield   | Terrain Cards, Hit Point Cards, Y-Cards (enemies)                                                                        |
 
 Region, Character, Alignment, Money, Storybook, Terrain and Hit Point cards only fit in their own area.
@@ -172,6 +173,22 @@ first card of each row is slid under the outer extension, each further one under
 third, as in the Storage area, Equipment only a narrow strip. The Home area grows to the left as Goods are added and to
 the right as Equipment is added, always leaving room for the next card; since the area keeps its left edge in line with
 the Character area, the House Card moves right as Goods are added. A 17th Goods card or a 5th Equipment card is refused.
+
+**Actions.** Right of the deck areas, the Actions area holds the Y-cards in your hand (Action Cards, rulebook 4.7.7),
+their discard pile (rulebook 8.2.1.1.1) and the Damage Card (rulebook 4.7.9). Every card in the hand and the discard
+pile lies turned 180°, so the strip printed upside down at the bottom of an Action Card reads the right way up at its
+top; it can't be rotated there (**Rotate** is not offered), but it can be flipped. On the left is the **Hand**: a column of cards, each lying on the one
+before, a little lower, so that the top 22% of every card under it shows. A Y-card dropped anywhere in the area goes at
+the end of the column, on top; dropped on the column itself, it goes where you drop it. Any number of them: the area
+grows down. On the right is the **Discard** place: a Y-card or a pile of them dropped on or near it goes onto the pile
+there. Below it lies the **Damage Card** (Y010), upright, for good: a new game starts with it there (older saves get it
+there too, taken from wherever it was), and it can't be dragged, drawn, taken out (Find, Browse), returned to its deck
+or rotated. Cards dropped on it go under it, as the Action Cards discarded as damage do, so they aren't mixed up with
+the played ones; **Shuffle**, **Sort** and **Turn pile over** leave it on top. To take the cards under it back, drag
+its `⠿` grip (all of them, e.g. onto the hand or the discard pile), drag them out of **Browse**, or use **Return to
+deck**, **Put under…**: the Damage Card always stays. A pile dropped on the hand (say the cards under the Damage Card, dragged by its grip, or the discard pile) is spread
+out in the column, one card per place, in its order. The area takes nothing but Y-cards. Reordering and taking cards away work as for Money Cards. Dragged out of the area, a
+card keeps lying upside down until you rotate it.
 
 **Storybook area.** The storybook lies face down on the right; the revealed cards lie on the left, the top one being
 the current chapter. Tap the storybook to turn over its next card; tap the revealed cards to put the top one back on
