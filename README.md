@@ -220,7 +220,9 @@ last card is taken. The Training Deck and Banned Cards have no **Draw**, and dra
 under their top card out with **Browse**. The Training Deck has a **☰ Browse** button below it, for training (rulebook
 7.1.2.3.3.2: look through all its cards and buy the ones you pay for); it opens the Browse panel on the deck (tap it
 again to close it) and stays disabled while Y012 lies there alone. Cards taken out remember it, so **Return to deck** (or a drop on the sidebar)
-puts a Quest, Enemy or training card back into its deck; banished cards go back to their own decks.
+puts a Quest, Enemy or training card back into its deck; banished cards go back to their own decks. A card dragged
+from one of these decks (or out of its Browse panel) onto the sidebar goes back to the deck it came from: Lost Pages for
+the Y-cards, its own deck for a banished card.
 
 **🂠 Decks sidebar (left).** The other 8 decks of the game, sorted as in the rulebook (chapter 6.1); the table starts
 empty apart from the storybook, the Encounter Deck and the four decks in their areas. The title card is left out; it
@@ -237,7 +239,7 @@ Every card knows which deck it belongs to: the deck it last came out of (so an E
 Deck), or else the deck of its type. **Drop a card (or a whole pile) anywhere on the sidebar and it goes back into its
 own deck**; the deck lights up while you drag. It goes where the rules want it: sorted by number in Lost Pages,
 X-Encounters, Regions and Terrain, under the Encounter Deck, on top of the others. Cards can't be dragged from one
-deck to another.
+deck to another, except from the four decks built during play back to the sidebar (above).
 
 Moves between decks that the rules ask for use **Put under…** on a card or pile on the table, or on the cards selected
 in the Browse panel, then tap the deck (in the sidebar or on the table). A deck only accepts the cards it may hold:

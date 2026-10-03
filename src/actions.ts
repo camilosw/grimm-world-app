@@ -1,6 +1,6 @@
 import { allAreas, anchorsAfterMove, AREA_HEADER, AREA_PAD, areaForCard, fanRow, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, turnedSpot, upsideDownSpot } from './areas'
 import { CARD_H, CARD_W, compareCards, family, isLandscape } from './cards'
-import { DECK_SPECS, deckStack, homeDeck, storySlot, type DeckKind } from './decks'
+import { DECK_SPECS, deckStack, homeDeck, returnsCards, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
 
 // Pure table transformations. Each returns a new Table (or the same one when
@@ -424,13 +424,13 @@ function insertIntoDeck(t: Table, deck: Stack | undefined, cards: CardRef[], def
   return setStack(t, { ...deck, cards: bottom ? underneath(deck, added) : [...deck.cards, ...added] })
 }
 
-/** Send cards (already taken off the table) back to their own decks. */
-export function returnToDecks(t: Table, cards: CardRef[], defs: Record<string, CardDef>): Table {
+/** Send cards (already taken off the table, or off the deck `from`) back to their own decks. */
+export function returnToDecks(t: Table, cards: CardRef[], defs: Record<string, CardDef>, from?: DeckKind): Table {
   const groups = new Map<DeckKind, CardRef[]>()
   for (const card of cards) {
     const def = defs[card.id]
     if (!def) continue
-    const kind = homeDeck(t, def)
+    const kind = homeDeck(t, def, from)
     groups.set(kind, [...(groups.get(kind) ?? []), card])
   }
   let next = t
@@ -438,23 +438,27 @@ export function returnToDecks(t: Table, cards: CardRef[], defs: Record<string, C
   return next
 }
 
-/** A table pile (or its top card) goes back to the decks its cards belong to, but its pinned cards (the Damage Card). */
+/**
+ * A table pile (or its top card) goes back to the decks its cards belong to, but its pinned cards (the Damage Card). Of
+ * a deck built during play (`returnsCards`), its cards go back to the decks they came from; other decks keep theirs.
+ */
 export function stackToDecks(t: Table, id: string, which: 'top' | 'all', defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
-  if (!s?.cards.length || s.deck) return t
+  if (!s?.cards.length || (s.deck && !returnsCards(s.deck))) return t
   const free = unpinned(s)
   const moved = which === 'top' ? free.slice(-1) : free
   if (!moved.length) return t
   const out = new Set(moved.map((c) => c.id))
-  return returnToDecks(withCards(t, s, s.cards.filter((c) => !out.has(c.id))), moved, defs)
+  return returnToDecks(withCards(t, s, s.cards.filter((c) => !out.has(c.id))), moved, defs, s.deck)
 }
 
-/** Some cards (by index) of a table pile go back to their decks, but its pinned ones. */
+/** Some cards (by index) of a table pile, or of a deck built during play, go back to their decks, but its pinned ones. */
 export function cardsToDecks(t: Table, id: string, indices: number[], defs: Record<string, CardDef>): Table {
   const s = t.stacks[id]
-  if (!s || s.deck) return t
+  if (!s || (s.deck && !returnsCards(s.deck))) return t
   const set = new Set(indices.filter((i) => !isPinned(s, i)))
-  return returnToDecks(withCards(t, s, s.cards.filter((_, i) => !set.has(i))), s.cards.filter((_, i) => set.has(i)), defs)
+  const moved = s.cards.filter((_, i) => set.has(i))
+  return returnToDecks(withCards(t, s, s.cards.filter((_, i) => !set.has(i))), moved, defs, s.deck)
 }
 
 /** The cards of a pile that may leave it (all but its pinned ones), or only those given (in pile order). */

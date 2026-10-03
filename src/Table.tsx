@@ -27,7 +27,7 @@ import {
 } from './areas'
 import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, tokenSize, turnedClass, type Turn } from './cards'
 import { CardGhost } from './CardGhost'
-import { DECK_SPECS, deckStack, storySlot } from './decks'
+import { DECK_SPECS, deckStack, returnsCards, storySlot, type DeckKind } from './decks'
 import { update } from './store'
 import type { CardDef, CardRef, Stack, StorySlot, Table as TableState, Token, View } from './types'
 import { useFlip } from './useFlip'
@@ -53,7 +53,7 @@ interface Props {
   /** Drop zone under a screen point, if any. */
   zoneAt: (clientX: number, clientY: number) => Zone | null
   /** The dragged cards are over a drop zone (or left it: null). */
-  onZoneHover: (zone: Zone | null, cardIds: string[]) => void
+  onZoneHover: (zone: Zone | null, cardIds: string[], from?: DeckKind) => void
   /** A pile (or its top card) was dropped onto a zone. */
   onZoneDrop: (zone: Zone, stackId: string, whole: boolean) => void
   onClearBattlefield: () => void
@@ -284,8 +284,10 @@ export function TableView(props: Props) {
       }
       if (JSON.stringify(zone) !== JSON.stringify(drag?.zone ?? null) && g2.target.kind === 'stack') {
         const s = table.stacks[g2.target.id]
-        // A card taken off a deck doesn't go back to the sidebar (App refuses it), so no deck lights up.
-        onZoneHover(zone, s.deck ? [] : (g2.target.whole ? s.cards : s.cards.slice(-1)).map((c) => c.id))
+        // A card taken off a deck doesn't go back to the sidebar (App refuses it), so no deck lights up; but one taken
+        // off a deck built during play does, to the deck it came from.
+        const cards = s.deck && !returnsCards(s.deck) ? [] : g2.target.whole ? s.cards : pinnedOnTop(s) ? [] : s.cards.slice(-1)
+        onZoneHover(zone, cards.map((c) => c.id), s.deck)
       }
       let area: Drag['area'] = null
       let spot: string | null = null

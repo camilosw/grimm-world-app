@@ -183,6 +183,10 @@ export const DECK_SPECS = Object.fromEntries(
  */
 export const TABLE_DECKS: DeckKind[] = ["quest", "enemy", "training", "banned"];
 
+/** Whether cards taken off this deck may go back to the sidebar: those of the decks built during play, from their own decks. */
+export const returnsCards = (kind: DeckKind | undefined) =>
+  !!kind && TABLE_DECKS.includes(kind);
+
 /** Decks shown in the sidebar (all but the storybook, the Encounter Deck and the table decks). */
 export const SIDEBAR_DECKS = DECKS.filter(
   (d) =>
@@ -244,12 +248,18 @@ function defaultDeck(def: CardDef): DeckKind {
 
 /**
  * The deck a card belongs to: the deck it last came out of (so an Enemy Card
- * goes back to the Enemy Deck), or else the deck of its type.
+ * goes back to the Enemy Deck), or else the deck of its type. A card taken off
+ * a deck (`from`) doesn't go back into that deck.
  */
-export function homeDeck(t: Table, def: CardDef): DeckKind {
+export function homeDeck(t: Table, def: CardDef, from?: DeckKind): DeckKind {
   const origin = t.origin?.[def.id];
   // Older saves may name the Time Card deck, which is gone.
-  if (origin && origin !== "banned" && DECK_SPECS[origin]?.holds(def))
+  if (
+    origin &&
+    origin !== "banned" &&
+    origin !== from &&
+    DECK_SPECS[origin]?.holds(def)
+  )
     return origin;
   return defaultDeck(def);
 }

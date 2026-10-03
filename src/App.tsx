@@ -3,7 +3,7 @@ import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, tokenSize } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
 import { allAreas, areaForCard, battlefieldArea, battlefieldOrigin, placement, turnedSpot, upsideDownSpot, type Area } from './areas'
-import { DECK_SPECS, homeDeck, type DeckKind } from './decks'
+import { DECK_SPECS, homeDeck, returnsCards, type DeckKind } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
 import { RulesPanel } from './RulesPanel'
@@ -299,11 +299,14 @@ export default function App() {
     return null
   }
 
-  /** Cards (by id) dragged over a drop zone (or off it: null): light it up, and the sidebar decks they would go back to. */
-  const hoverZone = (zone: Zone | null, cardIds: string[]) => {
+  /**
+   * Cards (by id, taken off the deck `from` if any) dragged over a drop zone (or off it: null): light it up, and the
+   * sidebar decks they would go back to.
+   */
+  const hoverZone = (zone: Zone | null, cardIds: string[], from?: DeckKind) => {
     setZoneHover((prev) => (sameZone(prev, zone) ? prev : zone))
     if (zone && table) {
-      const kinds = new Set(cardIds.map((id) => defs[id] && homeDeck(table, defs[id])))
+      const kinds = new Set(cardIds.map((id) => defs[id] && homeDeck(table, defs[id], from)))
       setHomeHover(DECKS_IN_SIDEBAR(table).filter((d) => d.deck && kinds.has(d.deck)).map((d) => d.id))
     }
   }
@@ -321,23 +324,26 @@ export default function App() {
     return { x: (clientX - r.left - view.x) / view.scale - CARD_W / 2, y: (clientY - r.top - view.y) / view.scale - CARD_H / 2 }
   }
 
-  /** Names of the decks these cards go back to, e.g. "Lost Pages". */
-  const homeNames = (cards: CardRef[]) => {
+  /** Names of the decks these cards (taken off the deck `from` if any) go back to, e.g. "Lost Pages". */
+  const homeNames = (cards: CardRef[], from?: DeckKind) => {
     if (!table) return ''
-    const kinds = [...new Set(cards.map((c) => defs[c.id] && homeDeck(table, defs[c.id])).filter(Boolean))]
+    const kinds = [...new Set(cards.map((c) => defs[c.id] && homeDeck(table, defs[c.id], from)).filter(Boolean))]
     return kinds.map((k) => DECK_SPECS[k!].label).join(', ')
   }
 
   /** A table pile (or its top card) was dropped on the sidebar. */
   const dropOnZone = (zone: Zone, stackId: string, whole: boolean) => {
-    // Wherever it lands on the sidebar, a card goes back to its own deck; one taken off a deck on the table stays there.
+    // Wherever it lands on the sidebar, a card goes back to its own deck; one taken off the Encounter Deck stays there.
+    // One taken off a deck built during play goes back to the deck it came from (Lost Pages).
     const s = table?.stacks[stackId]
     if (!s) return
     if (zone.kind === 'tray') return setAside((t) => A.toTray(t, stackId, whole ? 'all' : 'top', zone.before))
-    if (s.deck) return zone.kind === 'deck' && notify("Cards can't move from one deck to another")
+    if (s.deck && !returnsCards(s.deck)) return zone.kind === 'deck' && notify("Cards can't move from one deck to another")
+    // A deck's card on top for good (Y012, Y011) keeps the cards under it.
+    if (!whole && A.pinnedOnTop(s)) return
     const moved = whole ? A.unpinned(s) : A.unpinned(s).slice(-1)
     if (!moved.length) return
-    notify(`Back to ${homeNames(moved)}`, true)
+    notify(`Back to ${homeNames(moved, s.deck)}`, true)
     update((t) => A.stackToDecks(t, stackId, whole ? 'all' : 'top', defs))
   }
 
@@ -349,8 +355,8 @@ export default function App() {
     const zone = zoneAt(clientX, clientY)
     if (zone?.kind === 'tray') return setAside((t) => A.toTray(t, stackId, cardIds, zone.before))
     if (zone) {
-      if (!stack?.deck) {
-        notify(`Back to ${homeNames(cardIds.map((id) => ({ id, faceUp: true })))}`, true)
+      if (!stack?.deck || returnsCards(stack.deck)) {
+        notify(`Back to ${homeNames(cardIds.map((id) => ({ id, faceUp: true })), stack?.deck)}`, true)
         return update((t) => A.cardsToDecks(t, stackId, indices, defs))
       }
       if (zone.kind === 'deck' && zone.id !== stackId) notify("Cards can't move from one deck to another")
@@ -637,7 +643,10 @@ export default function App() {
           dropAt={dropAt}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
           onDrop={(cardIds, x, y) => dropFromBrowse(browseId, cardIds, x, y)}
-          onDragHover={(cardIds, at) => hoverZone(at && zoneAt(at.x, at.y), table.stacks[browseId]?.deck ? [] : cardIds)}
+          onDragHover={(cardIds, at) => {
+            const deck = table.stacks[browseId]?.deck
+            hoverZone(at && zoneAt(at.x, at.y), deck && !returnsCards(deck) ? [] : cardIds, deck)
+          }}
           onPutUnder={(cardIds) => setPutUnder({ stackId: browseId, cardIds })}
           onClose={closeBrowse}
         />
