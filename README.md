@@ -58,6 +58,20 @@ npm run deploy     # vercel build --prod && vercel deploy --prebuilt --prod
   set, the deployment answers "ACCESS_CODE is not set". Each device asks once, then remembers the code for a year;
   changing `ACCESS_CODE` and redeploying asks every device again. `npm run dev` has no code.
 
+## 4. Commits and releases
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org) (`feat(areas): …`,
+`fix(save): …`); a hook in `.githooks/`, switched on by `npm install`, refuses others. Versions follow
+[SemVer](https://semver.org) and every release is listed in [CHANGELOG.md](CHANGELOG.md). To release:
+
+```bash
+npm run release              # bump the version, add the commits since the last tag to CHANGELOG.md, commit, tag
+git push --follow-tags origin main
+```
+
+Before 1.0, `feat` bumps the patch number and a breaking change (`feat!:`) the minor one; pick the bump yourself with
+`npm run release -- --release-as minor` (or `patch`, `major`, `1.0.0`). Add `--dry-run` to preview.
+
 ## Controls
 
 **Areas.** The table has a framed area for each part of the game (rulebook chapters 4 and 10). An area only takes

@@ -1,14 +1,20 @@
 {
   "name": "grimm-world",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.5.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/camilosw/grimm-world-app.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "deploy": "vercel build --prod && vercel deploy --prebuilt --prod"
+    "deploy": "vercel build --prod && vercel deploy --prebuilt --prod",
+    "release": "commit-and-tag-version",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@vercel/functions": "^3.9.11",
@@ -20,6 +26,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "commit-and-tag-version": "^13.2.1",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
