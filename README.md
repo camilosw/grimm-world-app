@@ -52,7 +52,11 @@ npm run deploy     # vercel build --prod && vercel deploy --prebuilt --prod
 - Run the scripts from step 1 first, so `public/` is complete before `npm run deploy`.
 - If the project is connected to GitHub, turn off Git deployments in the project settings.
 - If Vercel doesn't detect Vite, set the build command to `npm run build` and the output directory to `dist`.
-- The card art is copyrighted: the deployed URL is public unless you enable deployment protection.
+- The card art is copyrighted, so the deployed app asks for a 6-character access code (letters and digits, not
+  case-sensitive) before it shows anything (`middleware.ts`). The code is not in the repository: set it once in the
+  Vercel project under **Settings → Environment Variables** as `ACCESS_CODE` (Production), then deploy. Until it is
+  set, the deployment answers "ACCESS_CODE is not set". Each device asks once, then remembers the code for a year;
+  changing `ACCESS_CODE` and redeploying asks every device again. `npm run dev` has no code.
 
 ## Controls
 
