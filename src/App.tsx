@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, tokenSize } from './cards'
-import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
+import { BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
+import { BattlefieldBar } from './BattlefieldBar'
 import { allAreas, areaForCard, battlefieldInUse, COMBAT_AREAS, facedSpot, onGrid, placement, PLAY_AREAS, turnedSpot, upsideDownSpot, type Area } from './areas'
 import { DECK_SPECS, homeDeck, returnsCards, storySlot, type DeckKind } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
@@ -19,7 +20,6 @@ type Dialog =
   | { kind: 'rename'; stackId: string }
   | { kind: 'menu' }
   | { kind: 'tokens' }
-  | { kind: 'battle' }
   | { kind: 'areas' }
   | { kind: 'chapter'; stackId: string; cardIds?: string[] }
   | null
@@ -101,6 +101,11 @@ export default function App() {
   const [rulesTarget, setRulesTarget] = useState<RuleTarget | null>(null)
   /** Sidebar decks a dragged card would go back to. */
   const [homeHover, setHomeHover] = useState<string[]>([])
+  /** The battlefield being typed in the bar at the top of the table (null: the bar is closed). */
+  const [battleText, setBattleText] = useState<string | null>(null)
+  /** Screen pixels hidden at the top of the table by that bar and at its bottom by the on-screen keyboard. */
+  const [inset, setInset] = useState({ top: 0, bottom: 0 })
+  const setBarHeight = useCallback((top: number) => setInset((i) => (i.top === top ? i : { ...i, top })), [])
   // Where cards dragged in from outside the table (sidebar, set-aside cards, Browse panel) would land on it.
   const [incoming, setIncoming] = useState<Incoming | null>(null)
   const noticeTimer = useRef<number | undefined>(undefined)
@@ -114,23 +119,24 @@ export default function App() {
     [manifest],
   )
 
-  /** The view in which the given table rectangle fills the screen. */
-  const rectView = useCallback((minX: number, minY: number, maxX: number, maxY: number): View | null => {
+  /** The view in which the given table rectangle fills the screen, but `inset` pixels at its top and bottom. */
+  const rectView = useCallback((minX: number, minY: number, maxX: number, maxY: number, inset = { top: 0, bottom: 0 }): View | null => {
     const el = areaRef.current
     if (!el) return null
     const pad = 40
-    const scale = clampScale(Math.min(1, (el.clientWidth - pad * 2) / (maxX - minX), (el.clientHeight - pad * 2) / (maxY - minY)))
+    const h = el.clientHeight - inset.top - inset.bottom
+    const scale = clampScale(Math.min(1, (el.clientWidth - pad * 2) / (maxX - minX), (h - pad * 2) / (maxY - minY)))
     return {
       scale,
       x: (el.clientWidth - (maxX - minX) * scale) / 2 - minX * scale,
-      y: (el.clientHeight - (maxY - minY) * scale) / 2 - minY * scale,
+      y: inset.top + (h - (maxY - minY) * scale) / 2 - minY * scale,
     }
   }, [])
 
-  /** Zoom and pan so that the given table rectangle fills the screen. */
+  /** Zoom and pan so that the given table rectangle fills the screen (but `inset` pixels at its top and bottom). */
   const fitRect = useCallback(
-    (minX: number, minY: number, maxX: number, maxY: number) => {
-      const v = rectView(minX, minY, maxX, maxY)
+    (minX: number, minY: number, maxX: number, maxY: number, inset?: { top: number; bottom: number }) => {
+      const v = rectView(minX, minY, maxX, maxY, inset)
       if (v) setView(v)
     },
     [rectView],
@@ -192,6 +198,7 @@ export default function App() {
         setSelection(null)
         setPutUnder(null)
         setBrowseId(null)
+        setBattleText(null)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -202,6 +209,42 @@ export default function App() {
   const selectedStack = rawSelection?.kind === 'stack' ? table?.stacks[rawSelection.id] : undefined
   const selectedToken = rawSelection?.kind === 'token' ? table?.tokens.find((t) => t.id === rawSelection.id) : undefined
   const selection = selectedStack || selectedToken ? rawSelection : null
+
+  // The battlefield typed in the bar, and the table with it laid out, shown meanwhile.
+  const battleLayout = useMemo(() => (battleText === null ? null : A.parseBattlefield(battleText)), [battleText])
+  const battlePreview = useMemo(
+    () => (battleLayout && table ? A.settle(A.buildBattlefield(table, battleLayout.rows, defs)) : null),
+    [battleLayout, table, defs],
+  )
+  const typing = battleText !== null
+
+  // While it is typed, the battlefield as it would lie fills the table below the bar, above the on-screen keyboard.
+  const battleBox = battlePreview && allAreas(battlePreview).find((a) => a.id === 'battlefield')
+  const battleFit = battleBox && [battleBox.x, battleBox.y, battleBox.w, battleBox.h, inset.top, inset.bottom].join()
+  useEffect(() => {
+    if (battleBox) fitRect(battleBox.x, battleBox.y, battleBox.x + battleBox.w, battleBox.y + battleBox.h, inset)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the battlefield or the room for it changes
+  }, [battleFit])
+
+  // The on-screen keyboard: where the browser reports it (`visualViewport`), the part of the table it hides.
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!typing || !vv) return
+    const measure = () => {
+      const el = areaRef.current
+      if (!el) return
+      const bottom = Math.max(0, Math.round(el.getBoundingClientRect().bottom - (vv.offsetTop + vv.height)))
+      setInset((i) => (i.bottom === bottom ? i : { ...i, bottom }))
+    }
+    measure()
+    vv.addEventListener('resize', measure)
+    vv.addEventListener('scroll', measure)
+    return () => {
+      vv.removeEventListener('resize', measure)
+      vv.removeEventListener('scroll', measure)
+      setInset((i) => ({ ...i, bottom: 0 }))
+    }
+  }, [typing])
 
   const notify = (text: string, ok = false) => {
     setNotice({ text, ok })
@@ -495,9 +538,17 @@ export default function App() {
     })
   }
 
-  const buildBattlefield = (rows: (A.TerrainSlot | null)[][]) => {
-    update((t) => A.buildBattlefield(t, rows, defs))
+  /** Open the bar for typing the battlefield, filled in with the one lying on the table. */
+  const typeBattlefield = () => {
+    setBattleText(A.battlefieldText(table!, defs))
     setSelection(null)
+    setPutUnder(null)
+  }
+
+  const layOutBattlefield = () => {
+    if (!battleLayout) return
+    update((t) => A.buildBattlefield(t, battleLayout.rows, defs))
+    setBattleText(null)
     const area = allAreas(getTable() ?? table!).find((a) => a.id === 'battlefield')
     if (area) showArea(area)
   }
@@ -584,7 +635,7 @@ export default function App() {
         <button onClick={() => setDialog({ kind: 'areas' })}>
           📍 <span>Areas</span>
         </button>
-        <button onClick={() => setDialog({ kind: 'battle' })}>
+        <button onClick={() => (typing ? setBattleText(null) : typeBattlefield())} className={typing ? 'on' : ''}>
           ⚔ <span>Battle</span>
         </button>
         <button
@@ -645,6 +696,8 @@ export default function App() {
           onZoneHover={hoverZone}
           onZoneDrop={dropOnZone}
           onClearBattlefield={() => update((t) => A.clearBattlefield(t, defs))}
+          onTypeBattlefield={typeBattlefield}
+          preview={battlePreview}
           onRefuse={notify}
           onSlotTap={(slot) => {
             if (slot === 'story' && A.storyToBar(table, defs)) notify('Sub-chapter card placed in the Encounter Bar', true)
@@ -668,6 +721,17 @@ export default function App() {
           browsing={browseId}
           incoming={incoming}
         />
+        {battleLayout && (
+          <BattlefieldBar
+            text={battleText!}
+            layout={battleLayout}
+            defs={defs}
+            onText={setBattleText}
+            onLayOut={layOutBattlefield}
+            onClose={() => setBattleText(null)}
+            onHeight={setBarHeight}
+          />
+        )}
         {notice && <div className={`notice${notice.ok ? ' ok' : ''}`}>{notice.text}</div>}
         {putUnder && (
           <div className="banner">
@@ -812,22 +876,6 @@ export default function App() {
           dropAt={dropAt}
           onShow={showStack}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
-          onClose={() => setDialog(null)}
-        />
-      )}
-      {dialog?.kind === 'battle' && (
-        <BattlefieldDialog
-          table={table}
-          defs={defs}
-          onBuild={buildBattlefield}
-          onRules={() => {
-            setDialog(null)
-            openRules('8.1.2')
-          }}
-          onClear={() => {
-            update((t) => A.clearBattlefield(t, defs))
-            setDialog(null)
-          }}
           onClose={() => setDialog(null)}
         />
       )}

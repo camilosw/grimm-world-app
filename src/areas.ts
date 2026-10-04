@@ -1212,6 +1212,14 @@ function gridPiles(t: Table, g: GridId): Map<string, string> {
   return grid;
 }
 
+/** The piles lying on a grid's places, with their place (`col`, `row`, which may be negative: grids grow every way). */
+export function gridCells(t: Table, g: GridId): { col: number; row: number; id: string }[] {
+  return [...gridPiles(t, g)].map(([key, id]) => {
+    const [col, row] = key.split(",").map(Number);
+    return { col, row, id };
+  });
+}
+
 /** The piles lying on the grids' places, face up: Region Cards on the Map, Terrain Cards on the battlefield. */
 export function allGridPiles(t: Table): string[] {
   return GRIDS.flatMap((g) => [...gridPiles(t, g).values()]);

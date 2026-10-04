@@ -853,9 +853,47 @@ button.on {
 
 /* ---------- battlefield ---------- */
 
-.battle-input {
+/* Docked at the top of the table while a battlefield is typed: the right sidebar of cards set aside stays beside it. */
+.battle-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--gold);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.battle-bar label {
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.battle-bar label small {
+  font-size: inherit;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.battle-field {
   flex: 1;
-  min-width: 240px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.battle-field .dialog-note {
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.battle-input {
+  width: 100%;
   font:
     16px/1.4 ui-monospace,
     "SF Mono",
@@ -866,7 +904,7 @@ button.on {
   border: 1px solid #54443a;
   border-radius: var(--radius);
   padding: 10px 12px;
-  resize: vertical;
+  resize: none;
   user-select: text;
   -webkit-user-select: text;
 }
@@ -877,35 +915,19 @@ button.on {
   gap: 8px;
 }
 
-.battle-preview {
-  display: grid;
-  justify-content: center;
-  padding: 8px 16px 16px;
-  overflow: auto;
+/* A Terrain Card of the battlefield being typed: where it will lie, not there yet. */
+.stack.previewed {
+  opacity: 0.6;
 }
 
-.battle-cell {
-  position: relative;
-  aspect-ratio: 1050 / 750;
-  background: rgba(255, 255, 255, 0.03);
-  outline: 1px dashed rgba(255, 255, 255, 0.08);
-}
-
-.battle-cell img {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.battle-label {
-  position: absolute;
-  left: 4px;
-  top: 4px;
-  padding: 1px 6px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.7);
+/* In the empty battlefield's first place: type its layout instead. */
+.spot-button {
+  margin: 18px auto 0;
+  font-size: 24px;
+  padding: 10px 20px;
+  min-height: 0;
+  border-radius: 14px;
+  pointer-events: auto;
 }
 
 .dialog-note {
@@ -1343,8 +1365,10 @@ button.on {
   color: rgba(255, 245, 225, 0.4);
 }
 
-/* The battlefield's button, clear of the grip in the top-right corner. */
-.area-header > button {
+/* The battlefield's buttons, clear of the grip in the top-right corner. */
+.area-buttons {
+  display: flex;
+  gap: 12px;
   margin-right: 34px;
 }
 

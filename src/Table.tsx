@@ -16,6 +16,7 @@ import {
   holdsOne,
   freePlaces,
   gridFaceUp,
+  gridCells,
   gridOf,
   placement,
   placeStack,
@@ -71,6 +72,13 @@ interface Props {
   /** A pile (or its top card) was dropped onto a zone. */
   onZoneDrop: (zone: Zone, stackId: string, whole: boolean) => void
   onClearBattlefield: () => void
+  /** Open the bar for typing the battlefield (the Battlefield's header, its empty first place). */
+  onTypeBattlefield: () => void
+  /**
+   * The table with the battlefield being typed laid out: shown instead, its Terrain Cards faded, while the table can
+   * only be panned and zoomed.
+   */
+  preview?: TableState | null
   /** A drop was refused because the cards don't belong in that area. */
   onRefuse: (message: string) => void
   /** A tap on the storybook (reveal) or on its revealed cards (put back). */
@@ -219,7 +227,9 @@ export function TableView(props: Props) {
     const tokenEl = el.closest<HTMLElement>('[data-token]')
     const areaEl = el.closest<HTMLElement>('[data-area-grip]')
     let target: Target = { kind: 'bg' }
-    if (areaEl) target = { kind: 'area', id: areaEl.dataset.areaGrip! }
+    if (props.preview) {
+      // Only panned and zoomed: what it shows isn't the table yet.
+    } else if (areaEl) target = { kind: 'area', id: areaEl.dataset.areaGrip! }
     else if (tokenEl) target = { kind: 'token', id: tokenEl.dataset.token! }
     else if (stackEl) {
       const id = stackEl.dataset.stack!
@@ -435,12 +445,13 @@ export function TableView(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only where the area is dropped matters, not the rest of the drag
     [table, movingArea, drag?.x, drag?.y],
   )
-  const shownTable = areaPreview ?? (fanTo && dragStack ? settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y)) : table)
+  const shownTable = props.preview ?? areaPreview ?? (fanTo && dragStack ? settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y)) : table)
   const spots = spotsOf(shownTable)
   // What a drag lights up: a drag on the table, else cards dragged in from outside it.
   const hl: Incoming | null = drag ?? props.incoming ?? null
   const sliding = new Set(spots.filter((s) => s.fan).flatMap((s) => fanRow(shownTable, s)))
   const covered = new Map(spots.filter((s) => s.under || s.underPile).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
+  const previewed = new Set(props.preview ? gridCells(props.preview, 'battlefield').map((c) => c.id) : [])
   const turned = new Map(spots.flatMap((s) => (s.turn ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const) : [])))
 
   /** A spot's placeholders: its free place(s), only the part showing beside a card covering it. */
@@ -525,13 +536,16 @@ export function TableView(props: Props) {
             key={area.id}
             area={area}
             state={movingArea === area.id ? 'moving' : hl?.area?.id === area.id ? (hl.area.ok ? 'accept' : 'refuse') : null}
-            onClear={area.id === 'battlefield' && battlefieldInUse(shownTable) ? props.onClearBattlefield : undefined}
+            onClear={area.id === 'battlefield' && !props.preview && battlefieldInUse(shownTable) ? props.onClearBattlefield : undefined}
+            onType={area.id === 'battlefield' && !props.preview ? props.onTypeBattlefield : undefined}
             onRules={() => props.onAreaRules(area.id)}
           />
         ))}
         {/* The grids' free places (the Map's, the battlefield's): the first one, then a strip on each free side of their cards. */}
+        {/* While a battlefield is typed, only its first place: there are no cards to lay beside yet. */}
         {(['map', 'battlefield'] as const).flatMap((g) =>
-          gridPlaces(shownTable, g, dragStack ? movingPile(dragStack) : null).map((p) => {
+          gridPlaces(shownTable, g, dragStack ? movingPile(dragStack) : null).flatMap((p) => {
+            if (g === 'battlefield' && props.preview && p.side) return []
             const hover = hl?.area?.id === g && hl.to?.x === p.x && hl.to?.y === p.y
             const state = hover ? (hl.area?.ok ? ' accept' : ' refuse') : ''
             return (
@@ -546,6 +560,11 @@ export function TableView(props: Props) {
                   <span>
                     {GRID_START[g].label}
                     <small>{GRID_START[g].hint}</small>
+                    {g === 'battlefield' && !props.preview && (
+                      <button className="spot-button" data-ui onClick={props.onTypeBattlefield}>
+                        ⌨ or type the layout
+                      </button>
+                    )}
                   </span>
                 )}
               </div>
@@ -636,6 +655,7 @@ export function TableView(props: Props) {
               covered={covered.get(id) ?? null}
               turn={turned.get(id) ?? null}
               sliding={sliding.has(id)}
+              previewed={previewed.has(id)}
               fixed={!!s.deck && !s.place}
               countless={ENCOUNTER_PLACES.some((p) => p.place === s.place)}
               shuffle={props.shuffled?.id === id ? props.shuffled.n : null}
@@ -715,10 +735,12 @@ interface AreaViewProps {
   /** Cards dragged over it are taken or refused; or it is being moved. */
   state: 'accept' | 'refuse' | 'moving' | null
   onClear?: () => void
+  /** The battlefield's: type its layout. */
+  onType?: () => void
   onRules: () => void
 }
 
-function AreaView({ area, state, onClear, onRules }: AreaViewProps) {
+function AreaView({ area, state, onClear, onType, onRules }: AreaViewProps) {
   return (
     <div
       className={`area area-${area.id}${area.deck ? ' area-deck' : ''}${state ? ` ${state}` : ''}`}
@@ -736,10 +758,19 @@ function AreaView({ area, state, onClear, onRules }: AreaViewProps) {
           </button>
           {acceptsText(area) !== area.label && <small>{acceptsText(area)}</small>}
         </span>
-        {onClear && (
-          <button data-ui onClick={onClear}>
-            ↩ Return to deck
-          </button>
+        {(onType || onClear) && (
+          <span className="area-buttons">
+            {onType && (
+              <button data-ui onClick={onType}>
+                ⌨ Type
+              </button>
+            )}
+            {onClear && (
+              <button data-ui onClick={onClear}>
+                ↩ Return to deck
+              </button>
+            )}
+          </span>
         )}
       </div>
     </div>
@@ -759,6 +790,8 @@ interface StackViewProps {
   turn?: Turn | null
   /** Lies in a row of Money Cards or Goods, whose cards slide when it rearranges. */
   sliding: boolean
+  /** A Terrain Card of the battlefield being typed, not on the table yet. */
+  previewed?: boolean
   /** A deck lying on its place in its area, named by it: it shows how many cards it holds but can't be moved as a whole. */
   fixed?: boolean
   /** An Encounter Deck place: its grip doesn't show how many cards it holds, so the deck's size stays unknown. */
@@ -770,7 +803,7 @@ interface StackViewProps {
 /** Most cards shown splitting and sliding back together while a pile is shuffled. */
 const SHUFFLE_CARDS = 4
 
-function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding, fixed, countless, shuffle }: StackViewProps) {
+function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding, previewed, fixed, countless, shuffle }: StackViewProps) {
   const top = stack.cards[stack.cards.length - 1]
   const count = stack.cards.length
   const landscape = isLandscape(defs[top.id]) || !!turn
@@ -778,7 +811,7 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
   const faceUp = useFlip(cardRef, top, landscape ? 'x' : 'y')
   const depth = Math.min(8, Math.ceil(Math.log2(count + 1)))
   const shadow = Array.from({ length: depth }, (_, i) => `${i + 1}px ${(i + 1) * 1.5}px 0 ${i % 2 ? '#3a2e24' : '#d8cdb8'}`)
-  const classes = ['stack', selected && 'selected', dropTarget && 'drop-target', lifted && 'lifted', covered && `covered-${covered}`, sliding && 'sliding']
+  const classes = ['stack', selected && 'selected', dropTarget && 'drop-target', lifted && 'lifted', covered && `covered-${covered}`, sliding && 'sliding', previewed && 'previewed']
     .filter(Boolean)
     .join(' ')
   return (

@@ -360,7 +360,7 @@ deck** and **Name**.
 real pages, a contents list, search (e.g. "fate number", "banish"; in the panel's top bar, or on a row of its own below
 it when the panel is too narrow) and zoom. Drag its left edge to make it wider or narrower — as far as almost the left edge of the screen, over the table and sidebar. It remembers the page you
 were reading and its width. The **ⓘ** next to an area's name,
-**📖 Rules** in the action bar of a selected deck or card, in the card viewer and in the Battle dialog open the rulebook
+**📖 Rules** in the action bar of a selected deck or card and in the card viewer open the rulebook
 at the section that explains it. **Booklets** at the top of the panel switches to the six rule booklets
 (`game-files/GrimmWorld_ENG_RuleBooklets_A4.pdf`, "The Encyclopedia"): tap a cover to open it. Two reading modes,
 switched with the buttons at the top: **📖 Two pages** — the booklet lies open with facing pages, as printed, and you
@@ -418,8 +418,15 @@ right to mark the reaction as spent, back to the left in the Refresh Phase (rule
 Card once the enemy is defeated (rulebook 8.2.1.3). It can be rotated and turned over there to show the hit points left.
 Each Enemy Card place and its Hit Point Card hold one card each: another one dropped there is refused.
 
-**⚔ Battle** builds the battlefield of a Conflict Card for you. Type the Terrain Cards row by row, adding `v` to cards
-whose arrows point down and `-` for empty cells, e.g. `01 07v 15v` / `19 30 31`. Check the preview, then _Lay out_: the
-cards are taken from the Terrain deck and laid out edge to edge in the Battlefield area, from its first place. When the
-combat is over, tap **↩ Return to deck** on the battlefield to put all Terrain Cards back into the Terrain deck in
-order.
+**Typing the battlefield.** Instead of dragging the Terrain Cards one by one, you can type the battlefield of a Conflict
+Card: tap **⌨ Type** in the Battlefield's header, **⌨ or type the layout** on its empty first place, or **⚔ Battle** in
+the toolbar (it also zooms to the Battlefield). A bar opens at the top of the table. Type the Terrain Cards one row per
+line, adding `v` to cards whose triangles point down and `-` for empty places, e.g. `01 07v 15v` on the first line and
+`19 30 31` on the next (`/` splits rows too). It starts with the battlefield already lying there, so you can change a
+card or add a row. While you type, the table shows the cards faded where they will lie, the areas around moving aside,
+and zooms to fit the Battlefield below the bar (and above the on-screen keyboard); meanwhile it can only be panned and
+zoomed. Numbers that aren't Terrain Cards, or typed twice, are named below the box. **✓ Ok** (Ctrl/⌘+Enter) takes
+the cards from wherever they are, the Terrain deck usually, and lays them out from the Battlefield's first place; the
+Terrain Cards lying on the table before go back to the Terrain deck. **✕ Cancel** (Esc) leaves the table as it was. The
+bar stops at the right sidebar, so a Conflict Card set aside there stays readable while you type. When the combat is
+over, tap **↩ Return to deck** on the battlefield to put all Terrain Cards back into the Terrain deck in order.

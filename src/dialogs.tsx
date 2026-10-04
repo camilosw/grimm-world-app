@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { extractCard, inTray, isPinned, locateCard, playCards, shuffled, type TerrainSlot } from './actions'
+import { extractCard, inTray, isPinned, locateCard, playCards, shuffled } from './actions'
 import { cardImage, cardLabel, compareCards, isLandscape, landscapeClass, matchesQuery, queryTerms } from './cards'
 import { CardGhost } from './CardGhost'
 import { update } from './store'
@@ -453,94 +453,6 @@ export function RenameDialog({ initial, onSave, onClose }: { initial: string; on
           Save
         </button>
       </form>
-    </Modal>
-  )
-}
-
-/** Parse "01 07v 15v / 19 30 31" (rows split by "/" or new lines, "-" = empty cell). */
-function parseBattlefield(text: string): (TerrainSlot | null)[][] {
-  return text
-    .split(/[\n/;]+/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) =>
-      line.split(/[\s,]+/).map((tok) => {
-        const m = /^(\d{1,2})\s*([vVdD↓])?$/.exec(tok)
-        return m ? { code: `T${m[1].padStart(2, '0')}`, down: !!m[2] } : null
-      }),
-    )
-}
-
-interface BattlefieldProps {
-  table: Table
-  defs: Record<string, CardDef>
-  onBuild: (rows: (TerrainSlot | null)[][]) => void
-  onClear: () => void
-  onRules: () => void
-  onClose: () => void
-}
-
-/** Lay out Terrain Cards as shown in the middle section of a Conflict Card. */
-export function BattlefieldDialog({ table, defs, onBuild, onClear, onRules, onClose }: BattlefieldProps) {
-  const [text, setText] = useState('')
-  const rows = parseBattlefield(text)
-  const byCode = useMemo(() => new Map(Object.values(defs).map((d) => [d.code, d])), [defs])
-  const unknown = rows.flat().filter((s) => s && !byCode.has(s.code))
-  const count = rows.flat().filter(Boolean).length
-  const cols = Math.max(1, ...rows.map((r) => r.length))
-  const looseTerrain = table.z.map((id) => table.stacks[id]).filter(
-    (s) => s.cards.length === 1 && defs[s.cards[0].id]?.type === 'terrain',
-  ).length
-
-  return (
-    <Modal title="Battlefield" onClose={onClose} wide>
-      <div className="dialog-tools">
-        <textarea
-          className="battle-input"
-          autoFocus
-          rows={3}
-          placeholder={'Terrain numbers row by row, "v" = pointing down, "-" = empty\ne.g.  01 07v 15v\n       19 30 31'}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <div className="battle-buttons">
-          <button className="primary" disabled={!count || unknown.length > 0} onClick={() => onBuild(rows)}>
-            ⚔ Lay out {count || ''} card{count === 1 ? '' : 's'}
-          </button>
-          <button onClick={onRules}>📖 How to set up a battlefield</button>
-          <button disabled={!looseTerrain} onClick={onClear}>
-            ↩ Clear battlefield{looseTerrain ? ` (${looseTerrain})` : ''}
-          </button>
-        </div>
-      </div>
-      {unknown.length > 0 && (
-        <p className="dialog-note warn">Unknown terrain: {unknown.map((s) => s!.code.slice(1)).join(', ')}</p>
-      )}
-      <div className="battle-preview" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 154px))` }}>
-        {rows.flatMap((row, r) =>
-          Array.from({ length: cols }, (_, c) => {
-            const slot = row[c]
-            const def = slot && byCode.get(slot.code)
-            return (
-              <div key={`${r}-${c}`} className="battle-cell">
-                {/* Landscape, as on the battlefield; a card pointing down turned around. */}
-                {def && (
-                  <div className={landscapeClass(true, true).trim()} style={{ rotate: slot!.down ? '180deg' : undefined }}>
-                    <img src={cardImage(def.id, true, 'sm')} alt={def.name} draggable={false} />
-                  </div>
-                )}
-                {slot && <span className="battle-label">{slot.code.slice(1) + (slot.down ? '↓' : '')}</span>}
-              </div>
-            )
-          }),
-        )}
-      </div>
-      {!count && (
-        <p className="dialog-note muted">
-          The cards are taken from the Terrain deck and laid out edge to edge in the Battlefield area.
-          Clear battlefield puts them all back into the Terrain pile.
-        </p>
-      )}
     </Modal>
   )
 }
