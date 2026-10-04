@@ -1,4 +1,4 @@
-import { allAreas, anchorsAfterMove, areaForCard, allGridPiles, onGrid, fanRow, settleEnemies, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, terrainPlace, facedSpot, turnedSpot, upsideDownSpot } from './areas'
+import { allAreas, anchorsAfterMove, areaForCard, allGridPiles, onGrid, fanRow, refusal, settleEnemies, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, terrainPlace, facedSpot, turnedSpot, upsideDownSpot } from './areas'
 import { CARD_H, CARD_W, compareCards, family, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, returnsCards, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
@@ -579,9 +579,21 @@ export function storyProgress(t: Table, defs: Record<string, CardDef>): { reveal
 }
 
 /** Whether a table point lies on the face-down storybook. */
-export function storyAt(t: Table, x: number, y: number): boolean {
+function storyAt(t: Table, x: number, y: number): boolean {
   const s = storySlot(t, 'story')
   return !!s && x >= s.x && x <= s.x + CARD_W && y >= s.y && y <= s.y + CARD_H
+}
+
+/**
+ * Whether cards dropped with their top-left corner at (x, y) go into the face-down storybook (the drop then asks under
+ * which chapter): the storybook may hold them all, and they are dropped on it, or anywhere in the Storybook area that
+ * doesn't take them as loose cards (Y-cards). Others, like an Encounter Card for its place, land as usual.
+ */
+export function intoStory(t: Table, cardIds: string[], defs: Record<string, CardDef>, x: number, y: number): boolean {
+  if (!cardIds.length || !cardIds.every((id) => defs[id] && DECK_SPECS.storybook.holds(defs[id]))) return false
+  if (storyAt(t, x + CARD_W / 2, y + CARD_H / 2)) return true
+  const area = areaForCard(t, x, y)
+  return area?.id === 'storybook' && !!refusal(area, cardIds, defs)
 }
 
 // ---------- spots ----------

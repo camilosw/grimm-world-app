@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { dropOnto, flipTop, isFixed, liftPile, moveArea, moveStack, moveToken, notHeldBy, pinned, pinnedOnTop, settleSpots, stackTargetAt, storyAt, takeTop, unpinned } from './actions'
+import { dropOnto, flipTop, intoStory, isFixed, liftPile, moveArea, moveStack, moveToken, pinned, pinnedOnTop, settleSpots, stackTargetAt, takeTop, unpinned } from './actions'
 import {
   acceptsText,
   allAreas,
@@ -347,12 +347,11 @@ export function TableView(props: Props) {
   }
 
   /**
-   * The face-down storybook, if the dragged pile (or its top card) is dropped on it and may go into it: the cards then
-   * go under one of its cards (App asks which). Other cards (an Encounter Card for its place below) land as usual.
+   * The face-down storybook, if the dragged pile (or its top card) goes into it (`intoStory`): the cards then go under
+   * one of its cards (App asks which). Other cards (an Encounter Card for its place below) land as usual.
    */
   function storyDrop(target: { id: string; whole: boolean }, x: number, y: number) {
-    if (!storyAt(table, x + CARD_W / 2, y + CARD_H / 2)) return undefined
-    return notHeldBy(table, target.id, 'storybook', defs, movedCards(target)).length ? undefined : storySlot(table, 'story')
+    return intoStory(table, movedCards(target), defs, x, y) ? storySlot(table, 'story') : undefined
   }
 
   /** The cards a drag moves: the whole pile (but its pinned cards), or its top card (none, when that is pinned). */

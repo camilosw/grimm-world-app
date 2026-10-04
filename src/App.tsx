@@ -3,7 +3,7 @@ import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, tokenSize } from './cards'
 import { BattlefieldDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
 import { allAreas, areaForCard, battlefieldInUse, COMBAT_AREAS, facedSpot, onGrid, placement, PLAY_AREAS, turnedSpot, upsideDownSpot, type Area } from './areas'
-import { DECK_SPECS, homeDeck, returnsCards, type DeckKind } from './decks'
+import { DECK_SPECS, homeDeck, returnsCards, storySlot, type DeckKind } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
 import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type RuleTarget } from './rules'
 import { RulesPanel } from './RulesPanel'
@@ -356,7 +356,10 @@ export default function App() {
   const hoverTable = (cardIds: string[], clientX = 0, clientY = 0) => {
     const at = table && cardIds.length && !zoneAt(clientX, clientY) ? worldAt(clientX, clientY) : null
     let next: Incoming | null = null
-    if (at && table) {
+    if (at && table && onStory(at, cardIds)) {
+      // They go under one of the storybook's cards (the drop asks which), as a drag on the table does.
+      next = { area: { id: 'storybook', ok: true }, spot: null, dropOn: storySlot(table, 'story')?.id ?? null }
+    } else if (at && table) {
       const target = A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ?? null
       const p = placement(table, cardIds, defs, at.x, at.y, target)
       next = { area: p.area ? { id: p.area.id, ok: !p.refused } : null, spot: p.spot?.id ?? null, dropOn: p.onto, to: { x: p.x, y: p.y } }
@@ -419,14 +422,8 @@ export default function App() {
     return !refused.length
   }
 
-  /**
-   * Whether cards dropped with their top-left corner at `at` land on the face-down storybook and may go into it
-   * (others, like an Encounter Card for the place below it, land as usual).
-   */
-  const onStory = (at: { x: number; y: number }, cardIds: string[]) =>
-    !!table &&
-    A.storyAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2) &&
-    cardIds.every((id) => defs[id] && DECK_SPECS.storybook.holds(defs[id]))
+  /** Whether cards dropped with their top-left corner at `at` go into the face-down storybook (`intoStory`). */
+  const onStory = (at: { x: number; y: number }, cardIds: string[]) => !!table && A.intoStory(table, cardIds, defs, at.x, at.y)
 
   /** Put the cards waiting in "Put under…" mode under a table pile or a deck. */
   const putUnderTarget = (targetId: string) => {

@@ -110,7 +110,7 @@ table**).
 | Encounter Bar | Y-Cards, in a row (see below)                                                                                             |
 | Character     | Character Card, Alignment Cards, Y-Cards (titles, skills, quests, status upgrades, Damage Card), Encounter Cards (items) |
 | Storage       | Storage Card and other Y-Cards, Encounter Cards (items, goods), Money Cards                                              |
-| Storybook     | the storybook itself, one Encounter Card (see below)                                                                     |
+| Storybook     | the storybook itself (Y-Cards dropped here go into it), one Encounter Card (see below)                                   |
 | Home          | Y-Cards (House Card and extensions, on their places), Encounter Cards (stored items and goods)                           |
 | Quest Deck    | the Quest Deck: Quest Cards Y705–Y707 (see below)                                                                        |
 | Enemy Deck    | the Enemy Deck: Y013 and the Enemy Cards Y800–Y849                                                                       |
@@ -267,8 +267,8 @@ the current chapter. Tap the storybook to turn over its next card; tap the revea
 the storybook, face down. A sub-chapter card (Y-card) on top of the storybook isn't turned over: a tap puts it unseen
 into the Encounter Bar, first in the row, so keep tapping until the next Chapter Card comes up (rulebook 9.1.2). The storybook can't be looked through, sorted or moved; long-press the revealed card to read
 it. A revealed Y-card (sub-chapter card) can be dragged out, e.g. to the Encounter Bar. To put Y-cards "into the
-corresponding chapter", drop them on the face-down storybook (from the table, the Browse panel, the top of a deck, or
-the revealed cards), or use **Put under…** on them and tap the storybook. A dialog shows the backs of the cards, where
+corresponding chapter", drop them on the face-down storybook or anywhere else in the Storybook area (from the table,
+the Browse panel, the top of a deck, or the revealed cards), or use **Put under…** on them and tap the storybook. A dialog shows the backs of the cards, where
 the white book symbol gives their chapter, and asks under which Storybook Card they go: Chapter 1–14 or the Epilogue.
 They go face down directly under that card; chapters already turned over can't be picked, and under the current
 chapter (marked "now") they go on top of the storybook and come up next. All the cards of one drop go under the same
