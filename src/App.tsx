@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, tokenSize } from './cards'
 import { BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
@@ -12,6 +13,7 @@ import { Sidebar } from './Sidebar'
 import { getTable, loadSaved, redo, resetTable, undo, update, useHistory, useTable } from './store'
 import { TableView, type Incoming, type Selection, type Zone } from './Table'
 import { Tray } from './Tray'
+import { useDragOut } from './useDragOut'
 import type { CardDef, CardManifest, CardRef, Table, Token, View } from './types'
 
 type Dialog =
@@ -54,7 +56,9 @@ const DECKS_IN_SIDEBAR = (t: Table) => (t.dock ?? []).map((id) => t.stacks[id])
 /** How close to the right edge of the table (screen pixels) a dragged card opens the hidden sidebar of cards set aside. */
 const TRAY_EDGE = 48
 
-const TOKENS: { label: string; color: string; shape: Token['shape'] }[] = [
+type FigureKind = { label: string; color: string; shape: Token['shape'] }
+
+const TOKENS: FigureKind[] = [
   { label: 'Player marker', color: '#e8e2d6', shape: 'cube' },
   { label: 'Character', color: '#8a8f98', shape: 'pawn' },
   { label: 'Ally', color: '#7b4fb5', shape: 'pawn' },
@@ -391,6 +395,35 @@ export default function App() {
     if (!r || clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) return null
     return { x: (clientX - r.left - view.x) / view.scale - CARD_W / 2, y: (clientY - r.top - view.y) / view.scale - CARD_H / 2 }
   }
+
+  /**
+   * Put a figure from the Figures panel on the table, centered on a screen point (none: the middle of the screen,
+   * beside the figures already there). Figures belong to no area or place: they lie on whatever lies there.
+   */
+  const addFigure = (tok: FigureKind, clientX?: number, clientY?: number) => {
+    const r = areaRef.current?.getBoundingClientRect()
+    if (!r || !table) return
+    const size = tokenSize(tok)
+    const dropped = clientX !== undefined && clientY !== undefined
+    let x = ((dropped ? clientX - r.left : r.width / 2) - view.x) / view.scale - size / 2
+    const y = ((dropped ? clientY - r.top : r.height / 2) - view.y) / view.scale - size / 2
+    if (!dropped) {
+      const near = (k: Token) => Math.abs(k.x + tokenSize(k) / 2 - x - size / 2) < (tokenSize(k) + size) / 2 && Math.abs(k.y + tokenSize(k) / 2 - y - size / 2) < (tokenSize(k) + size) / 2
+      while (table.tokens.some(near)) x += size + 10
+    }
+    update((t) => A.addToken(t, x, y, tok.color, tok.shape))
+    setDialog(null)
+  }
+
+  // Figures panel: tap a figure to put it in the middle of the screen, or drag it to where it goes; dropped off the
+  // table, it stays in the panel.
+  const figureDrag = useDragOut<FigureKind>({
+    onTap: (tok) => addFigure(tok),
+    onDrop: (tok, clientX, clientY) => {
+      const r = areaRef.current?.getBoundingClientRect()
+      if (r && clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) addFigure(tok, clientX, clientY)
+    },
+  })
 
   /**
    * Cards dragged in from outside the table, held at a screen point (none: the drag left the table or ended): light up
@@ -929,30 +962,32 @@ export default function App() {
         </div>
       )}
       {dialog?.kind === 'tokens' && (
-        <div className="popover" onPointerDown={(e) => e.target === e.currentTarget && setDialog(null)}>
+        // Hidden while a figure is dragged out of it, so the whole table shows.
+        <div className={`popover${figureDrag.drag ? ' dragging' : ''}`} onPointerDown={(e) => e.target === e.currentTarget && setDialog(null)}>
           <div className="popover-panel">
             {TOKENS.map((tok) => (
-              <button
-                key={tok.label}
-                onClick={() => {
-                  // Figures belong to no area or place: in the middle of the screen, on whatever lies there, beside
-                  // the figures already there.
-                  const el = areaRef.current!
-                  const size = tokenSize(tok)
-                  let x = (el.clientWidth / 2 - view.x) / view.scale - size / 2
-                  const y = (el.clientHeight / 2 - view.y) / view.scale - size / 2
-                  const near = (k: Token) => Math.abs(k.x + tokenSize(k) / 2 - x - size / 2) < (tokenSize(k) + size) / 2 && Math.abs(k.y + tokenSize(k) / 2 - y - size / 2) < (tokenSize(k) + size) / 2
-                  while (table.tokens.some(near)) x += size + 10
-                  update((t) => A.addToken(t, x, y, tok.color, tok.shape))
-                  setDialog(null)
-                }}
-              >
+              <button key={tok.label} className="figure-button" {...figureDrag.bind(tok)}>
                 <span className={`swatch ${tok.shape}`} style={{ background: tok.color }} /> {tok.label}
               </button>
             ))}
           </div>
         </div>
       )}
+      {figureDrag.drag &&
+        createPortal(
+          <div
+            className={`token ${figureDrag.drag.item.shape} figure-ghost`}
+            style={{
+              left: figureDrag.drag.x,
+              top: figureDrag.drag.y,
+              width: tokenSize(figureDrag.drag.item),
+              height: tokenSize(figureDrag.drag.item),
+              transform: `translate(-50%, -50%) scale(${view.scale})`,
+              background: figureDrag.drag.item.color,
+            }}
+          />,
+          document.body,
+        )}
       {dialog?.kind === 'menu' && (
         <div className="popover" onPointerDown={(e) => e.target === e.currentTarget && setDialog(null)}>
           <div className="popover-panel">

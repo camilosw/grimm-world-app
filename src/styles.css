@@ -641,6 +641,22 @@ button.icon {
   border-radius: 4px;
 }
 
+/* Figures panel: its figures are dragged out onto the table. */
+.figure-button {
+  touch-action: none;
+}
+
+.popover.dragging {
+  opacity: 0;
+}
+
+/* A figure following the finger out of the Figures panel, at the table's zoom. */
+.figure-ghost {
+  position: fixed;
+  z-index: 30;
+  pointer-events: none;
+}
+
 button.on {
   border-color: var(--gold);
 }

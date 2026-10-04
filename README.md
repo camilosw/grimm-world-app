@@ -376,8 +376,10 @@ also finds text in the booklets (read by OCR, so a word may now and then be miss
 A search finds every card with that text anywhere in its number or name, and several searches can be separated by commas:
 "44, 41" finds Y044, Y344, Y441, Y041, B41… The Browse panel's filter works the same way.
 **● Figures** adds the player marker (a small cube) and the character, ally and enemy figures. A figure belongs to no
-area or place: it goes in the middle of the screen, on top of whatever lies there (an area, a placeholder, a card),
-beside any figure already there, and can be dragged anywhere. A figure lying in an area moves with it.
+area or place: tapped, it goes in the middle of the screen, beside any figure already there; dragged out of the panel
+(which hides while you drag), it goes where you let go. Either way it lies on top of whatever lies there (an area, a
+placeholder, a card), and can be dragged anywhere afterwards; let go off the table, it isn't added. A figure lying in an
+area moves with it.
 
 **☰ Browse** opens a panel over the bottom half of the screen with the pile's cards, top card first. The table above
 stays in use (pan, zoom, move cards) until you close the panel with ✕ or tap **Browse** again. Drag the handle on its
