@@ -154,7 +154,7 @@ stays at the bottom). A pile on the table shuffled (with this button or **Shuffl
 top cards split to both sides and slide back together. The deck works like the other table decks: drag it to take its top card; tap it for **Draw**,
 **Shuffle** and the rest. Drag the `⠿` grip to move all its cards (but the time card) onto another place, e.g. onto
 'Next Chapter' once 'Time Passes' comes up. Used cards go on the Used Cards place (on top, as dropped); its grip moves
-the whole pile. The places only take Encounter Cards: a card dropped anywhere in the area goes onto the place nearest
+the whole pile. The places' grips don't show how many cards lie on them. The places only take Encounter Cards: a card dropped anywhere in the area goes onto the place nearest
 to where it is dropped; cards dropped on the deck go under it, just above the time card. Cards going back "under the
 Encounter Deck" (a drop on the sidebar, **Return to deck**, **Put under…** on the deck) go under the deck wherever it
 lies: on whichever of the two time cards has more cards on it.

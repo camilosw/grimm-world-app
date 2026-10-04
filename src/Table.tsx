@@ -634,6 +634,7 @@ export function TableView(props: Props) {
               turn={turned.get(id) ?? null}
               sliding={sliding.has(id)}
               fixed={!!s.deck && !s.place}
+              countless={ENCOUNTER_PLACES.some((p) => p.place === s.place)}
               shuffle={props.shuffled?.id === id ? props.shuffled.n : null}
             />
           )
@@ -648,6 +649,7 @@ export function TableView(props: Props) {
             lifted
             covered={null}
             sliding={false}
+            countless={ENCOUNTER_PLACES.some((p) => p.place === table.stacks[dragStack.id].place)}
           />
         )}
         {liftedFrom && drag && !ghost && (
@@ -750,6 +752,8 @@ interface StackViewProps {
   sliding: boolean
   /** A deck lying on its place in its area, named by it: it shows how many cards it holds but can't be moved as a whole. */
   fixed?: boolean
+  /** An Encounter Deck place: its grip doesn't show how many cards it holds, so the deck's size stays unknown. */
+  countless?: boolean
   /** Set while the pile shows being shuffled; a new value restarts it. */
   shuffle?: number | null
 }
@@ -757,7 +761,7 @@ interface StackViewProps {
 /** Most cards shown splitting and sliding back together while a pile is shuffled. */
 const SHUFFLE_CARDS = 4
 
-function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding, fixed, shuffle }: StackViewProps) {
+function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding, fixed, countless, shuffle }: StackViewProps) {
   const top = stack.cards[stack.cards.length - 1]
   const count = stack.cards.length
   const landscape = isLandscape(defs[top.id]) || !!turn
@@ -797,7 +801,7 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
       ) : (
         count > 1 && (
           <div className="grip" data-grip title="Drag here to move the whole pile">
-            ⠿ {count}
+            ⠿{countless ? '' : ` ${count}`}
           </div>
         )
       )}
