@@ -1454,30 +1454,30 @@ button.on {
   background: rgba(255, 138, 112, 0.15);
 }
 
-/* A free place on the battlefield: a strip along the free side of a Terrain Card, its open side against the card. */
-.card-spot.terrain-strip {
+/* A free place on a grid (Map, battlefield): a strip along the free side of a card, its open side against the card. */
+.card-spot.grid-strip {
   padding: 0;
   font-size: 40px;
   line-height: 1;
   border-width: 3px;
 }
 
-.card-spot.terrain-strip.strip-top {
+.card-spot.grid-strip.strip-top {
   border-bottom: none;
   border-radius: 12px 12px 0 0;
 }
 
-.card-spot.terrain-strip.strip-bottom {
+.card-spot.grid-strip.strip-bottom {
   border-top: none;
   border-radius: 0 0 12px 12px;
 }
 
-.card-spot.terrain-strip.strip-left {
+.card-spot.grid-strip.strip-left {
   border-right: none;
   border-radius: 12px 0 0 12px;
 }
 
-.card-spot.terrain-strip.strip-right {
+.card-spot.grid-strip.strip-right {
   border-left: none;
   border-radius: 0 12px 12px 0;
 }

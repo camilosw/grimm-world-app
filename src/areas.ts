@@ -54,8 +54,9 @@ function box(cols: number, rows: number) {
 const MARKET_SHOWS = 0.17;
 /** Width of a Market Prices card's price strip showing beside its Region Card. */
 const marketStrip = Math.round(MARKET_SHOWS * CARD_H);
-// Just large enough for the Region Card places, landscape, two by two, with the Market Prices strips beside them (see
-// SPOTS).
+// A grid of landscape Region Card places, edge to edge, with the Market Prices strips beside them (`mapSpots()`). Drawn
+// only as large as its cards need (`measure()`): this size, of the four places it used to have, two by two, only places
+// its grid (`gridOrigin()`), and the areas' own places after it.
 const map = {
   x: 0,
   y: 0,
@@ -160,8 +161,8 @@ const hand = {
   h: 2 * CARD_H + PLACE_GAP + AREA_HEADER + AREA_PAD,
 };
 
-/** Thickness of a free place beside a Terrain Card on the battlefield: a strip along that side of the card. */
-export const TERRAIN_STRIP = 50;
+/** Thickness of a free place beside a card on a grid (the Map's, the battlefield's): a strip along that side of the card. */
+const GRID_STRIP = 50;
 /** Columns and rows of Enemy Card places right of the battlefield's Terrain Cards: four enemies at most (rulebook 3.3). */
 const ENEMY_COLS = 2;
 const ENEMY_ROWS = 2;
@@ -186,7 +187,7 @@ const ENEMY_BLOCK = {
 const battlefield = {
   x: home.x + home.w + OWN_GAP,
   y: home.y,
-  w: CARD_H + 2 * TERRAIN_STRIP + ENEMY_GAP + ENEMY_BLOCK.w + AREA_PAD * 2,
+  w: CARD_H + 2 * GRID_STRIP + ENEMY_GAP + ENEMY_BLOCK.w + AREA_PAD * 2,
   h: 2 * CARD_H + AREA_HEADER + AREA_PAD,
 };
 
@@ -255,6 +256,11 @@ export interface Spot {
   y: number;
   /** The spot beside (or above/below) this one whose card lies on top of it, covering the side next to it. */
   under?: string;
+  /**
+   * The pile lying on top of this spot's card, covering its `side` (a Market Prices card under its Region Card, which
+   * lies on the Map's grid, not on a spot).
+   */
+  underPile?: { id: string; side: Side };
   /**
    * Part of the card's width (height, for a spot above or below it), as it lies, still showing beside the card on top
    * of it (default: half).
@@ -514,10 +520,15 @@ export function fanRow(
   // places before its first place (but not as far as the cards on its line before it, like the Storage Card).
   const before = spot.after && SPOTS.find((s) => s.id === spot.after);
   const behind = before ? Math.abs(fanStep(before)) + 1 : 1;
+  // Fixed piles (decks, places) never lie in a row: a grid growing toward another area may bring a row in line with
+  // one (a Region Card's Market Prices with the Encounter Deck's place) until the layout moves that area aside.
   const inLine = t.z
     .filter(
       (id) =>
         id !== exclude &&
+        !t.stacks[id].deck &&
+        !t.stacks[id].place &&
+        !t.stacks[id].slot &&
         (v ? t.stacks[id].x === spot.x : t.stacks[id].y === spot.y) &&
         along(id) >= -behind,
     )
@@ -623,6 +634,7 @@ export function freeCovered(t: Table, spot: Spot): Side | null {
 
 /** Which side of a spot's card is covered by the card of the spot it lies under. */
 export function coveredSide(spot: Spot): Side | null {
+  if (spot.underPile) return spot.underPile.side;
   // Where they lie in `SPOTS`: moved with their area, they lie the same way side by side.
   // A row `after` another lies there as if that row had no cards: beside that row's covering card (`spotsOf()`).
   const before = spot.after && SPOTS.find((s) => s.id === spot.after);
@@ -685,54 +697,16 @@ const barSpot = {
   x: bar.x + AREA_PAD + (CARD_H - CARD_W) / 2 + Math.round(BAR_SHOWS * CARD_H),
   y: bar.y + AREA_HEADER + (CARD_W - CARD_H) / 2,
 };
-/** Top-left corner of the Region Cards laid out landscape, edge to edge, two by two between the Market Prices strips. */
+/**
+ * Top-left corner of the Map grid's first place (column 0, row 0) in the area's own place: where the first of the four
+ * Region Card places lay, right of its Market Prices strip, so the cards of older saves lie on the grid.
+ */
 const regionGrid = {
   x: map.x + AREA_PAD + marketStrip,
   y: map.y + AREA_HEADER,
 };
 const handSpot = { x: hand.x + AREA_PAD, y: hand.y + AREA_HEADER };
-/** Place of the i-th Region Card (left to right, top to bottom): a portrait card's, the Region Card lies across it. */
-const regionPlace = (i: number) => ({
-  x: regionGrid.x + (i % 2) * CARD_H + (CARD_H - CARD_W) / 2,
-  y: regionGrid.y + Math.floor(i / 2) * CARD_W + (CARD_W - CARD_H) / 2,
-});
 export const SPOTS: Spot[] = [
-  // Four places, one Region Card each. A spot's place is a portrait card's; the Region Card lies across it.
-  ...[0, 1, 2, 3].map(
-    (i): Spot => ({
-      id: `region-${i + 1}`,
-      label: "Region Card",
-      area: "map",
-      family: "region",
-      attracts: true,
-      ...regionPlace(i),
-      fan: { count: 1 },
-      landscape: true,
-    }),
-  ),
-  // Beside the outer edge of each Region Card, partly slid under it (`MARKET_SHOWS`): the Encounter Card
-  // giving the region's market prices (rulebook 7.1.2.5). Left of the left ones it is turned a quarter right, so its
-  // prices lie beside the goods on the Region Card's left edge; right of the right ones it is turned the other way.
-  ...[0, 1, 2, 3].map((i): Spot => {
-    const left = i % 2 === 0;
-    // Both lie landscape, so the shown part of the card is as wide as its place is away from the Region Card's.
-    const offset = (left ? -1 : 1) * marketStrip;
-    return {
-      id: `market-${i + 1}`,
-      label: "Market Prices",
-      hint: "Encounter Card",
-      area: "map",
-      family: "encounter",
-      attracts: false,
-      x: regionPlace(i).x + offset,
-      y: regionPlace(i).y,
-      under: `region-${i + 1}`,
-      shows: MARKET_SHOWS,
-      fan: { count: 1 },
-      landscape: true,
-      turn: left ? "right" : "left",
-    };
-  }),
   // The Y-cards placed in the Encounter Bar (rulebook 5.2), landscape and face down, as in rulebook figure 29: their backs
   // show the location they belong to, with card number, location and chapter on their right strip. Each lies over the
   // left part of the one after it, so a new card, which goes first, lies on top of the others. Its free place stays
@@ -1137,50 +1111,96 @@ export function deckPlace(t: Table, kind: DeckKind): Point {
  */
 export const BATTLEFIELD_ORIGIN = { x: 0, y: character.y + character.h + OWN_GAP };
 
-/** Top-left corner of the battlefield grid's first place (column 0, row 0), as the area lies on this table. */
-function gridOrigin(t: Table): Point {
-  const d = shiftOf(t, "battlefield");
-  return {
-    x: battlefield.x + AREA_PAD + TERRAIN_STRIP + d.x,
-    y: battlefield.y + AREA_HEADER + TERRAIN_STRIP + d.y,
-  };
+/**
+ * The grids of landscape card places, edge to edge, growing from a first place in every direction: the Map's Region
+ * Cards (rulebook 7.1.1: a region entered goes beside the one left, the way its compass points) and the battlefield's
+ * Terrain Cards (rulebook 8.1.2). Each is named after its area.
+ */
+export type GridId = "map" | "battlefield";
+
+const GRIDS: GridId[] = ["map", "battlefield"];
+
+/** The cards each grid takes. */
+const GRID_FAMILY: Record<GridId, Family> = {
+  map: "region",
+  battlefield: "terrain",
+};
+
+/** Top-left corner of a grid's first place (column 0, row 0), as its area lies on this table. */
+function gridOrigin(t: Table, g: GridId): Point {
+  const d = shiftOf(t, g);
+  const own =
+    g === "map"
+      ? regionGrid
+      : {
+          x: battlefield.x + AREA_PAD + GRID_STRIP,
+          y: battlefield.y + AREA_HEADER + GRID_STRIP,
+        };
+  return { x: own.x + d.x, y: own.y + d.y };
+}
+
+/** Columns of the Map: the first Region Card's, and one right of it. */
+const MAP_COLS = 2;
+
+/**
+ * Whether a grid grows beyond the `side` of its card in column `col`: the battlefield every way; the Map only up, any
+ * number of rows, and right of its first column (`MAP_COLS`).
+ */
+function grows(g: GridId, col: number, side: Side): boolean {
+  if (g === "battlefield") return true;
+  return side === "top" || (side === "right" && col < MAP_COLS - 1);
 }
 
 /**
- * Where a Terrain Card lies on the battlefield grid's place (`col`, `row`): the place of a portrait card, which
- * `cardBox()` draws it landscape across, the places edge to edge.
+ * Where a card lies on a grid's place (`col`, `row`): the place of a portrait card, which `cardBox()` draws it
+ * landscape across.
  */
-export function terrainPlace(t: Table, col: number, row: number): Point {
-  const o = gridOrigin(t);
+export function cellPlace(t: Table, g: GridId, col: number, row: number): Point {
+  const o = gridOrigin(t, g);
   return {
     x: o.x + col * CARD_H + (CARD_H - CARD_W) / 2,
     y: o.y + row * CARD_W - (CARD_H - CARD_W) / 2,
   };
 }
 
-/** The landscape box of the battlefield grid's place (`col`, `row`). */
-function cellBox(t: Table, col: number, row: number): Rect {
-  const o = gridOrigin(t);
+/** Where a Terrain Card lies on the battlefield grid's place (`col`, `row`). */
+export function terrainPlace(t: Table, col: number, row: number): Point {
+  return cellPlace(t, "battlefield", col, row);
+}
+
+/** The landscape box of a grid's place (`col`, `row`). */
+function cellBox(t: Table, g: GridId, col: number, row: number): Rect {
+  const o = gridOrigin(t, g);
   return { x: o.x + col * CARD_H, y: o.y + row * CARD_W, w: CARD_H, h: CARD_W };
 }
 
-const gridCache = new WeakMap<Table, Map<string, string>>();
+const gridCache: Record<GridId, WeakMap<Table, Map<string, string>>> = {
+  map: new WeakMap(),
+  battlefield: new WeakMap(),
+};
 const cellKey = (col: number, row: number) => `${col},${row}`;
 
 /**
- * The piles lying on the battlefield grid's places, by "col,row": the Terrain Cards put there (only they go there,
- * `placement()`). Piles of fixed places and on spots elsewhere never count.
+ * The piles lying on a grid's places, by "col,row": the Region or Terrain Cards put there (only they go there,
+ * `placement()`). Piles of fixed places and on spots elsewhere never count, nor the other grid's.
  */
-function gridPiles(t: Table): Map<string, string> {
-  let grid = gridCache.get(t);
+function gridPiles(t: Table, g: GridId): Map<string, string> {
+  let grid = gridCache[g].get(t);
   if (grid) return grid;
   grid = new Map();
-  const o = terrainPlace(t, 0, 0);
-  // The areas' spots only: the battlefield's lie right of the grid, where it ends (`battlefieldSpots()`).
-  const onSpots = new Set(baseSpots(t).flatMap((sp) => stacksOnSpot(t, sp)));
+  const o = cellPlace(t, g, 0, 0);
+  // The areas' spots only: the battlefield's lie right of its grid, where it ends (`battlefieldSpots()`).
+  const elsewhere = new Set(
+    baseSpots(t).flatMap((sp) => stacksOnSpot(t, sp)),
+  );
+  if (g === "battlefield") {
+    for (const id of gridPiles(t, "map").values()) elsewhere.add(id);
+    for (const sp of mapSpots(t))
+      for (const id of stacksOnSpot(t, sp)) elsewhere.add(id);
+  }
   for (const id of t.z) {
     const s = t.stacks[id];
-    if (s.slot || s.deck || s.place || onSpots.has(id)) continue;
+    if (s.slot || s.deck || s.place || elsewhere.has(id)) continue;
     const col = (s.x - o.x) / CARD_H;
     const row = (s.y - o.y) / CARD_W;
     const c = Math.round(col);
@@ -1188,27 +1208,38 @@ function gridPiles(t: Table): Map<string, string> {
     if (Math.abs(col - c) * CARD_H < 0.5 && Math.abs(row - r) * CARD_W < 0.5)
       grid.set(cellKey(c, r), id);
   }
-  gridCache.set(t, grid);
+  gridCache[g].set(t, grid);
   return grid;
 }
 
-/** The piles lying on the battlefield grid's places: Terrain Cards, face up. */
-export function battlefieldPiles(t: Table): string[] {
-  return [...gridPiles(t).values()];
+/** The piles lying on the grids' places, face up: Region Cards on the Map, Terrain Cards on the battlefield. */
+export function allGridPiles(t: Table): string[] {
+  return GRIDS.flatMap((g) => [...gridPiles(t, g).values()]);
 }
 
-/** Whether pile `id` lies on a place of the battlefield grid. */
+/** The grid pile `id` lies on a place of (a Region Card on the Map's, a Terrain Card on the battlefield's), if any. */
+export function gridOf(t: Table, id: string): GridId | undefined {
+  return GRIDS.find((g) => [...gridPiles(t, g).values()].includes(id));
+}
+
+/** Whether pile `id` lies on a place of a grid, face up for good. */
 export function onGrid(t: Table, id: string): boolean {
-  return battlefieldPiles(t).includes(id);
+  return !!gridOf(t, id);
+}
+
+/** Why a card on a grid can't be turned over: "Region Cards on the Map lie face up". */
+export function gridFaceUp(g: GridId): string {
+  return `${FAMILY_NAMES[GRID_FAMILY[g]]} on the ${gridLabel(g)} lie face up`;
 }
 
 /** Whether Terrain Cards lie on the battlefield. */
 export function battlefieldInUse(t: Table): boolean {
-  return gridPiles(t).size > 0;
+  return gridPiles(t, "battlefield").size > 0;
 }
 
-/** A free place of the battlefield grid for a Terrain Card. */
-export interface TerrainPlace extends Point {
+/** A free place of a grid for a card. */
+export interface GridPlace extends Point {
+  grid: GridId;
   col: number;
   row: number;
   /** Where to drop the card: the whole place, or a strip along the free side of the card beside it. */
@@ -1224,9 +1255,18 @@ const SIDE_STEPS: [Side, number, number][] = [
   ["left", -1, 0],
 ];
 
-/** The strip along `side` of a Terrain Card lying in `card`. */
+/**
+ * The side of a Region Card in the Map's column `col` where its goods strip is printed, with its Market Prices card
+ * beside it: the regions lie two by two side by side, odd numbers left and even right (as their compasses show), each
+ * with its goods strip on the outer edge.
+ */
+function marketSide(col: number): "left" | "right" {
+  return col % 2 ? "right" : "left";
+}
+
+/** The strip along `side` of a card lying in `card`. */
 function stripBox(card: Rect, side: Side): Rect {
-  const s = TERRAIN_STRIP;
+  const s = GRID_STRIP;
   if (side === "top") return { x: card.x, y: card.y - s, w: card.w, h: s };
   if (side === "bottom") return { x: card.x, y: card.y + card.h, w: card.w, h: s };
   if (side === "left") return { x: card.x - s, y: card.y, w: s, h: card.h };
@@ -1234,65 +1274,138 @@ function stripBox(card: Rect, side: Side): Rect {
 }
 
 /**
- * The battlefield grid's free places, without pile `moving`: its first place while no Terrain Card lies on it, else a
- * strip on each free side of each Terrain Card, for the place beyond it, unless another card lies there.
+ * A grid's free places, without pile `moving`: its first place while no card lies on it, else a strip on each free
+ * side of each card it grows on (`grows()`), for the place beyond it, unless another card lies there.
  */
-export function terrainPlaces(
+export function gridPlaces(
   t: Table,
+  g: GridId,
   moving: string | null = null,
-): TerrainPlace[] {
-  const grid = new Map([...gridPiles(t)].filter(([, id]) => id !== moving));
+): GridPlace[] {
+  const grid = new Map([...gridPiles(t, g)].filter(([, id]) => id !== moving));
   if (!grid.size)
     return [
-      { ...terrainPlace(t, 0, 0), col: 0, row: 0, box: cellBox(t, 0, 0), side: null },
+      {
+        ...cellPlace(t, g, 0, 0),
+        grid: g,
+        col: 0,
+        row: 0,
+        box: cellBox(t, g, 0, 0),
+        side: null,
+      },
     ];
-  const terrain = new Set(grid.values());
-  // The cards on the Enemy Card places hide no strip: the places move aside as the grid grows (`settleEnemies()`).
-  const enemies = new Set(
+  const placed = new Set(grid.values());
+  // The cards on the grid's own spots hide no strip: the Market Prices lie beside their Region Cards, and the Enemy
+  // Card places move aside as the battlefield grows (`settleEnemies()`).
+  const own = new Set(
     spotsOf(t)
-      .filter((s) => s.area === "battlefield")
+      .filter((s) => s.area === g)
       .flatMap((s) => stacksOnSpot(t, s)),
   );
+  // Nor do the piles of other areas: those move aside as the grid's area grows (`settleLayout()`).
+  const { owner } = measure(t);
   const others = t.z
-    .filter((id) => id !== moving && !terrain.has(id) && !enemies.has(id))
+    .filter(
+      (id) =>
+        id !== moving &&
+        !placed.has(id) &&
+        !own.has(id) &&
+        (owner.get(id) ?? g) === g,
+    )
     .map((id) => cardRect(t.stacks[id].x, t.stacks[id].y));
-  const places: TerrainPlace[] = [];
+  const places: GridPlace[] = [];
   for (const key of grid.keys()) {
     const [col, row] = key.split(",").map(Number);
     for (const [side, dc, dr] of SIDE_STEPS) {
       const [c, r] = [col + dc, row + dr];
-      if (grid.has(cellKey(c, r))) continue;
-      const cell = cellBox(t, c, r);
+      if (!grows(g, col, side) || grid.has(cellKey(c, r))) continue;
+      const cell = cellBox(t, g, c, r);
       if (others.some((o) => overlap(o, cell) > 0)) continue;
-      const box = stripBox(cellBox(t, col, row), side);
-      places.push({ ...terrainPlace(t, c, r), col: c, row: r, box, side });
+      const box = stripBox(cellBox(t, g, col, row), side);
+      places.push({ ...cellPlace(t, g, c, r), grid: g, col: c, row: r, box, side });
     }
   }
   return places;
 }
 
+/** The battlefield grid's free places for a Terrain Card (`gridPlaces()`). */
+export function terrainPlaces(
+  t: Table,
+  moving: string | null = null,
+): GridPlace[] {
+  return gridPlaces(t, "battlefield", moving);
+}
+
 /**
- * Where the battlefield's grid lies (its Terrain Cards, else its first place, with room for the strips around them),
- * and right of it the place for the Enemy Cards.
+ * Where a grid lies: its cards, else its first place, with room for the strips of its free places beside them, on the
+ * sides it grows on (`grows()`).
  */
-export function battlefieldBoxes(t: Table): { grid: Rect; enemies: Rect } {
-  const cells = [...gridPiles(t).keys()].map((k) => {
+function gridBox(t: Table, g: GridId): Rect {
+  const cells = [...gridPiles(t, g).keys()];
+  const boxes = (cells.length ? cells : [cellKey(0, 0)]).map((k) => {
     const [c, r] = k.split(",").map(Number);
-    return cellBox(t, c, r);
+    const b = cellBox(t, g, c, r);
+    const reach = (side: Side) => (grows(g, c, side) ? GRID_STRIP : 0);
+    return {
+      x: b.x - reach("left"),
+      y: b.y - reach("top"),
+      w: b.w + reach("left") + reach("right"),
+      h: b.h + reach("top") + reach("bottom"),
+    };
   });
-  const boxes = cells.length ? cells : [cellBox(t, 0, 0)];
-  const x = Math.min(...boxes.map((b) => b.x)) - TERRAIN_STRIP;
-  const y = Math.min(...boxes.map((b) => b.y)) - TERRAIN_STRIP;
-  const right = Math.max(...boxes.map(rightOf)) + TERRAIN_STRIP;
-  const bottom = Math.max(...boxes.map(bottomOf)) + TERRAIN_STRIP;
-  const grid = { x, y, w: right - x, h: bottom - y };
+  const x = Math.min(...boxes.map((b) => b.x));
+  const y = Math.min(...boxes.map((b) => b.y));
+  const right = Math.max(...boxes.map(rightOf));
+  const bottom = Math.max(...boxes.map(bottomOf));
+  return { x, y, w: right - x, h: bottom - y };
+}
+
+/** Where the battlefield's grid lies (`gridBox()`), and right of it the place for the Enemy Cards. */
+export function battlefieldBoxes(t: Table): { grid: Rect; enemies: Rect } {
+  const grid = gridBox(t, "battlefield");
   const enemies = {
-    x: right + ENEMY_GAP,
-    y,
+    x: rightOf(grid) + ENEMY_GAP,
+    y: grid.y,
     w: ENEMY_BLOCK.w,
     h: Math.max(grid.h, ENEMY_BLOCK.h),
   };
   return { grid, enemies };
+}
+
+const marketCache = new WeakMap<Table, Spot[]>();
+
+/**
+ * The Market Prices places of the Region Cards on the Map's grid: the Encounter Card giving the region's market prices
+ * (rulebook 7.1.2.5), beside the edge where the card's goods strip is printed (`marketSide()`), slid under it so only
+ * its price strip shows (`MARKET_SHOWS`). Left of a Region Card it is turned a quarter right, so its prices lie beside
+ * the goods on the card's left edge; right of one it is turned the other way.
+ */
+function mapSpots(t: Table): Spot[] {
+  let spots = marketCache.get(t);
+  if (spots) return spots;
+  spots = [...gridPiles(t, "map")].map(([key, id]): Spot => {
+    const [col, row] = key.split(",").map(Number);
+    const side = marketSide(col);
+    const p = cellPlace(t, "map", col, row);
+    return {
+      id: `market-${key}`,
+      label: "Market Prices",
+      hint: "Encounter Card",
+      area: "map",
+      family: "encounter",
+      attracts: false,
+      // Both lie landscape, so the shown part of the card is as wide as its place is away from the Region Card's.
+      x: p.x + (side === "left" ? -marketStrip : marketStrip),
+      y: p.y,
+      underPile: { id, side: OPPOSITE[side] },
+      shows: MARKET_SHOWS,
+      fan: { count: 1 },
+      landscape: true,
+      turn: side === "left" ? "right" : "left",
+    };
+  });
+  marketCache.set(t, spots);
+  return spots;
 }
 
 /**
@@ -1323,11 +1436,19 @@ function framedPlaces(t: Table, spot: Spot): Point[] {
 type Rect = { x: number; y: number; w: number; h: number };
 
 /**
- * Areas drawn only as large as what lies in them needs: their places (a fanned row as far as its next place) and the
- * piles lying on or overlapping them. Each grows around the cards added to it, pushing the areas right of it and below
+ * Areas drawn only as large as what lies in them needs: their places (a fanned row as far as its next place, a grid's
+ * cards with the strips of its free places) and the piles lying on or overlapping them. Each grows around the cards added to it, pushing the areas right of it and below
  * it away (`settleLayout()`); the Encounter Bar only grows right, until the Storybook area beside it moves down.
  */
-const GROWING = ["bar", "character", "storage", "hand", "home", "battlefield"];
+const GROWING = [
+  "map",
+  "bar",
+  "character",
+  "storage",
+  "hand",
+  "home",
+  "battlefield",
+];
 
 const NO_SHIFT: Point = { x: 0, y: 0 };
 
@@ -1340,13 +1461,14 @@ const shiftedSpots = new WeakMap<Table, Spot[]>();
 const tableSpots = new WeakMap<Table, Spot[]>();
 
 /**
- * The spots as they lie on this table: moved with their areas (`Table.shifts`), and the battlefield's Enemy Card places
- * right of its Terrain Cards (`battlefieldSpots()`). Use these, not `SPOTS`, for positions.
+ * The spots as they lie on this table: moved with their areas (`Table.shifts`), the Market Prices places beside the
+ * Region Cards on the Map (`mapSpots()`), and the battlefield's Enemy Card places right of its Terrain Cards
+ * (`battlefieldSpots()`). Use these, not `SPOTS`, for positions.
  */
 export function spotsOf(t: Table): Spot[] {
   let spots = tableSpots.get(t);
   if (!spots) {
-    spots = [...baseSpots(t), ...battlefieldSpots(t)];
+    spots = [...baseSpots(t), ...mapSpots(t), ...battlefieldSpots(t)];
     tableSpots.set(t, spots);
   }
   return spots;
@@ -1442,7 +1564,7 @@ export function holdsOne(t: Table, spot: Spot, moving: string | null = null): bo
   );
 }
 
-/** The spots of the areas (`SPOTS`) as they lie on this table: all of them but the battlefield's. */
+/** The spots of the areas (`SPOTS`) as they lie on this table: all of them but the grids' (Market Prices, enemies). */
 function baseSpots(t: Table): Spot[] {
   let spots = shiftedSpots.get(t);
   if (!spots) {
@@ -1540,8 +1662,9 @@ function measure(t: Table): Measured {
   const onSpot = new Map(
     spots.flatMap((sp) => stacksOnSpot(t, sp).map((id) => [id, sp.area])),
   );
-  // So does a Terrain Card on a place of the battlefield grid, reaching into the strip of the card beside it.
-  for (const id of gridPiles(t).values()) onSpot.set(id, "battlefield");
+  // So does a card on a place of a grid, reaching into the strip of the card beside it.
+  for (const g of GRIDS)
+    for (const id of gridPiles(t, g).values()) onSpot.set(id, g);
   for (const id of t.z) {
     const s = t.stacks[id];
     const area = s.slot
@@ -1559,7 +1682,11 @@ function measure(t: Table): Measured {
   const frame = (area: string) => ({
     id: area,
     ...frameAround([
-      ...(area === "battlefield" ? [field.grid, field.enemies] : []),
+      ...(area === "battlefield"
+        ? [field.grid, field.enemies]
+        : area === "map"
+          ? [gridBox(t, "map")]
+          : []),
       ...spots
         .filter((s) => s.area === area)
         .flatMap((s) =>
@@ -2090,7 +2217,7 @@ export function drawOrder(t: Table): string[] {
   let z = t.z;
   const spots = spotsOf(t);
   for (const spot of spots) {
-    if (!spot.under && !spot.fan) continue;
+    if (!spot.under && !spot.underPile && !spot.fan) continue;
     // Later places lie under earlier ones, unless each card lies on the one before (the hand).
     const row = stacksOnSpot(t, spot);
     const below = spot.overlaps ? row : row.reverse();
@@ -2098,7 +2225,11 @@ export function drawOrder(t: Table): string[] {
     // Under the lowest card of the covering spot (the last of a fanned row, e.g. the outer house extension); while that
     // has none, of the spot covering it (the Skills under the Character Card while there are no Titles).
     let cover = spots.find((s) => s.id === spot.under);
-    let covering = cover ? stacksOnSpot(t, cover) : [];
+    let covering = spot.underPile
+      ? [spot.underPile.id]
+      : cover
+        ? stacksOnSpot(t, cover)
+        : [];
     while (cover && !covering.length) {
       const next: string | undefined = cover.under;
       cover = spots.find((s) => s.id === next);
@@ -2163,28 +2294,27 @@ export function placement(
   const target = onto ? t.stacks[onto] : null;
   const at = { x: target?.x ?? x, y: target?.y ?? y };
   const families = cardIds.map((id) => family(defs[id]));
-  const grid = families.includes("terrain")
-    ? ontoGrid(t, cardIds, families, x, y, moving, pointer)
-    : null;
+  const g = GRIDS.find((g) => families.includes(GRID_FAMILY[g]));
+  const grid = g && ontoGrid(t, g, cardIds, families, x, y, moving, pointer);
   if (grid) return grid;
   const area = areaForCard(t, at.x, at.y);
-  if (target && onGrid(t, target.id))
+  // Nothing goes on top of a card on a grid; dropped on a Region Card near its Market Prices place, an Encounter Card
+  // goes there.
+  const under = target ? gridOf(t, target.id) : undefined;
+  const market = under === "map" && spotAt(t, x, y, families, pointer);
+  if (under && !(market && families.every((f) => takes(market.spot, f))))
     return {
       x,
       y,
       onto: null,
       area,
       spot: null,
-      refused: "Nothing goes on top of a Terrain Card on the Battlefield",
+      refused: `Nothing goes on top of a ${CARD_NAMES[GRID_FAMILY[under]]} on the ${gridLabel(under)}`,
     };
   if (area?.deck) return intoDeck(t, area, area.deck, cardIds, defs);
   if (area?.id === "encounter") return ontoPlace(t, area, cardIds, defs, at);
-  const own = ownSpot(
-    t,
-    spotsOf(t).filter((s) => s.attracts && families.includes(s.family)),
-    moving,
-    x,
-    y,
+  const own = spotsOf(t).find(
+    (s) => s.attracts && families.includes(s.family),
   );
   if (own) {
     const area = allAreas(t).find((a) => a.id === own.area)!;
@@ -2199,10 +2329,11 @@ export function placement(
       refused: mixed ?? oneEach(own, cardIds) ?? (place ? null : full(own)),
     };
   }
-  // Nothing stacks onto a card in a fanned row, so dropped on one, the cards go to the place they are dropped on
-  // (e.g. the Storage Card place, which the first Goods card overlaps until a Storage Card covers it).
+  // Nothing stacks onto a card in a fanned row (or on a grid), so dropped on one, the cards go to the place they are
+  // dropped on (e.g. the Storage Card place, which the first Goods card overlaps until a Storage Card covers it).
   const fanned =
-    !!onto && spotsOf(t).some((s) => s.fan && fanRow(t, s).includes(onto));
+    !!onto &&
+    (!!under || spotsOf(t).some((s) => s.fan && fanRow(t, s).includes(onto)));
   const taken =
     (fanned && spotAt(t, x, y, families, pointer)) ||
     spotAt(t, at.x, at.y, families, pointer) ||
@@ -2275,8 +2406,8 @@ function withinRow(t: Table, spot: Spot, p: Point): Point {
     : { x: clamp(p.x, spot.x, last.x), y: spot.y };
 }
 
-/** How far from a free place of the battlefield grid a Terrain Card dropped outside the battlefield still goes to it. */
-const TERRAIN_REACH = CARD_W * 0.4;
+/** How far from a free place of a grid a card dropped outside its area still goes to it. */
+const GRID_REACH = CARD_W * 0.4;
 
 /** Distance from a point to a rectangle (0 inside it). */
 function distanceTo(r: Rect, p: Point): number {
@@ -2285,13 +2416,25 @@ function distanceTo(r: Rect, p: Point): number {
   return Math.hypot(dx, dy);
 }
 
+/** The name of a grid's area: "Map", "Battlefield". */
+function gridLabel(g: GridId): string {
+  return AREAS.find((a) => a.id === g)!.label;
+}
+
+/** A card of each family, as named on the table: "Region Card", "Terrain Card". */
+const CARD_NAMES: Partial<Record<Family, string>> = {
+  region: "Region Card",
+  terrain: "Terrain Card",
+};
+
 /**
- * Where Terrain Cards dropped on the battlefield go: one at a time, onto the free place of its grid nearest to where
- * the card's middle (or the pointer) is, a strip beside a card (`terrainPlaces()`). Null when dropped away from the
- * battlefield: they go as anywhere else.
+ * Where Region Cards dropped on the Map, or Terrain Cards on the battlefield, go: one at a time, onto the free place of
+ * its grid nearest to where the card's middle (or the pointer) is, a strip beside a card (`gridPlaces()`). Null when
+ * dropped away from the grid's area: they go as anywhere else.
  */
 function ontoGrid(
   t: Table,
+  g: GridId,
   cardIds: string[],
   families: (Family | undefined)[],
   x: number,
@@ -2299,19 +2442,20 @@ function ontoGrid(
   moving: string | null,
   pointer?: Point,
 ): Placement | null {
-  const area = allAreas(t).find((a) => a.id === "battlefield")!;
+  const area = allAreas(t).find((a) => a.id === g)!;
   const c = pointer ?? { x: x + CARD_W / 2, y: y + CARD_H / 2 };
-  const near = terrainPlaces(t, moving)
+  const near = gridPlaces(t, g, moving)
     .map((p) => ({ p, d: distanceTo(p.box, c) }))
     .sort((a, b) => a.d - b.d)[0];
-  if (!inRect(area, c.x, c.y) && !(near && near.d < TERRAIN_REACH)) return null;
-  const refused = !families.every((f) => f === "terrain")
-    ? `Only ${FAMILY_NAMES.terrain} go on the Battlefield's places`
+  if (!inRect(area, c.x, c.y) && !(near && near.d < GRID_REACH)) return null;
+  const names = FAMILY_NAMES[GRID_FAMILY[g]];
+  const refused = !families.every((f) => f === GRID_FAMILY[g])
+    ? `Only ${names} go on the ${area.label}'s places`
     : cardIds.length > 1
-      ? `Put ${FAMILY_NAMES.terrain} on the Battlefield one at a time`
+      ? `Put ${names} on the ${area.label} one at a time`
       : near
         ? null
-        : "There is no free place beside the Battlefield's cards";
+        : `There is no free place beside the ${area.label}'s cards`;
   const place = near?.p ?? { x, y };
   return { x: place.x, y: place.y, onto: null, area, spot: null, refused };
 }
@@ -2359,28 +2503,6 @@ function ontoPlace(
     spot: null,
     refused: refusal(area, cardIds, defs),
   };
-}
-
-/**
- * Of the attracting spots for the dropped cards, the one they go to: the place they are dropped on if it has room,
- * else the one the moved pile lies on, else the first with room (the four Region Card places).
- */
-function ownSpot(
-  t: Table,
-  spots: Spot[],
-  moving: string | null,
-  x: number,
-  y: number,
-): Spot | undefined {
-  if (spots.length < 2) return spots[0];
-  const room = (s: Spot) => !!spotPlace(t, s, moving, x, y);
-  const near = spotAt(t, x, y)?.spot;
-  return (
-    (near && spots.includes(near) && room(near) ? near : undefined) ??
-    spots.find((s) => !!moving && stacksOnSpot(t, s).includes(moving)) ??
-    spots.find(room) ??
-    spots[0]
-  );
 }
 
 /** The spot taking cards of these families dropped anywhere in `area`, if any. */

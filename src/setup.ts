@@ -433,13 +433,12 @@ function packAreas(t: Table): Table {
   return { ...rearrange(t, (t) => t), layout: LAYOUT }
 }
 
-/** Cards with a spot of their own (Character, Alignment, Money and Region Cards) lying elsewhere on the table move onto it. */
+/** Cards with a spot of their own (Character, Alignment and Money Cards) lying elsewhere on the table move onto it. */
 function placeOnSpots(t: Table, defs: Record<string, CardDef>): Table {
   let next = t
   const spots = spotsOf(t)
   for (const spot of spots.filter((s) => s.attracts)) {
-    // A card on any of its family's places (the four Region Card places) is in place.
-    const placed = new Set(spots.filter((s) => s.attracts && s.family === spot.family).flatMap((s) => stacksOnSpot(next, s)))
+    const placed = new Set(stacksOnSpot(next, spot))
     for (const id of t.z) {
       const s = next.stacks[id]
       if (!s || s.slot) continue

@@ -1,4 +1,4 @@
-import { allAreas, anchorsAfterMove, areaForCard, battlefieldPiles, onGrid, fanRow, settleEnemies, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, terrainPlace, facedSpot, turnedSpot, upsideDownSpot } from './areas'
+import { allAreas, anchorsAfterMove, areaForCard, allGridPiles, onGrid, fanRow, settleEnemies, settleLayout, slidesUnder, spotPlace, spotPlaces, spotsOf, stacksOnSpot, terrainPlace, facedSpot, turnedSpot, upsideDownSpot } from './areas'
 import { CARD_H, CARD_W, compareCards, family, isLandscape } from './cards'
 import { DECK_SPECS, deckStack, homeDeck, returnsCards, storySlot, type DeckKind } from './decks'
 import type { CardDef, CardRef, Rotation, Stack, Table, Token } from './types'
@@ -590,7 +590,7 @@ export function storyAt(t: Table, x: number, y: number): boolean {
  * Lay the spots out: spread out piles dropped on the hand, close the gaps in fanned spots (Money Cards, Goods), their
  * piles lying on the first places in row order, and lay cards on a spot that turns them straight and face up (Market Prices) or face down (Encounter Bar), or
  * face up (Broken Items, Status Upgrades & Items), or upside down (Actions area, Titles, Skills, Broken Items, Status Upgrades & Items), as they must lie there;
- * Terrain Cards on the battlefield lie face up.
+ * Region Cards on the Map and Terrain Cards on the battlefield lie face up.
  */
 export function settleSpots(t: Table): Table {
   let next = t
@@ -635,7 +635,7 @@ export function settleSpots(t: Table): Table {
       if (s.cards.some((c) => !c.faceUp)) next = setStack(next, { ...s, cards: s.cards.map((c) => ({ ...c, faceUp: true })) })
     }
   }
-  for (const id of battlefieldPiles(next)) {
+  for (const id of allGridPiles(next)) {
     const s = next.stacks[id]
     if (s.cards.some((c) => !c.faceUp)) next = setStack(next, { ...s, cards: s.cards.map((c) => ({ ...c, faceUp: true })) })
   }

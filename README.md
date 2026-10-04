@@ -79,8 +79,8 @@ the cards that belong there; while you drag, it lights up green (allowed) or red
 would go to — also for cards dragged in from the sidebar, the set-aside cards or the Browse panel — and a refused card
 goes back where it came from. Space outside the areas takes any card. **📍 Areas** jumps to an area.
 
-The Map area is just large enough for its places. The Encounter Bar, Character, Storage, Actions and Home areas are only as large
-as their places and the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
+The Map, Encounter Bar, Character, Storage, Actions, Home and Battlefield areas are only as large as their places and
+the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
 overlaps most), and the frame grows around it — there is no limit.
 
 The areas lie close together, a small gap apart, in rows: the Encounter Bar on top, growing right; below it the Map,
@@ -106,7 +106,7 @@ table**).
 
 | Area          | Takes                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Map           | Region Cards on its four Region Card places, Encounter Cards on the four Market Prices places beside them                |
+| Map           | Region Cards edge to edge (see below), Encounter Cards on the Market Prices place beside each                           |
 | Encounter Bar | Y-Cards, in a row (see below)                                                                                             |
 | Character     | Character Card, Alignment Cards, Y-Cards (titles, skills, quests, status upgrades, Damage Card), Encounter Cards (items) |
 | Storage       | Storage Card and other Y-Cards, Encounter Cards (items, goods), Money Cards                                              |
@@ -123,15 +123,22 @@ Region, Character, Alignment, Money, Storybook, Terrain and Hit Point cards only
 
 **Region Cards.** Region Cards are printed sideways, so the app always shows them landscape — on the table, in the
 sidebar, in lists and in the card viewer — and they can't be rotated. They turn over about their horizontal axis (other
-cards turn about their vertical one). The Map area has four Region Card places, two by two, and takes nothing else. A
-Region Card dropped anywhere on the table goes to the place it is dropped on if that is free, else to the first free
-one; a fifth one is refused.
+cards turn about their vertical one). The Map is laid out like the Battlefield, with any number of Region Cards: while
+it is empty it shows one place for a Region Card. Once a card lies there, a narrow strip marked + runs along its top
+and, in the first column, its right side: a Region Card dropped on a strip lies right beside that card, edge to edge,
+as the rulebook lays a region entered beside the one left, the way its compass points (7.1.1). So the Map grows up
+without limit, two columns wide at most. A Region Card dropped anywhere else in the Map goes to the nearest strip; one
+at a time, and nothing else goes on top of a Region Card. Region Cards on the Map lie face up: one put there turns face
+up, however it came, and can't be turned over (double-tap says so; **Flip** is not offered). A card on the Map moves to
+another strip by dragging it there, and the area grows with its cards. A Region Card dropped outside the Map lies where
+it is dropped, unless that is another area, which refuses it.
 
-**Market Prices.** Left of each left Region Card place and right of each right one is a "Market Prices" place for the
-Encounter Card that sets that region's goods prices (rulebook 7.1.2.5). It takes one Encounter Card, dropped on or near
-it, and nothing else. The card lies landscape and face up, slid under the Region Card so that only its price strip
-shows, as in the rulebook: on the left places it is turned a quarter right, so its prices lie beside the goods printed
-on the Region Card's left edge; on the right places it is turned the other way. A card dropped there face down turns face
+**Market Prices.** Beside each Region Card on the Map is a "Market Prices" place for the Encounter Card that sets that
+region's goods prices (rulebook 7.1.2.5), on the side where the card's goods are printed: the regions lie two by two
+side by side, odd numbers left and even right (as their compasses show), with their goods on the outer edges, so it
+lies left of the cards in the first column and right of those in the second. It takes one Encounter Card, dropped on or near it, and nothing else. The card lies landscape and face up, slid
+under the Region Card so that only its price strip shows, as in the rulebook: on the left it is turned a quarter right,
+so its prices lie beside the goods printed on the Region Card's left edge; on the right it is turned the other way. A card dropped there face down turns face
 up, and it can't be flipped or rotated while it lies there (double-tap says so; **Flip** and **Rotate** are not
 offered). Dragged away, it is an ordinary upright card again.
 

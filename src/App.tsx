@@ -552,8 +552,8 @@ export default function App() {
   const fixed = !!selectedStack && !!turnedSpot(table, selectedStack.id)
   // Nor turned over, nor one lying face up for good (Broken Items, Status Upgrades & Items).
   const faced = !!selectedStack && !!facedSpot(table, selectedStack.id)
-  // A Terrain Card on the battlefield lies face up.
-  const onBattlefield = !!selectedStack && onGrid(table, selectedStack.id)
+  // A Region Card on the Map and a Terrain Card on the battlefield lie face up.
+  const onGridPlace = !!selectedStack && onGrid(table, selectedStack.id)
   // A card lying upside down on its place (Actions area, Titles, Skills, Broken Items, Status Upgrades & Items) can't be rotated either.
   const upsideDown = !!selectedStack && !!upsideDownSpot(table, selectedStack.id)
   /** Decks and places draw several cards; a pile on the table needs at least two. */
@@ -729,7 +729,7 @@ export default function App() {
               🂠 Draw
             </button>
           )}
-          {count > 0 && !faced && !onBattlefield && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
+          {count > 0 && !faced && !onGridPlace && <button onClick={() => act(A.flipTop)}>⟲ {count > 1 ? 'Flip top' : 'Flip'}</button>}
           {free > 1 && !topPinned && <button onClick={() => act(A.topToBottom)}>⤓ Top → bottom</button>}
           {count > 1 && (
             <button

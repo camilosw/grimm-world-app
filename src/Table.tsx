@@ -15,7 +15,8 @@ import {
   freeCovered,
   holdsOne,
   freePlaces,
-  onGrid,
+  gridFaceUp,
+  gridOf,
   placement,
   placeStack,
   PLACE_BUTTON,
@@ -23,7 +24,7 @@ import {
   splitHalves,
   spotsOf,
   stacksOnSpot,
-  terrainPlaces,
+  gridPlaces,
   facedSpot,
   type Area,
   type Side,
@@ -336,7 +337,8 @@ export function TableView(props: Props) {
       lastTap.current = null
       const fixed = facedSpot(table, target.id)
       if (fixed) return props.onRefuse(`Cards on the ${fixed.label} place lie face ${fixed.faceDown ? 'down' : 'up'}`)
-      if (onGrid(table, target.id)) return props.onRefuse('Terrain Cards on the Battlefield lie face up')
+      const grid = gridOf(table, target.id)
+      if (grid) return props.onRefuse(gridFaceUp(grid))
       update((t) => flipTop(t, target.id))
       return
     }
@@ -362,9 +364,9 @@ export function TableView(props: Props) {
     return cards.map((c) => c.id)
   }
 
-  /** The pile a drag moves whole: dragged by its grip, or a Terrain Card alone on its battlefield place. */
+  /** The pile a drag moves whole: dragged by its grip, or a card alone on its place of a grid (Map, battlefield). */
   function movingPile(target: { id: string; whole: boolean }) {
-    const whole = target.whole || onGrid(table, target.id)
+    const whole = target.whole || !!gridOf(table, target.id)
     return whole && !isFixed(table.stacks[target.id]) ? target.id : null
   }
 
@@ -439,7 +441,7 @@ export function TableView(props: Props) {
   // What a drag lights up: a drag on the table, else cards dragged in from outside it.
   const hl: Incoming | null = drag ?? props.incoming ?? null
   const sliding = new Set(spots.filter((s) => s.fan).flatMap((s) => fanRow(shownTable, s)))
-  const covered = new Map(spots.filter((s) => s.under).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
+  const covered = new Map(spots.filter((s) => s.under || s.underPile).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
   const turned = new Map(spots.flatMap((s) => (s.turn ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const) : [])))
 
   /** A spot's placeholders: its free place(s), only the part showing beside a card covering it. */
@@ -528,27 +530,29 @@ export function TableView(props: Props) {
             onRules={() => props.onAreaRules(area.id)}
           />
         ))}
-        {/* The battlefield's free places: its first one, then a strip on each free side of its Terrain Cards. */}
-        {terrainPlaces(shownTable, dragStack ? movingPile(dragStack) : null).map((p) => {
-          const hover = hl?.area?.id === 'battlefield' && hl.to?.x === p.x && hl.to?.y === p.y
-          const state = hover ? (hl.area?.ok ? ' accept' : ' refuse') : ''
-          return (
-            <div
-              key={`terrain-${p.col},${p.row}-${p.side}`}
-              className={`card-spot${p.side ? ` terrain-strip strip-${p.side}` : ' wide'}${state}`}
-              style={rectStyle(p.box)}
-            >
-              {p.side ? (
-                <span>+</span>
-              ) : (
-                <span>
-                  Terrain Card
-                  <small>build the battlefield from here</small>
-                </span>
-              )}
-            </div>
-          )
-        })}
+        {/* The grids' free places (the Map's, the battlefield's): the first one, then a strip on each free side of their cards. */}
+        {(['map', 'battlefield'] as const).flatMap((g) =>
+          gridPlaces(shownTable, g, dragStack ? movingPile(dragStack) : null).map((p) => {
+            const hover = hl?.area?.id === g && hl.to?.x === p.x && hl.to?.y === p.y
+            const state = hover ? (hl.area?.ok ? ' accept' : ' refuse') : ''
+            return (
+              <div
+                key={`${g}-${p.col},${p.row}-${p.side}`}
+                className={`card-spot${p.side ? ` grid-strip strip-${p.side}` : ' wide'}${state}`}
+                style={rectStyle(p.box)}
+              >
+                {p.side ? (
+                  <span>+</span>
+                ) : (
+                  <span>
+                    {GRID_START[g].label}
+                    <small>{GRID_START[g].hint}</small>
+                  </span>
+                )}
+              </div>
+            )
+          }),
+        )}
         {spots.flatMap(placeholders)}
         {allAreas(shownTable).flatMap((area) => {
           // The Encounter Deck area's places, shown while empty (their piles cover them), with a Shuffle button below each
@@ -696,6 +700,12 @@ function SlotView({ stack, defs, size, dropTarget }: { stack: Stack; defs: Recor
       {stack.cards.length > 1 && <div className="slot-count">{stack.cards.length}</div>}
     </div>
   )
+}
+
+/** What the first place of an empty grid says. */
+const GRID_START = {
+  map: { label: 'Region Card', hint: 'start the map here' },
+  battlefield: { label: 'Terrain Card', hint: 'build the battlefield from here' },
 }
 
 /** Position and size of a table rectangle as an absolutely placed element's style. */
