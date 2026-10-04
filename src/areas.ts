@@ -80,7 +80,7 @@ const bar = {
 const PLACE_GAP = 40;
 /**
  * A button below a card's place (the Shuffle button below each time card's place in the Encounter Deck area, Browse
- * below the Training Deck): its distance from the card, and height.
+ * below the Training Deck and the storybook): its distance from the card, and height.
  */
 export const PLACE_BUTTON = { gap: 24, h: 76 };
 // The three places of the Encounter Deck area side by side (`ENCOUNTER_PLACES`), with a Shuffle button below each time

@@ -605,7 +605,8 @@ export function unrevealStory(t: Table): Table {
  */
 export function putUnderChapter(t: Table, stackId: string, name: string, defs: Record<string, CardDef>, cardIds?: string[]): Table {
   const s = t.stacks[stackId]
-  if (!s || s.slot === 'story' || !storySlot(t, 'story') || notHeldBy(t, stackId, 'storybook', defs, cardIds).length) return t
+  // Cards of the storybook itself (picked in the Browse panel) move to another chapter.
+  if (!s || (s.slot === 'story' && !cardIds) || !storySlot(t, 'story') || notHeldBy(t, stackId, 'storybook', defs, cardIds).length) return t
   const [t2, taken] = takeCards(t, stackId, cardIds)
   const deck = storySlot(t2, 'story')!
   const cards = taken.map((c) => ({ ...c, faceUp: false }))

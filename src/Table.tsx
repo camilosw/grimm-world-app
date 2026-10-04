@@ -603,6 +603,23 @@ export function TableView(props: Props) {
                 </button>,
               ]
             })
+          // A Browse button below the face-down storybook, to look through it and fix mistakes.
+          if (area.id === 'storybook') {
+            const s = storySlot(shownTable, 'story')
+            if (!s) return []
+            return [
+              <button
+                key="browse-story"
+                className={`place-button${props.browsing === s.id ? ' on' : ''}`}
+                data-ui
+                disabled={!s.cards.length}
+                onClick={() => props.onBrowseDeck(s.id)}
+                style={{ left: s.x, top: s.y + CARD_H + PLACE_BUTTON.gap, width: CARD_W, height: PLACE_BUTTON.h }}
+              >
+                ☰ Browse
+              </button>,
+            ]
+          }
           // The place of a deck lying on the table, shown while it is empty (its pile covers it), with a Browse button
           // below the Training Deck's (`BROWSE_DECKS`).
           if (!area.deck) return []

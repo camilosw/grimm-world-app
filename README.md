@@ -265,8 +265,10 @@ card keeps lying upside down until you rotate it.
 **Storybook area.** The storybook lies face down on the right; the revealed cards lie on the left, the top one being
 the current chapter. Tap the storybook to turn over its next card; tap the revealed cards to put the top one back on
 the storybook, face down. A sub-chapter card (Y-card) on top of the storybook isn't turned over: a tap puts it unseen
-into the Encounter Bar, first in the row, so keep tapping until the next Chapter Card comes up (rulebook 9.1.2). The storybook can't be looked through, sorted or moved; long-press the revealed card to read
-it. A revealed Y-card (sub-chapter card) can be dragged out, e.g. to the Encounter Bar. To put Y-cards "into the
+into the Encounter Bar, first in the row, so keep tapping until the next Chapter Card comes up (rulebook 9.1.2). The storybook can't be sorted or moved; long-press the revealed card to read
+it. To fix a mistake, the **☰ Browse** button below the storybook opens the Browse panel on it (top first, on the
+backs): take cards out, or move them to another chapter with **Put under…** and a tap on the storybook (or by dragging
+them onto the Storybook area). A revealed Y-card (sub-chapter card) can be dragged out, e.g. to the Encounter Bar. To put Y-cards "into the
 corresponding chapter", drop them on the face-down storybook or anywhere else in the Storybook area (from the table,
 the Browse panel, the top of a deck, or the revealed cards), or use **Put under…** on them and tap the storybook. A dialog shows the backs of the cards, where
 the white book symbol gives their chapter, and asks under which Storybook Card they go: Chapter 1–14 or the Epilogue.

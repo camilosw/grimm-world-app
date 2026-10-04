@@ -505,9 +505,11 @@ export default function App() {
   const putUnderTarget = (targetId: string) => {
     const source = putUnder
     setPutUnder(null)
-    if (!table || !source || source.stackId === targetId) return
+    if (!table || !source) return
     const { stackId: sourceId, cardIds, faceUp = true } = source
     const target = table.stacks[targetId]
+    // Cards picked out of the storybook may go under another of its chapters.
+    if (sourceId === targetId && !(target.slot === 'story' && cardIds)) return
     if (target.slot === 'story-revealed') return notify('Put cards under the storybook itself (the right-hand card)')
     if (target.slot === 'story') {
       if (heldBy(sourceId, 'storybook', 'Storybook', cardIds)) setDialog({ kind: 'chapter', stackId: sourceId, cardIds })
@@ -747,7 +749,8 @@ export default function App() {
             notify('Encounter Deck shuffled', true)
           }}
           onBrowseDeck={(stackId) => {
-            setSelection({ kind: 'stack', id: stackId })
+            // The storybook is only turned over, never picked up: browsing it doesn't select it.
+            setSelection(table.stacks[stackId]?.slot ? null : { kind: 'stack', id: stackId })
             setPutUnder(null)
             setBrowseId(browseId === stackId ? null : stackId)
           }}
