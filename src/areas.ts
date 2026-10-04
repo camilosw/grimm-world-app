@@ -302,7 +302,7 @@ export interface Spot {
   turn?: Turn;
   /** Its cards lie face down (the Encounter Bar's Y-cards, whose backs show the location they belong to). */
   faceDown?: boolean;
-  /** Its cards lie face up, turned so when put there, and can't be turned over there (Broken Items, Status Upgrades). */
+  /** Its cards lie face up, turned so when put there, and can't be turned over there (Broken Items, Status Upgrades, the hand). */
   faceUp?: boolean;
   /**
    * New cards go to the front of the fanned row, on top of the others, and its free place is shown before its first
@@ -954,8 +954,8 @@ export const SPOTS: Spot[] = [
     fillsArea: true,
     fan: { count: 1 },
   },
-  // The Y-cards in the hand (Action Cards, rulebook 4.7.7), upside down, so the strip printed upside down at the bottom
-  // of an Action Card reads the right way up at the top. Each lies on the one before, a little lower, leaving the top
+  // The Y-cards in the hand (Action Cards, rulebook 4.7.7), face up and upside down, so the strip printed upside down at
+  // the bottom of an Action Card reads the right way up at the top. Each lies on the one before, a little lower, leaving the top
   // of the one before showing (`HAND_SHOWS`). Y-cards dropped anywhere in the area but on the discard pile go into
   // it. Any number of them: the area grows down with the column.
   {
@@ -971,6 +971,7 @@ export const SPOTS: Spot[] = [
     overlaps: "bottom",
     fillsArea: true,
     upsideDown: true,
+    faceUp: true,
     takesPiles: true,
   },
   // Right of the hand: the cards played from it (rulebook 8.2.1.1.1), upside down too, in one pile.

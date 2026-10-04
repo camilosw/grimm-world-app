@@ -241,8 +241,9 @@ the Character area, the House Card moves right as Goods are added. A 17th Goods 
 **Actions.** Right of Character, the Actions area holds the Y-cards in your hand (Action Cards, rulebook 4.7.7),
 their discard pile (rulebook 8.2.1.1.1) and the Damage Card (rulebook 4.7.9). Every card in the hand and the discard
 pile lies turned 180°, so the strip printed upside down at the bottom of an Action Card reads the right way up at its
-top; it can't be rotated there (**Rotate** is not offered), but it can be flipped. On the left is the **Hand**: a column of cards, each lying on the one
-before, a little lower, so that the top 22% of every card under it shows. A Y-card dropped anywhere in the area goes at
+top; it can't be rotated there (**Rotate** is not offered). On the left is the **Hand**: a column of cards, each lying on the one
+before, a little lower, so that the top 22% of every card under it shows. The cards in the hand lie face up: a card put there
+face down turns face up, and they can't be turned over there; the discard pile's can. A Y-card dropped anywhere in the area goes at
 the end of the column, on top; dropped on the column itself, it goes where you drop it. Any number of them: the area
 grows down. On the right is the **Discard** place: a Y-card or a pile of them dropped on or near it goes onto the pile
 there. Below it lies the **Damage Card** (Y010), upright, for good: a new game starts with it there (older saves get it
