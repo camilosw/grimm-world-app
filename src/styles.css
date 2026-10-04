@@ -166,7 +166,8 @@ input:not([type]) {
   position: relative;
   display: flex;
   flex: 1;
-  min-height: 0;
+  /* The toolbar and some table stay above the Browse panel (MIN_TABLE in dialogs.tsx). */
+  min-height: 180px;
 }
 
 .workspace-left {
@@ -646,17 +647,50 @@ button.on {
 
 /* ---------- browse panel ---------- */
 
-/* Bottom half of the screen; the table above stays in use. */
+/* Bottom half of the screen (or the height its top edge was dragged to); the table above stays in use. */
 .browse {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 50vh;
-  height: 50dvh;
-  flex: none;
+  height: var(--browse-height, 50dvh);
+  min-height: 200px;
+  /* Gives way to the table above when the screen gets smaller (turned). */
+  flex: 0 1 auto;
   z-index: 2;
   background: var(--panel);
   border-top: 1px solid #000;
   box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* The top edge, dragged to change the panel's height. */
+.browse-resize {
+  position: absolute;
+  top: -12px;
+  left: 0;
+  right: 0;
+  height: 24px;
+  z-index: 3;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.browse-resize::after {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 56px;
+  height: 6px;
+  transform: translateX(-50%);
+  border-radius: 3px;
+  background: #6b5646;
+  box-shadow: 0 0 0 1px #000;
+}
+
+.browse-resize:hover::after,
+.browse-resize:active::after {
+  background: var(--gold);
 }
 
 .browse-bar {

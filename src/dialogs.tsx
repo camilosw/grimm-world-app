@@ -86,6 +86,20 @@ interface BrowseProps {
 /** The cards a Browse panel's group grip drags: those picked at random, or the selected ones. */
 type Group = 'unseen' | 'chosen'
 
+const HEIGHT_KEY = 'grimm-world:browse-height'
+/** The panel keeps its bar and a row of cards. */
+const MIN_BROWSE = 200
+/** The toolbar and the table keep at least this much room above the panel (`.workspace` in styles.css). */
+const MIN_TABLE = 180
+// The height dragged last (null: half the screen), kept when the panel opens on another pile.
+let browseHeight: number | null = (() => {
+  try {
+    return Number(localStorage.getItem(HEIGHT_KEY)) || null
+  } catch {
+    return null
+  }
+})()
+
 /**
  * Look through a pile and pull cards out. Sits in the bottom half of the
  * screen so the table stays in use: tap cards to select them, then take them
@@ -105,6 +119,8 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
   const [blind, setBlind] = useState<string[]>([])
   // How many of the shown cards Random picks (null: all of them, i.e. shuffle them).
   const [count, setCount] = useState<number | null>(null)
+  const [height, setHeight] = useState(browseHeight)
+  const resizing = useRef(false)
   // Selected cards that are still in the pile, bottom → top, as the actions take them.
   const inPile = new Set(stack?.cards.map((c) => c.id))
   const chosen = picked.filter((id) => inPile.has(id)).reverse()
@@ -143,6 +159,31 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
     update((t) => playCards(t, stackId, indices, at.x, at.y, null, defs, faceUp))
   }
 
+  /** Dragging the top edge: the panel's height follows the finger, leaving the table room. */
+  const resize = {
+    onPointerDown: (e: React.PointerEvent) => {
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      resizing.current = true
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const panel = (e.currentTarget as HTMLElement).parentElement
+      const above = panel?.previousElementSibling
+      if (!resizing.current || !panel || !above) return
+      const bottom = panel.getBoundingClientRect().bottom
+      const room = bottom - above.getBoundingClientRect().top - MIN_TABLE
+      setHeight(Math.round(Math.max(MIN_BROWSE, Math.min(room, bottom - e.clientY))))
+    },
+    onPointerUp: () => {
+      resizing.current = false
+      browseHeight = height
+      try {
+        if (height) localStorage.setItem(HEIGHT_KEY, String(height))
+      } catch {
+        // Only a convenience.
+      }
+    },
+  }
+
   // The pile disappears when its last card is taken out.
   useEffect(() => {
     if (!stack) onClose()
@@ -168,7 +209,12 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
   const groupFaceUp = groupGrip.drag?.item === 'chosen' && fronts
 
   return (
-    <section className="browse" aria-label={`Browse ${stack.label ?? 'pile'}`}>
+    <section
+      className="browse"
+      aria-label={`Browse ${stack.label ?? 'pile'}`}
+      style={height ? ({ '--browse-height': `${height}px` } as React.CSSProperties) : undefined}
+    >
+      <div className="browse-resize" {...resize} onPointerCancel={resize.onPointerUp} role="separator" aria-orientation="horizontal" aria-label="Resize" />
       <header className="browse-bar">
         <h2>
           {stack.label ?? 'Pile'} — {stack.cards.length} cards <span className="muted">(top first)</span>

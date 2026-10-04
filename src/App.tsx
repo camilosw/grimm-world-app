@@ -613,7 +613,12 @@ export default function App() {
           defs={defs}
           selectedId={selectedStack && docked ? selectedStack.id : null}
           hoverIds={zoneHover && zoneHover.kind !== 'tray' ? homeHover : []}
-          onTap={(id) => (putUnder ? putUnderTarget(id) : setSelection({ kind: 'stack', id }))}
+          onTap={(id) => {
+            if (putUnder) return putUnderTarget(id)
+            setSelection({ kind: 'stack', id })
+            // An open Browse panel follows the deck tapped.
+            if (browseId) setBrowseId(id)
+          }}
           onDoubleTap={(id) => update((t) => A.flipTop(t, id))}
           onInspect={(card) => setDialog({ kind: 'inspect', card })}
           onDrop={dropFromDeck}

@@ -380,7 +380,9 @@ area or place: it goes in the middle of the screen, on top of whatever lies ther
 beside any figure already there, and can be dragged anywhere. A figure lying in an area moves with it.
 
 **☰ Browse** opens a panel over the bottom half of the screen with the pile's cards, top card first. The table above
-stays in use (pan, zoom, move cards) until you close the panel with ✕ or tap **Browse** again. Filter by number or
+stays in use (pan, zoom, move cards) until you close the panel with ✕ or tap **Browse** again. Drag the handle on its
+top edge to make it taller or shorter (the tablet remembers the height). While it is open, tapping another deck in the
+sidebar shows that deck's cards in it instead. Filter by number or
 name, switch between **Backs** and **Fronts** (it opens on the backs; cards dragged out land showing the side shown), and swipe up and down to scroll. Selected cards
 move in their numbered order, card 1 on top; the pile they come from keeps its order. The actions for the selected
 cards (or those picked at random) appear in a row of their own below the bar.
