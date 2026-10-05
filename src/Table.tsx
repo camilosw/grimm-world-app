@@ -100,6 +100,8 @@ interface Props {
   shuffled: { id: string; n: number } | null
   /** A card just dealt from elsewhere on the table, shown moving from there to its place (`n` restarts it). */
   dealt?: Dealt | null
+  /** The view is gliding to where it now is (`.world.gliding`), not jumping there. */
+  gliding?: boolean
 }
 
 /** A card just moved by an action, not a drag: it is shown travelling from `from`, a card place, to where it lies now. */
@@ -540,7 +542,7 @@ export function TableView(props: Props) {
       onPointerCancel={onPointerCancel}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="world" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
+      <div className={`world${props.gliding ? ' gliding' : ''}`} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
         {allAreas(shownTable).map((area) => (
           <AreaView
             key={area.id}

@@ -4,6 +4,7 @@ import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, tokenSize } from './cards'
 import { BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
 import { BattlefieldBar } from './BattlefieldBar'
+import { AreaIcon } from './AreaIcon'
 import { allAreas, areaForCard, battlefieldInUse, COMBAT_AREAS, facedSpot, onGrid, placement, PLAY_AREAS, turnedSpot, upsideDownSpot, type Area } from './areas'
 import { DECK_SPECS, homeDeck, returnsCards, storySlot, type DeckKind } from './decks'
 import { initialTable, migrateTable, playableCards } from './setup'
@@ -22,7 +23,6 @@ type Dialog =
   | { kind: 'rename'; stackId: string }
   | { kind: 'menu' }
   | { kind: 'tokens' }
-  | { kind: 'areas' }
   | { kind: 'chapter'; stackId: string; cardIds?: string[] }
   | null
 
@@ -52,6 +52,11 @@ const sameZone = (a: Zone | null, b: Zone | null) => JSON.stringify(a) === JSON.
 const SHUFFLE_MS = 900
 /** How long a card dealt by an action shows travelling to its place (see `DEAL_TRAVEL_MS` in Table.tsx). */
 const DEAL_MS = 430
+/** How long the view glides to an area or a pile it is sent to (see `.world.gliding` in styles.css). */
+const GLIDE_MS = 500
+
+/** The area buttons along the left edge of the screen, in the order the areas lie (`packedPlaces()`). */
+const RAIL_AREAS = ['bar', 'map', 'encounter', 'storybook', 'storage', 'character', 'hand', 'home', 'battlefield', 'quest', 'enemy', 'training', 'banned']
 
 const DECKS_IN_SIDEBAR = (t: Table) => (t.dock ?? []).map((id) => t.stacks[id])
 
@@ -173,6 +178,27 @@ export default function App() {
     },
     [rectView],
   )
+
+  /** The view moving smoothly to an area or a pile it is sent to, until the player pans or zooms. */
+  const [gliding, setGliding] = useState(false)
+  const glideTimer = useRef<number | undefined>(undefined)
+  const glideTo = (v: View | null) => {
+    if (!v) return
+    window.clearTimeout(glideTimer.current)
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    setGliding(!still)
+    if (!still) glideTimer.current = window.setTimeout(() => setGliding(false), GLIDE_MS)
+    setView(v)
+  }
+  /** The area just shown by its button, lit up there until the view moves elsewhere. */
+  const [shownArea, setShownArea] = useState<string | null>(null)
+  /** The view moved by the player (pan, pinch, wheel): it stops gliding where it is headed. */
+  const moveView = (v: View) => {
+    window.clearTimeout(glideTimer.current)
+    setGliding(false)
+    setShownArea(null)
+    setView(v)
+  }
 
   const fit = useCallback(
     (t: Table, whole = false) => {
@@ -327,7 +353,8 @@ export default function App() {
 
   const showArea = (area: Area) => {
     setDialog(null)
-    fitRect(area.x, area.y, area.x + area.w, area.y + area.h)
+    setShownArea(area.id)
+    glideTo(rectView(area.x, area.y, area.x + area.w, area.y + area.h))
   }
 
   const showStack = (stackId: string) => {
@@ -349,7 +376,8 @@ export default function App() {
       return setSelection({ kind: 'stack', id: stackId })
     }
     const scale = Math.max(view.scale, 0.6)
-    setView({ scale, x: el.clientWidth / 2 - (s.x + CARD_W / 2) * scale, y: el.clientHeight / 2 - (s.y + CARD_H / 2) * scale })
+    setShownArea(null)
+    glideTo({ scale, x: el.clientWidth / 2 - (s.x + CARD_W / 2) * scale, y: el.clientHeight / 2 - (s.y + CARD_H / 2) * scale })
     setSelection({ kind: 'stack', id: stackId })
   }
 
@@ -672,9 +700,6 @@ export default function App() {
         <button onClick={() => (rulesOpen ? setRulesOpen(false) : openRules())} className={rulesOpen ? 'on' : ''}>
           📖 <span>Rules</span>
         </button>
-        <button onClick={() => setDialog({ kind: 'areas' })}>
-          📍 <span>Areas</span>
-        </button>
         <button onClick={() => (typing ? setBattleText(null) : typeBattlefield())} className={typing ? 'on' : ''}>
           ⚔ <span>Battle</span>
         </button>
@@ -683,7 +708,8 @@ export default function App() {
             // Showing the play areas already: show the whole table.
             const play = fitView(table)
             const same = !!play && Math.abs(play.scale - view.scale) < 1e-3 && Math.abs(play.x - view.x) < 1 && Math.abs(play.y - view.y) < 1
-            fit(table, same)
+            setShownArea(null)
+            glideTo(fitView(table, same))
           }}
           aria-label="Fit the play areas, again for the whole table"
         >
@@ -695,6 +721,20 @@ export default function App() {
       </header>
 
       <div className="main">
+      {/* Always shown, along the left edge of the screen; it scrolls when the screen is too short for it. */}
+      <nav className="area-rail" aria-label="Show an area">
+        {RAIL_AREAS.map((id) => allAreas(table).find((a) => a.id === id)).filter((a) => !!a).map((area) => (
+          <button
+            key={area.id}
+            className={shownArea === area.id ? 'on' : ''}
+            onClick={() => showArea(area)}
+            aria-label={area.label}
+            title={area.label}
+          >
+            <AreaIcon id={area.id} />
+          </button>
+        ))}
+      </nav>
       {sidebarOpen && (
         <Sidebar
           decks={(table.dock ?? []).map((id) => table.stacks[id])}
@@ -722,7 +762,7 @@ export default function App() {
           table={table}
           defs={defs}
           view={view}
-          onView={setView}
+          onView={moveView}
           selection={selection}
           onSelect={(s) => {
             setSelection(s)
@@ -769,6 +809,7 @@ export default function App() {
           browsing={browseId}
           incoming={incoming}
           dealt={dealt}
+          gliding={gliding}
         />
         {battleLayout && (
           <BattlefieldBar
@@ -947,36 +988,6 @@ export default function App() {
           onClose={() => setDialog(null)}
         />
       )}
-      {dialog?.kind === 'areas' && (
-        <div className="popover" onPointerDown={(e) => e.target === e.currentTarget && setDialog(null)}>
-          <div className="popover-panel">
-            {allAreas(table).map((area) => (
-              <button key={area.id} onClick={() => showArea(area)}>
-                {area.label}
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                setDialog(null)
-                fit(table, true)
-              }}
-            >
-              ⤢ Whole table
-            </button>
-            {table.anchors && (
-              <button
-                onClick={() => {
-                  update(A.resetLayout)
-                  setDialog(null)
-                  notify('Areas packed together again', true)
-                }}
-              >
-                ↺ Reset layout
-              </button>
-            )}
-          </div>
-        </div>
-      )}
       {dialog?.kind === 'tokens' && (
         // Hidden while a figure is dragged out of it, so the whole table shows.
         <div className={`popover${figureDrag.drag ? ' dragging' : ''}`} onPointerDown={(e) => e.target === e.currentTarget && setDialog(null)}>
@@ -1049,6 +1060,17 @@ export default function App() {
                 }}
               >
                 ⛶ Full screen
+              </button>
+            )}
+            {table.anchors && (
+              <button
+                onClick={() => {
+                  update(A.resetLayout)
+                  setDialog(null)
+                  notify('Areas packed together again', true)
+                }}
+              >
+                ↺ Reset layout
               </button>
             )}
             <p className="muted small">

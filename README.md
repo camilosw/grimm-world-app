@@ -77,7 +77,9 @@ Before 1.0, `feat` bumps the patch number and a breaking change (`feat!:`) the m
 **Areas.** The table has a framed area for each part of the game (rulebook chapters 4 and 10). An area only takes
 the cards that belong there; while you drag, it lights up green (allowed) or red (refused), as does the place the card
 would go to — also for cards dragged in from the sidebar, the set-aside cards or the Browse panel — and a refused card
-goes back where it came from. Space outside the areas takes any card. **📍 Areas** jumps to an area.
+goes back where it came from. Space outside the areas takes any card. Each area's name has its icon; the column
+of icons along the left edge of the screen, always shown, glides the view to that area. On a
+short screen, swipe the column to reach the rest.
 
 The Map, Encounter Bar, Character, Storage, Actions, Home and Battlefield areas are only as large as their places and
 the cards lying in them: a card dropped on or overlapping one of their frames lies in that area (in the one it
@@ -97,12 +99,11 @@ everything lying in it, wherever you like; the table shows where it will go whil
 edge of another area, or a gap beside it, when it comes close. Areas in its way are pushed aside to their nearest free
 side and stay there. Loose cards it would cover move off to the right, past the areas (figures stay where they are). From then on each
 area stays where you put it: a growing area still pushes the areas in its way aside, and they move back to their own
-places as it shrinks. **📍 Areas → ↺ Reset layout** packs the areas together again in the rows above.
+places as it shrinks. **☰ → ↺ Reset layout** packs the areas together again in the rows above.
 
 **⤢ Fit** zooms to the areas used every round: the Encounter Bar, Map, Encounter Deck, Storybook, Storage, Character,
 Actions, Banned Cards and the Enemy Deck. While Terrain Cards lie on the Battlefield, it zooms to the combat instead:
-Character, Actions, the Enemy Deck and the Battlefield. Tap it again to see the whole table (also **📍 Areas → ⤢ Whole
-table**).
+Character, Actions, the Enemy Deck and the Battlefield. Tap it again to see the whole table.
 
 | Area          | Takes                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ |

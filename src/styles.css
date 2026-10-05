@@ -212,6 +212,54 @@ input:not([type]) {
     #5a1a1c;
 }
 
+.world.gliding {
+  transition: transform 500ms cubic-bezier(0.45, 0, 0.25, 1); /* GLIDE_MS in App.tsx */
+}
+
+/*
+ * One button per area along the left edge of the screen, before the decks sidebar (`RAIL_AREAS` in App.tsx). Too short
+ * for all of them, it scrolls with a swipe, a glow at the end where more buttons are hidden (the backgrounds
+ * attached `local` cover the glows attached `scroll` once scrolled to that end).
+ */
+.area-rail {
+  --rail-bg: #14100d;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 6px 8px max(6px, env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-width: none;
+  background:
+    linear-gradient(var(--rail-bg) 40%, transparent) top / 100% 28px no-repeat local,
+    linear-gradient(transparent, var(--rail-bg) 60%) bottom / 100% 28px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(232, 194, 122, 0.45), transparent) top / 100% 14px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(232, 194, 122, 0.45), transparent) bottom / 100% 14px no-repeat scroll,
+    var(--rail-bg);
+  border-right: 1px solid #000;
+  z-index: 2;
+}
+
+.area-rail button {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 10px;
+  color: rgba(255, 245, 225, 0.8);
+}
+
+.area-rail .area-icon {
+  width: 26px;
+  height: 26px;
+  margin: 0;
+}
+
 .table.picking .stack {
   cursor: copy;
 }
@@ -968,12 +1016,12 @@ button.on {
 
 .sidebar {
   flex: 0 0 auto;
-  width: calc(2 * 88px + 3 * 10px + env(safe-area-inset-left));
+  width: calc(2 * 88px + 3 * 10px);
   display: grid;
   grid-template-columns: repeat(2, 88px);
   grid-auto-rows: max-content;
   gap: 14px 10px;
-  padding: 12px 10px 24px max(10px, env(safe-area-inset-left));
+  padding: 12px 10px 24px;
   overflow-y: auto;
   background: #1a1411;
   border-right: 1px solid #000;
