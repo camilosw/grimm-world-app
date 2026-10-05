@@ -299,7 +299,8 @@ puts a Quest, Enemy or training card back into its deck; banished cards go back 
 from one of these decks (or out of its Browse panel) onto the sidebar goes back to the deck it came from: Lost Pages for
 the Y-cards, its own deck for a banished card.
 
-**🂠 Decks sidebar (left).** The other 8 decks of the game, sorted as in the rulebook (chapter 6.1); the table starts
+**🂠 Decks sidebar (left).** The other 8 decks of the game, in pairs: Character and Alignment, Regions and Terrain,
+X-Encounters and Lost Pages, Hit Points and Money. The table starts
 empty apart from the storybook, the Encounter Deck and the four decks in their areas. The title card is left out; it
 isn't needed to play.
 
