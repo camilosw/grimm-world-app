@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { AreaIcon } from './AreaIcon'
 import { dropOnto, flipTop, intoStory, isFixed, liftPile, moveArea, moveStack, moveToken, pinned, pinnedOnTop, settleSpots, stackTargetAt, takeTop, unpinned } from './actions'
 import {
   acceptsText,
@@ -778,7 +779,7 @@ function AreaView({ area, state, onClear, onType, onRules }: AreaViewProps) {
       </div>
       <div className="area-header">
         <span>
-          {area.id === 'battlefield' ? '⚔ ' : ''}
+          <AreaIcon id={area.id} />
           {area.label}
           <button className="area-info" data-ui onClick={onRules} aria-label={`Rules: ${area.label}`}>
             ⓘ

@@ -1322,6 +1322,14 @@ button.on {
   padding: 0 4px;
 }
 
+/* Before the area's name, in the colour of its text. */
+.area-icon {
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.35em;
+  vertical-align: -0.2em;
+}
+
 /* Growing areas start a card or two wide: what doesn't fit of the line of accepted cards is cut off. */
 .area-header > span {
   min-width: 0;
