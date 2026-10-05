@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.5.1](https://github.com/camilosw/grimm-world-app/compare/v0.5.0...v0.5.1) (2026-10-05)
+
+### Features
+
+* **areas:** lay Region Cards out on a growing Map grid ([1a78cae](https://github.com/camilosw/grimm-world-app/commit/1a78cae17baad18b109e394c1fd09cb105df9bbc))
+* **areas:** show the cards in your hand face up ([b791b13](https://github.com/camilosw/grimm-world-app/commit/b791b13b24c66138f9034e78456a940e6c535f06))
+* **battlefield:** type the battlefield in a bar above the table, previewed on it ([2e6f292](https://github.com/camilosw/grimm-world-app/commit/2e6f2927fa48b809521ffa8510dd65fe0721e80d))
+* **browse:** follow the deck tapped in the sidebar and let the panel be resized ([01e4ff2](https://github.com/camilosw/grimm-world-app/commit/01e4ff250b3fec2c3bfc0c95612401c6fc0f99c5))
+* **decks:** hide the number of cards in the Encounter Deck ([5b3813b](https://github.com/camilosw/grimm-world-app/commit/5b3813baa78611e998229913a2d4540f6c0e639d))
+* **figures:** drag figures from the Figures panel to where they go on the table ([b3c8279](https://github.com/camilosw/grimm-world-app/commit/b3c8279ce06ffa9bde5a08a889641bcd7af3ce8e))
+* **storybook:** browse the storybook to fix mistakes, moving cards to another chapter ([47b8cbb](https://github.com/camilosw/grimm-world-app/commit/47b8cbbbbea174bad9e734819a50677aa51e6994))
+* **storybook:** put Y-cards dropped anywhere in the Storybook area into the storybook ([0b9dc23](https://github.com/camilosw/grimm-world-app/commit/0b9dc23e3f2f46525786d70b139e92fdff671393))
+* **storybook:** show a sub-chapter card travel from the storybook into the Encounter Bar ([24b91ba](https://github.com/camilosw/grimm-world-app/commit/24b91ba132d0a44e76de3e0a4debe7418e721bdd))
+
+### Bug Fixes
+
+* keep the card viewer's buttons on screen when the card is rotated ([913d7da](https://github.com/camilosw/grimm-world-app/commit/913d7daece03cf392d018e420b3b29487d2d7f6a))
+
 ## [0.5.0](https://github.com/camilosw/grimm-world-app/compare/v0.4.0...v0.5.0) (2026-10-04)
 
 
