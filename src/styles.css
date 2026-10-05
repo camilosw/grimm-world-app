@@ -428,9 +428,17 @@ input:not([type]) {
   max-height: none;
 }
 
+/* A card turned a quarter: `rotate` doesn't change its layout box, so size it
+   to fit once turned and pull the box's extra height in (negative margins),
+   keeping the bar on screen. */
 .viewer img.sideways {
-  max-width: calc((100vh - 110px));
-  max-height: calc(100vw - 32px);
+  --long: min(100vw - 32px, (100vh - 110px) * 1.4);
+  --short: calc(var(--long) / 1.4);
+  width: var(--short);
+  height: var(--long);
+  max-width: none;
+  max-height: none;
+  margin-block: calc((var(--short) - var(--long)) / 2);
 }
 
 .viewer-bar {
