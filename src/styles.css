@@ -2155,3 +2155,187 @@ button.on {
 .card-ghost.landscape {
   width: 168px;
 }
+
+/* ---------- phone (landscape) ---------- */
+
+/* A small control's touch target on the table (`Hit` in Table.tsx), only needed on a phone. */
+.hit {
+  display: none;
+}
+
+/*
+ * A short screen: a phone held landscape (`useCompact` in compact.ts). Height is what's short, so the toolbar becomes a
+ * column at the left edge, before the area buttons, and the actions for the selection a column at the right edge
+ * (hidden while the Browse panel, below the table between them, is open); the decks sidebar lies over the table. The
+ * toolbar, the table (`.main`), the Browse panel and the actions are laid out in one grid, their wrappers left out.
+ */
+@media (max-height: 500px) {
+  .app {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  /* Its top lies at the top of the screen still, as the Browse panel's resizing measures (MIN_TABLE in dialogs.tsx). */
+  .workspace,
+  .workspace-left {
+    display: contents;
+  }
+
+  .main {
+    grid-area: 1 / 2;
+    min-height: 0;
+  }
+
+  .browse {
+    grid-area: 2 / 2;
+  }
+
+  /* Off the screen's left edge, beside the toolbar. */
+  .browse-bar,
+  .browse-actions,
+  .browse .card-grid {
+    padding-left: 16px;
+  }
+
+  /* The bar on one line: the pile's name alone, a smaller Backs/Fronts switch, the die without its label. */
+  .browse-bar {
+    flex-wrap: nowrap;
+  }
+
+  .browse-bar h2 {
+    flex: 0 1 auto;
+    min-width: 5em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* What gives way on a narrow screen, and takes the room left over on a wider one. */
+  .browse-bar input[type="search"] {
+    flex: 1 1 150px;
+    min-width: 70px;
+  }
+
+  .browse-detail,
+  .random-pick button span {
+    display: none;
+  }
+
+  .browse-bar .segmented button {
+    padding: 6px 10px;
+    font-size: 14px;
+  }
+
+  .random-pick button {
+    justify-content: center;
+    width: 44px;
+    padding: 0;
+    font-size: 20px;
+  }
+
+  /* Over the whole screen, as on a narrow one. */
+  .rules,
+  .rules.overlay {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .rules-resize {
+    display: none;
+  }
+
+  .toolbar {
+    grid-area: 1 / 1 / 3 / 2;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px 4px 3px max(4px, env(safe-area-inset-left));
+    border-bottom: none;
+    border-right: 1px solid #000;
+    overflow-y: auto;
+    scrollbar-width: none;
+    /* Its width comes from its buttons now. */
+    container-type: normal;
+  }
+
+  .toolbar button {
+    flex: none;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .toolbar button span {
+    display: none;
+  }
+
+  /* The toolbar holds the screen's left edge. */
+  .area-rail {
+    padding-left: 6px;
+  }
+
+  /* Over the table (a negative margin as wide as itself), opened from the toolbar. */
+  .sidebar {
+    position: relative;
+    margin-right: calc(-2 * 88px - 3 * 10px);
+    box-shadow: 6px 0 20px rgba(0, 0, 0, 0.5);
+    transition:
+      background 0.15s ease,
+      opacity 0.15s ease;
+  }
+
+  /* A card dragged out of it over the table: out of the way, so the card lands on the table below. */
+  .sidebar.passing {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Next to the toolbar, under the menu and Figures buttons at its foot. */
+  .popover-panel {
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    right: auto;
+    left: calc(max(4px, env(safe-area-inset-left)) + 56px);
+    max-height: calc(100% - 16px);
+    overflow-y: auto;
+  }
+
+  .actions {
+    grid-area: 1 / 3 / 3 / 4;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) 4px;
+    border-top: none;
+    border-left: 1px solid #000;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .actions button {
+    flex: none;
+    padding: 6px 10px;
+    font-size: 14px;
+  }
+
+  /* At least 44 screen pixels, however far the table is zoomed out, up to 150 world units (a card is 250 wide). */
+  .hit {
+    --reach: min(calc(44px * var(--inv-scale, 1)), 150px);
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, var(--reach));
+    height: max(100%, var(--reach));
+    translate: -50% -50%;
+  }
+
+  .area-info,
+  .area-header button,
+  .spot-button {
+    position: relative;
+  }
+}

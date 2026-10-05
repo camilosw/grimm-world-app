@@ -1,6 +1,6 @@
 # Grimm World — tablet table
 
-A virtual table for playing the print-and-play solo game **Grimm World** on a tablet.
+A virtual table for playing the print-and-play solo game **Grimm World** on a tablet, or on a phone held landscape.
 
 ## 1. Split the card sheets
 
@@ -35,6 +35,16 @@ images and rules pages are cached as you use them, so open what you need once wh
 version, it shows up on the next online launch. Bump `CACHE` in `public/sw.js` to drop cached files that changed
 under the same name. Icons: `uv run scripts/make_icons.py`.
 Use **☰ → Export save** to keep a copy.
+
+**On a phone** (a screen less than 500 px high: held landscape; the game isn't laid out for portrait) the bars move to
+the sides, where a landscape screen has room: the toolbar becomes a column of icons at the left edge, before the area
+buttons, and the actions for the selected pile a column at the right edge. **🂠 Decks** opens the decks sidebar over the
+table (closed at first); drag a deck's card out of it and it fades away so the card lands on the table below it, as
+long as the card is outside it. **☰ Browse** opens below the table, as on a tablet, and the column of actions makes way
+for it until it closes (the panel has its own); its bar fits on one line, showing the pile's name without its number
+of cards and **⚄** without its label. The grips, ⓘ and buttons drawn on the table take a touch at least 44 screen pixels across, so they
+stay easy to hit at the zoom an area button shows (zoomed further out, up to a limit). On an iPhone, _Add to Home
+Screen_ also frees the height Safari's bars take.
 
 ## 3. Deploy to Vercel
 

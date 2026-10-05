@@ -15,6 +15,7 @@ import { getTable, loadSaved, redo, resetTable, undo, update, useHistory, useTab
 import { TableView, type Dealt, type Incoming, type Selection, type Zone } from './Table'
 import { Tray } from './Tray'
 import { useDragOut } from './useDragOut'
+import { isCompact, useCompact } from './compact'
 import type { CardDef, CardManifest, CardRef, Table, Token, View } from './types'
 
 type Dialog =
@@ -27,12 +28,13 @@ type Dialog =
   | null
 
 /** A remembered on/off panel setting (per device). */
-function usePanel(key: string): [boolean, () => void] {
+function usePanel(key: string, openFirst = true): [boolean, () => void] {
   const [open, setOpen] = useState(() => {
     try {
-      return localStorage.getItem(key) !== '0'
+      const saved = localStorage.getItem(key)
+      return saved === null ? openFirst : saved !== '0'
     } catch {
-      return true
+      return openFirst
     }
   })
   const toggle = () => {
@@ -102,7 +104,10 @@ export default function App() {
   /** Pile shown in the browse panel. */
   const [browseId, setBrowseId] = useState<string | null>(null)
   const closeBrowse = useCallback(() => setBrowseId(null), [])
-  const [sidebarOpen, toggleSidebar] = usePanel('grimm-world:sidebar-open')
+  // On a phone the decks lie over the table: closed until opened.
+  const [sidebarOpen, toggleSidebar] = usePanel('grimm-world:sidebar-open', !isCompact())
+  /** A phone: the actions for the selection make way for the Browse panel, which has its own. */
+  const compact = useCompact()
   /** The right sidebar of cards set aside is open, not minimized to a narrow bar. */
   const [trayOpen, toggleTray] = usePanel('grimm-world:tray-open')
   const [zoneHover, setZoneHover] = useState<Zone | null>(null)
@@ -870,7 +875,7 @@ export default function App() {
         />
       )}
 
-      {selectedStack && !putUnder && (
+      {selectedStack && !putUnder && !(compact && browseId) && (
         <footer className="actions">
           {many && !topPinned && (
             <button

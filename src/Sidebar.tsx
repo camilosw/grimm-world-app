@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { cardImage, cardLabel, isLandscape, landscapeClass } from './cards'
 import { CardGhost } from './CardGhost'
 import { DECK_SPECS } from './decks'
@@ -25,6 +25,10 @@ const DOUBLE_TAP_MS = 300
 /** The decks, kept out of the way on the left side of the screen. */
 export function Sidebar({ decks, defs, selectedId, hoverIds, onTap, onDoubleTap, onInspect, onDrop, onDragHover }: Props) {
   const lastTap = useRef<{ id: string; time: number } | null>(null)
+  const ref = useRef<HTMLElement>(null)
+  // A card dragged out over the table: on a phone, where the sidebar lies over the table, it lets the card through
+  // (`.sidebar.passing`) until the card comes back over it.
+  const [passing, setPassing] = useState(false)
   const top = (deckId: string) => {
     const deck = decks.find((d) => d.id === deckId)
     return deck?.cards[deck.cards.length - 1]
@@ -44,12 +48,16 @@ export function Sidebar({ decks, defs, selectedId, hoverIds, onTap, onDoubleTap,
       if (card) onInspect(card)
     },
     onDrop,
-    onHover: onDragHover,
+    onHover: (d) => {
+      const box = d && ref.current?.getBoundingClientRect()
+      setPassing(!!box && (d.x < box.left || d.x > box.right || d.y < box.top || d.y > box.bottom))
+      onDragHover(d)
+    },
   })
   const dragged = drag && top(drag.item)
 
   return (
-    <aside className={`sidebar${hoverIds.length ? ' drop-hint' : ''}`} data-dock>
+    <aside ref={ref} className={`sidebar${hoverIds.length ? ' drop-hint' : ''}${passing ? ' passing' : ''}`} data-dock>
       {decks.map((deck) => {
         const card = deck.cards[deck.cards.length - 1]
         const classes = ['deck', selectedId === deck.id && 'selected', hoverIds.includes(deck.id) && 'drop-target'].filter(Boolean)

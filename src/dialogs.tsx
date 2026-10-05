@@ -217,7 +217,12 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
       <div className="browse-resize" {...resize} onPointerCancel={resize.onPointerUp} role="separator" aria-orientation="horizontal" aria-label="Resize" />
       <header className="browse-bar">
         <h2>
-          {stack.label ?? 'Pile'} — {stack.cards.length} cards <span className="muted">(top first)</span>
+          {stack.label ?? 'Pile'}
+          {/* Left out on a phone, where the bar has to fit on one line. */}
+          <span className="browse-detail">
+            {' '}
+            — {stack.cards.length} cards <span className="muted">(top first)</span>
+          </span>
         </h2>
         <input
           type="search"
@@ -255,13 +260,14 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
               onFocus={(e) => e.target.select()}
             />
             <button
+              aria-label="Random"
               onClick={() => {
                 setPicked([])
                 setBlind(shuffled(pickable).slice(0, randomCount))
                 setFronts(false)
               }}
             >
-              ⚄ Random
+              ⚄ <span>Random</span>
             </button>
           </div>
         )}

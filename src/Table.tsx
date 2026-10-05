@@ -542,7 +542,7 @@ export function TableView(props: Props) {
       onPointerCancel={onPointerCancel}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className={`world${props.gliding ? ' gliding' : ''}`} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
+      <div className={`world${props.gliding ? ' gliding' : ''}`} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, '--inv-scale': 1 / view.scale } as React.CSSProperties}>
         {allAreas(shownTable).map((area) => (
           <AreaView
             key={area.id}
@@ -575,6 +575,7 @@ export function TableView(props: Props) {
                     {g === 'battlefield' && !props.preview && (
                       <button className="spot-button" data-ui onClick={props.onTypeBattlefield}>
                         ⌨ or type the layout
+                        <Hit />
                       </button>
                     )}
                   </span>
@@ -612,6 +613,7 @@ export function TableView(props: Props) {
                   style={{ left: at.x, top: at.y + CARD_H + PLACE_BUTTON.gap, width: CARD_W, height: PLACE_BUTTON.h }}
                 >
                   ⤮ Shuffle
+                  <Hit />
                 </button>,
               ]
             })
@@ -629,6 +631,7 @@ export function TableView(props: Props) {
                 style={{ left: s.x, top: s.y + CARD_H + PLACE_BUTTON.gap, width: CARD_W, height: PLACE_BUTTON.h }}
               >
                 ☰ Browse
+                <Hit />
               </button>,
             ]
           }
@@ -659,6 +662,7 @@ export function TableView(props: Props) {
               style={{ left: at.x, top: at.y + CARD_H + PLACE_BUTTON.gap, width: CARD_W, height: PLACE_BUTTON.h }}
             >
               ☰ Browse
+              <Hit />
             </button>,
           ]
         })}
@@ -778,6 +782,7 @@ function AreaView({ area, state, onClear, onType, onRules }: AreaViewProps) {
     >
       <div className="area-grip" data-area-grip={area.id} title="Drag here to move the area">
         ⠿
+        <Hit />
       </div>
       <div className="area-header">
         <span>
@@ -785,6 +790,7 @@ function AreaView({ area, state, onClear, onType, onRules }: AreaViewProps) {
           {area.label}
           <button className="area-info" data-ui onClick={onRules} aria-label={`Rules: ${area.label}`}>
             ⓘ
+            <Hit />
           </button>
           {acceptsText(area) !== area.label && <small>{acceptsText(area)}</small>}
         </span>
@@ -793,11 +799,13 @@ function AreaView({ area, state, onClear, onType, onRules }: AreaViewProps) {
             {onType && (
               <button data-ui onClick={onType}>
                 ⌨ Type
+                <Hit />
               </button>
             )}
             {onClear && (
               <button data-ui onClick={onClear}>
                 ↩ Return to deck
+                <Hit />
               </button>
             )}
           </span>
@@ -899,12 +907,21 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
         count > 1 && (
           <div className="grip" data-grip title="Drag here to move the whole pile">
             ⠿{countless ? '' : ` ${count}`}
+            <Hit />
           </div>
         )
       )}
       {stack.label && !fixed && !stack.place && <div className="stack-label">{stack.label}</div>}
     </div>
   )
+}
+
+/**
+ * A control's touch target, invisible: on a phone (`.hit` in styles.css) it reaches 44 screen pixels, however far the
+ * table is zoomed out (up to a limit), so the control is still easy to hit.
+ */
+function Hit() {
+  return <span className="hit" aria-hidden />
 }
 
 function TokenView({ token, selected }: { token: Token; selected: boolean }) {
