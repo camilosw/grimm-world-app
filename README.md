@@ -425,8 +425,8 @@ Card once the enemy is defeated (rulebook 8.2.1.3). It can be rotated and turned
 Each Enemy Card place and its Hit Point Card hold one card each: another one dropped there is refused.
 
 **Typing the battlefield.** Instead of dragging the Terrain Cards one by one, you can type the battlefield of a Conflict
-Card: tap **⌨ Type** in the Battlefield's header, **⌨ or type the layout** on its empty first place, or **⚔ Battle** in
-the toolbar (it also zooms to the Battlefield). A bar opens at the top of the table. Type the Terrain Cards one row per
+Card: tap **⌨ Type** in the Battlefield's header or **⌨ or type the layout** on its empty first place. A bar opens at
+the top of the table. Type the Terrain Cards one row per
 line, adding `v` to cards whose triangles point down and `-` for empty places, e.g. `01 07v 15v` on the first line and
 `19 30 31` on the next (`/` splits rows too). It starts with the battlefield already lying there, so you can change a
 card or add a row. While you type, the table shows the cards faded where they will lie, the areas around moving aside,

@@ -700,9 +700,6 @@ export default function App() {
         <button onClick={() => (rulesOpen ? setRulesOpen(false) : openRules())} className={rulesOpen ? 'on' : ''}>
           📖 <span>Rules</span>
         </button>
-        <button onClick={() => (typing ? setBattleText(null) : typeBattlefield())} className={typing ? 'on' : ''}>
-          ⚔ <span>Battle</span>
-        </button>
         <button
           onClick={() => {
             // Showing the play areas already: show the whole table.
