@@ -11,7 +11,7 @@ import { AREA_RULES, cardRule, DECK_RULES, loadRules, type RulesManifest, type R
 import { RulesPanel } from './RulesPanel'
 import { Sidebar } from './Sidebar'
 import { getTable, loadSaved, redo, resetTable, undo, update, useHistory, useTable } from './store'
-import { TableView, type Incoming, type Selection, type Zone } from './Table'
+import { TableView, type Dealt, type Incoming, type Selection, type Zone } from './Table'
 import { Tray } from './Tray'
 import { useDragOut } from './useDragOut'
 import type { CardDef, CardManifest, CardRef, Table, Token, View } from './types'
@@ -50,6 +50,8 @@ const sameZone = (a: Zone | null, b: Zone | null) => JSON.stringify(a) === JSON.
 
 /** How long a pile on the table shows being shuffled (see `.shuffle-card` in styles.css). */
 const SHUFFLE_MS = 900
+/** How long a card dealt by an action shows travelling to its place (see `DEAL_TRAVEL_MS` in Table.tsx). */
+const DEAL_MS = 430
 
 const DECKS_IN_SIDEBAR = (t: Table) => (t.dock ?? []).map((id) => t.stacks[id])
 
@@ -116,6 +118,9 @@ export default function App() {
   /** The table pile just shuffled, shown shuffling for a moment (`n` restarts the animation). */
   const [shuffled, setShuffled] = useState<{ id: string; n: number } | null>(null)
   const shuffleTimer = useRef<number | undefined>(undefined)
+  /** The card just dealt by an action (a sub-chapter card into the Encounter Bar), shown travelling there. */
+  const [dealt, setDealt] = useState<Dealt | null>(null)
+  const dealTimer = useRef<number | undefined>(undefined)
   const areaRef = useRef<HTMLDivElement>(null)
 
   const defs = useMemo<Record<string, CardDef>>(
@@ -735,7 +740,14 @@ export default function App() {
           preview={battlePreview}
           onRefuse={notify}
           onSlotTap={(slot) => {
-            if (slot === 'story' && A.storyToBar(table, defs)) notify('Sub-chapter card placed in the Encounter Bar', true)
+            const story = storySlot(table, 'story')
+            const top = story?.cards.at(-1)
+            if (slot === 'story' && story && top && A.storyToBar(table, defs)) {
+              notify('Sub-chapter card placed in the Encounter Bar', true)
+              setDealt((prev) => ({ cardId: top.id, from: { x: story.x, y: story.y }, n: (prev?.n ?? 0) + 1 }))
+              window.clearTimeout(dealTimer.current)
+              dealTimer.current = window.setTimeout(() => setDealt(null), DEAL_MS)
+            }
             update((t) => (slot === 'story' ? A.revealStory(t, defs) : A.unrevealStory(t)))
           }}
           onStoryDrop={(stackId, whole) => {
@@ -756,6 +768,7 @@ export default function App() {
           }}
           browsing={browseId}
           incoming={incoming}
+          dealt={dealt}
         />
         {battleLayout && (
           <BattlefieldBar

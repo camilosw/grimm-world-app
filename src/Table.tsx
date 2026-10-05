@@ -97,6 +97,15 @@ interface Props {
   incoming?: Incoming | null
   /** The pile just shuffled, shown shuffling (`n` restarts the animation). */
   shuffled: { id: string; n: number } | null
+  /** A card just dealt from elsewhere on the table, shown moving from there to its place (`n` restarts it). */
+  dealt?: Dealt | null
+}
+
+/** A card just moved by an action, not a drag: it is shown travelling from `from`, a card place, to where it lies now. */
+export interface Dealt {
+  cardId: string
+  from: { x: number; y: number }
+  n: number
 }
 
 type Target =
@@ -676,6 +685,7 @@ export function TableView(props: Props) {
               fixed={!!s.deck && !s.place}
               countless={ENCOUNTER_PLACES.some((p) => p.place === s.place)}
               shuffle={props.shuffled?.id === id ? props.shuffled.n : null}
+              dealt={props.dealt && shown.cards.some((c) => c.id === props.dealt!.cardId) ? props.dealt : null}
             />
           )
         })}
@@ -815,24 +825,49 @@ interface StackViewProps {
   countless?: boolean
   /** Set while the pile shows being shuffled; a new value restarts it. */
   shuffle?: number | null
+  /** Just dealt here from another place: shown travelling from there. */
+  dealt?: Dealt | null
 }
+
+/** How long a dealt card takes to travel to its place (see `DEAL_MS` in App.tsx). */
+const DEAL_TRAVEL_MS = 380
 
 /** Most cards shown splitting and sliding back together while a pile is shuffled. */
 const SHUFFLE_CARDS = 4
 
-function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding, previewed, fixed, countless, shuffle }: StackViewProps) {
+function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding, previewed, fixed, countless, shuffle, dealt }: StackViewProps) {
   const top = stack.cards[stack.cards.length - 1]
   const count = stack.cards.length
   const landscape = isLandscape(defs[top.id]) || !!turn
   const cardRef = useRef<HTMLDivElement>(null)
+  const stackRef = useRef<HTMLDivElement>(null)
   const faceUp = useFlip(cardRef, top, landscape ? 'x' : 'y')
+  const { x, y } = stack
+
+  // Just dealt: travel from where it came from, above everything, lifted on the way and turning (upright where it came
+  // from) to lie as its place has it.
+  useLayoutEffect(() => {
+    const node = stackRef.current
+    if (!dealt || !node || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const back = turn === 'left' ? 90 : turn === 'right' ? -90 : 0
+    const from = `translate(${dealt.from.x - x}px, ${dealt.from.y - y}px) rotate(${back}deg)`
+    const run = node.animate(
+      [
+        { transform: from, zIndex: 1000, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,.4))' },
+        { transform: `translate(${(dealt.from.x - x) / 2}px, ${(dealt.from.y - y) / 2}px) rotate(${back / 2}deg) scale(1.12)`, zIndex: 1000, filter: 'drop-shadow(0 24px 22px rgba(0,0,0,.5))', offset: 0.5 },
+        { transform: 'none', zIndex: 1000, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,.4))' },
+      ],
+      { duration: DEAL_TRAVEL_MS, easing: 'cubic-bezier(.45,.05,.35,1)' },
+    )
+    return () => run.cancel()
+  }, [dealt, x, y, turn])
   const depth = Math.min(8, Math.ceil(Math.log2(count + 1)))
   const shadow = Array.from({ length: depth }, (_, i) => `${i + 1}px ${(i + 1) * 1.5}px 0 ${i % 2 ? '#3a2e24' : '#d8cdb8'}`)
   const classes = ['stack', selected && 'selected', dropTarget && 'drop-target', lifted && 'lifted', covered && `covered-${covered}`, sliding && 'sliding', previewed && 'previewed']
     .filter(Boolean)
     .join(' ')
   return (
-    <div className={classes} data-stack={stack.id} style={cardBox(stack.x, stack.y, landscape)}>
+    <div ref={stackRef} className={classes} data-stack={stack.id} style={cardBox(stack.x, stack.y, landscape)}>
       <div
         ref={cardRef}
         className={`card${turn ? turnedClass(turn) : landscapeClass(landscape, faceUp)}`}
