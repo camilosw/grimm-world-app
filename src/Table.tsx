@@ -872,7 +872,8 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
     )
     return () => run.cancel()
   }, [dealt, x, y, turn])
-  const depth = Math.min(8, Math.ceil(Math.log2(count + 1)))
+  // A countless pile (the Encounter Deck's places) gives no hint of its size: one edge, whatever it holds.
+  const depth = countless ? 1 : Math.min(8, Math.ceil(Math.log2(count + 1)))
   const shadow = Array.from({ length: depth }, (_, i) => `${i + 1}px ${(i + 1) * 1.5}px 0 ${i % 2 ? '#3a2e24' : '#d8cdb8'}`)
   const classes = ['stack', selected && 'selected', dropTarget && 'drop-target', lifted && 'lifted', covered && `covered-${covered}`, sliding && 'sliding', previewed && 'previewed']
     .filter(Boolean)
