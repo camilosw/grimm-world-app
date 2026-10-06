@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.5.3](https://github.com/camilosw/grimm-world-app/compare/v0.5.2...v0.5.3) (2026-10-06)
+
+### Features
+
+* **deploy:** link to the game's itch.io page on the access code form ([927934d](https://github.com/camilosw/grimm-world-app/commit/927934d0af9d818b3ff3e9dfa589cbb95301628b))
+
 ## [0.5.2](https://github.com/camilosw/grimm-world-app/compare/v0.5.1...v0.5.2) (2026-10-06)
 
 ### Features
