@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.5.2](https://github.com/camilosw/grimm-world-app/compare/v0.5.1...v0.5.2) (2026-10-06)
+
+### Features
+
+* add an About dialog with the game's author, the game and app versions and the app's source ([17f86c4](https://github.com/camilosw/grimm-world-app/commit/17f86c4063176739703383239781482d6a90b3f5))
+* **areas:** add a column of area buttons that glides the view to each area ([29288ca](https://github.com/camilosw/grimm-world-app/commit/29288cadc4a0265a4c316c9917d49acaa6ae697b))
+* **areas:** hide the Encounter Deck piles' size ([964c039](https://github.com/camilosw/grimm-world-app/commit/964c039ef1127d0987c1cf08ba39766f8dc6e82b))
+* **areas:** show an icon in each area's header ([9f6d8a5](https://github.com/camilosw/grimm-world-app/commit/9f6d8a5b3327918fb83508cf08ff14d1bb48b6ef))
+* **browse:** show whole cards in one row on a phone, with their actions at the side ([8d5e260](https://github.com/camilosw/grimm-world-app/commit/8d5e260bcd478c207ff3d4e42c53294781c4874a))
+* lay the app out for phones held landscape ([9f603b8](https://github.com/camilosw/grimm-world-app/commit/9f603b83c010b0b3c07f33648aa4431c20dc2f63))
+* remove the Battle button from the toolbar ([e9db1ef](https://github.com/camilosw/grimm-world-app/commit/e9db1ef94f5d849d9a3f5b7b0dd6bcbf8715b9f7))
+* **sidebar:** reorder the decks in pairs: Character–Alignment, Regions–Terrain, X-Encounters–Lost Pages, Hit Points–Money ([3fc1b9e](https://github.com/camilosw/grimm-world-app/commit/3fc1b9e6daccdf4bcb070b8d381d82784c783cff))
+
 ## [0.5.1](https://github.com/camilosw/grimm-world-app/compare/v0.5.0...v0.5.1) (2026-10-05)
 
 ### Features
