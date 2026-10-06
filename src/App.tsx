@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as A from './actions'
 import { CARD_H, CARD_W, clampScale, isLandscape, loadManifest, tokenSize } from './cards'
-import { BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
+import { AboutDialog, BrowsePanel, CardViewer, ChapterDialog, FindDialog, RenameDialog } from './dialogs'
 import { BattlefieldBar } from './BattlefieldBar'
 import { AreaIcon } from './AreaIcon'
 import { allAreas, areaForCard, battlefieldInUse, COMBAT_AREAS, facedSpot, onGrid, placement, PLAY_AREAS, turnedSpot, upsideDownSpot, type Area } from './areas'
@@ -23,6 +23,7 @@ type Dialog =
   | { kind: 'find' }
   | { kind: 'rename'; stackId: string }
   | { kind: 'menu' }
+  | { kind: 'about' }
   | { kind: 'tokens' }
   | { kind: 'chapter'; stackId: string; cardIds?: string[] }
   | null
@@ -975,6 +976,7 @@ export default function App() {
           onClose={() => setDialog(null)}
         />
       )}
+      {dialog?.kind === 'about' && <AboutDialog onClose={() => setDialog(null)} />}
       {dialog?.kind === 'rename' && (
         <RenameDialog
           initial={table.stacks[dialog.stackId]?.label ?? ''}
@@ -1079,6 +1081,7 @@ export default function App() {
                 ↺ Reset layout
               </button>
             )}
+            <button onClick={() => setDialog({ kind: 'about' })}>ⓘ About</button>
             <p className="muted small">
               Tap: select · Double-tap: flip · Long-press: read card · Drag a card off a pile to draw it · Drag ⠿ to move the whole
               pile · Drop onto a pile to stack · Two fingers: zoom
