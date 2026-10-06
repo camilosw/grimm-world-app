@@ -60,6 +60,8 @@ function page(to: string, error: boolean): Response {
   button { min-height: 48px; border: 0; border-radius: 10px; background: var(--accent); color: var(--text);
     font: 600 1.1rem system-ui, sans-serif; cursor: pointer; }
   .error { color: #ff8a70; }
+  .buy { padding-top: 16px; border-top: 1px solid var(--panel-2); font-size: 0.9rem; line-height: 1.45; }
+  a { color: var(--gold); }
 </style>
 </head>
 <body>
@@ -71,6 +73,9 @@ function page(to: string, error: boolean): Response {
     autocapitalize="characters" autocorrect="off" spellcheck="false" autofocus aria-label="Access code" />
   <input type="hidden" name="next" value="${escape(to)}" />
   <button type="submit">Enter</button>
+  <p class="buy">You need your own copy of the game to play it:
+    <a href="https://raoulschaupp.itch.io/grimm-world" target="_blank" rel="noopener noreferrer">buy it on itch.io ↗</a>.
+    The access code is on its download page.</p>
 </form>
 </body>
 </html>`

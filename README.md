@@ -68,7 +68,8 @@ npm run deploy     # vercel build --prod && vercel deploy --prebuilt --prod
   case-sensitive) before it shows anything (`middleware.ts`). The code is not in the repository: set it once in the
   Vercel project under **Settings → Environment Variables** as `ACCESS_CODE` (Production), then deploy. Until it is
   set, the deployment answers "ACCESS_CODE is not set". Each device asks once, then remembers the code for a year;
-  changing `ACCESS_CODE` and redeploying asks every device again. `npm run dev` has no code.
+  changing `ACCESS_CODE` and redeploying asks every device again. `npm run dev` has no code. Below the form, a
+  note links to the game on itch.io, whose download page has the code.
 
 ## 4. Commits and releases
 
