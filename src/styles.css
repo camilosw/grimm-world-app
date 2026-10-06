@@ -2158,6 +2158,11 @@ button.on {
 
 /* ---------- phone (landscape) ---------- */
 
+/* A button's shorter label on a phone. */
+.short-label {
+  display: none;
+}
+
 /* A small control's touch target on the table (`Hit` in Table.tsx), only needed on a phone. */
 .hit {
   display: none;
@@ -2232,6 +2237,83 @@ button.on {
     width: 44px;
     padding: 0;
     font-size: 20px;
+  }
+
+  .browse-bar {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .long-label {
+    display: none;
+  }
+
+  .short-label {
+    display: inline;
+  }
+
+  /*
+   * One row of cards, swiped sideways, each card as tall as the row has room for (`cqh`: the row's height), so it
+   * shows whole whatever the panel's height and with or without the row of actions above. The drag grip and the view
+   * button lie over its corners (bottom left, top right; the pick badge holds the top left).
+   */
+  .browse .card-grid {
+    display: flex;
+    gap: 10px;
+    padding-top: 4px;
+    padding-bottom: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    container-type: size;
+  }
+
+  .browse .grid-card {
+    --card-h: calc(100cqh - 16px);
+    flex: none;
+    gap: 2px;
+    width: calc(var(--card-h) * 750 / 1050);
+  }
+
+  .browse .grid-caption {
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .browse .card-tools {
+    position: absolute;
+    inset: 16px 0 0;
+    flex-direction: column-reverse;
+    justify-content: space-between;
+    padding: 3px;
+    pointer-events: none;
+  }
+
+  .browse .card-tools > * {
+    pointer-events: auto;
+  }
+
+  .browse .card-view {
+    align-self: flex-end;
+  }
+
+  .browse .card-grip,
+  .browse .card-view {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    min-height: 0;
+    font-size: 16px;
+    color: var(--text);
+    background: rgba(20, 14, 10, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  /* A touch 44px across, over the edge of the card. */
+  .browse .card-grip::after,
+  .browse .card-view::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
   }
 
   /* Over the whole screen, as on a narrow one. */
@@ -2315,10 +2397,24 @@ button.on {
     overflow-y: auto;
   }
 
-  .actions button {
+  .actions button,
+  .actions .group-grip {
     flex: none;
     padding: 6px 10px;
     font-size: 14px;
+  }
+
+  /* The column for the cards selected in the Browse panel, while there are none. */
+  .actions:empty {
+    display: none;
+  }
+
+  .actions .browse-actions {
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 0;
   }
 
   /* At least 44 screen pixels, however far the table is zoomed out, up to 150 world units (a card is 250 wide). */

@@ -106,8 +106,9 @@ export default function App() {
   const closeBrowse = useCallback(() => setBrowseId(null), [])
   // On a phone the decks lie over the table: closed until opened.
   const [sidebarOpen, toggleSidebar] = usePanel('grimm-world:sidebar-open', !isCompact())
-  /** A phone: the actions for the selection make way for the Browse panel, which has its own. */
+  /** A phone: the actions for the selection make way for the Browse panel, which puts its own in their column. */
   const compact = useCompact()
+  const [browseSlot, setBrowseSlot] = useState<HTMLElement | null>(null)
   /** The right sidebar of cards set aside is open, not minimized to a narrow bar. */
   const [trayOpen, toggleTray] = usePanel('grimm-world:tray-open')
   const [zoneHover, setZoneHover] = useState<Zone | null>(null)
@@ -872,8 +873,11 @@ export default function App() {
           }}
           onPutUnder={(cardIds, faceUp) => setPutUnder({ stackId: browseId, cardIds, faceUp })}
           onClose={closeBrowse}
+          actionsSlot={compact ? browseSlot : null}
         />
       )}
+      {/* Empty (and hidden) until cards are selected in the panel. */}
+      {compact && browseId && <footer className="actions" ref={setBrowseSlot} />}
 
       {selectedStack && !putUnder && !(compact && browseId) && (
         <footer className="actions">

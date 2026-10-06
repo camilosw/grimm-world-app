@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { extractCard, inTray, isPinned, locateCard, playCards, shuffled } from './actions'
 import { cardImage, cardLabel, compareCards, isLandscape, landscapeClass, matchesQuery, queryTerms } from './cards'
 import { CardGhost } from './CardGhost'
@@ -81,6 +82,8 @@ interface BrowseProps {
   /** "Put under…" the selected cards: the player then taps the pile or deck to put them under. */
   onPutUnder: (cardIds: string[], faceUp: boolean) => void
   onClose: () => void
+  /** On a phone, where the actions for the selected cards go instead of a row of their own: the column at the screen's right edge. */
+  actionsSlot?: HTMLElement | null
 }
 
 /** The cards a Browse panel's group grip drags: those picked at random, or the selected ones. */
@@ -109,7 +112,7 @@ let browseHeight: number | null = (() => {
  * them, they move face down by the bar's own grip, and the panel shows backs.
  * The selected cards have such a grip too, in the same row of actions.
  */
-export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, onDragHover, onPutUnder, onClose }: BrowseProps) {
+export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, onDragHover, onPutUnder, onClose, actionsSlot }: BrowseProps) {
   const stack = table.stacks[stackId]
   const [query, setQuery] = useState('')
   const [fronts, setFronts] = useState(false)
@@ -208,6 +211,42 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
   const groupTop = groupDragged[groupDragged.length - 1]
   const groupFaceUp = groupGrip.drag?.item === 'chosen' && fronts
 
+  // The cards picked at random or selected, and what to do with them.
+  const actions = (unseen.length > 0 || chosen.length > 0) && (
+    <div className="browse-actions">
+      {unseen.length > 0 && (
+        <>
+          <span
+            className={`group-grip${groupGrip.drag ? ' dragging' : ''}`}
+            aria-label="Drag the cards picked at random"
+            {...groupGrip.bind('unseen')}
+          >
+            ⠿ {unseen.length} random card{unseen.length > 1 ? 's' : ''}
+          </span>
+          <button onClick={() => takeOut(unseen, false)}>Take out face down</button>
+          <button onClick={() => takeOut(unseen, true)}>Take out face up</button>
+          <button onClick={() => onPutUnder(unseen, false)}>⤵ Put under…</button>
+          <button onClick={() => setBlind([])}>Clear</button>
+        </>
+      )}
+      {chosen.length > 0 && (
+        <>
+          <span
+            className={`group-grip${groupGrip.drag ? ' dragging' : ''}`}
+            aria-label="Drag the selected cards"
+            {...groupGrip.bind('chosen')}
+          >
+            ⠿ {chosen.length} card{chosen.length > 1 ? 's' : ''}
+          </span>
+          <button onClick={() => takeOut(chosen, false)}>Take out face down</button>
+          <button onClick={() => takeOut(chosen, true)}>Take out face up</button>
+          <button onClick={() => onPutUnder(chosen, true)}>⤵ Put under…</button>
+          <button onClick={() => setPicked([])}>Clear</button>
+        </>
+      )}
+    </div>
+  )
+
   return (
     <section
       className="browse"
@@ -243,8 +282,10 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
           </button>
         </div>
         {pickable.length > 0 && (
-          <button disabled={pickable.every((id) => picked.includes(id))} onClick={selectAll}>
-            Select all
+          <button disabled={pickable.every((id) => picked.includes(id))} onClick={selectAll} aria-label="Select all">
+            {/* Just "All" on a phone, where the bar has to fit on one line. */}
+            <span className="long-label">Select all</span>
+            <span className="short-label">All</span>
           </button>
         )}
         {pickable.length > 1 && (
@@ -275,40 +316,7 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
           ✕
         </button>
       </header>
-      {(unseen.length > 0 || chosen.length > 0) && (
-        <div className="browse-actions">
-          {unseen.length > 0 && (
-            <>
-              <span
-                className={`group-grip${groupGrip.drag ? ' dragging' : ''}`}
-                aria-label="Drag the cards picked at random"
-                {...groupGrip.bind('unseen')}
-              >
-                ⠿ {unseen.length} random card{unseen.length > 1 ? 's' : ''}
-              </span>
-              <button onClick={() => takeOut(unseen, false)}>Take out face down</button>
-              <button onClick={() => takeOut(unseen, true)}>Take out face up</button>
-              <button onClick={() => onPutUnder(unseen, false)}>⤵ Put under…</button>
-              <button onClick={() => setBlind([])}>Clear</button>
-            </>
-          )}
-          {chosen.length > 0 && (
-            <>
-              <span
-                className={`group-grip${groupGrip.drag ? ' dragging' : ''}`}
-                aria-label="Drag the selected cards"
-                {...groupGrip.bind('chosen')}
-              >
-                ⠿ {chosen.length} card{chosen.length > 1 ? 's' : ''}
-              </span>
-              <button onClick={() => takeOut(chosen, false)}>Take out face down</button>
-              <button onClick={() => takeOut(chosen, true)}>Take out face up</button>
-              <button onClick={() => onPutUnder(chosen, true)}>⤵ Put under…</button>
-              <button onClick={() => setPicked([])}>Clear</button>
-            </>
-          )}
-        </div>
-      )}
+      {actions && (actionsSlot ? createPortal(actions, actionsSlot) : actions)}
       <div className="card-grid">
         {entries.map(({ card, def }) => (
           <div

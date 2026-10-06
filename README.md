@@ -41,8 +41,10 @@ the sides, where a landscape screen has room: the toolbar becomes a column of ic
 buttons, and the actions for the selected pile a column at the right edge. **🂠 Decks** opens the decks sidebar over the
 table (closed at first); drag a deck's card out of it and it fades away so the card lands on the table below it, as
 long as the card is outside it. **☰ Browse** opens below the table, as on a tablet, and the column of actions makes way
-for it until it closes (the panel has its own); its bar fits on one line, showing the pile's name without its number
-of cards and **⚄** without its label. The grips, ⓘ and buttons drawn on the table take a touch at least 44 screen pixels across, so they
+for it until it closes; its bar fits on one line, showing the pile's name without its number of cards, **All** for
+Select all and **⚄** without its label. Its cards lie in one row, swiped sideways, each shown whole, with its `⠿` grip
+over its bottom-left corner and 🔍 over its top-right one; the actions for the cards selected or picked at random go in
+the column at the right edge. The grips, ⓘ and buttons drawn on the table take a touch at least 44 screen pixels across, so they
 stay easy to hit at the zoom an area button shows (zoomed further out, up to a limit). On an iPhone, _Add to Home
 Screen_ also frees the height Safari's bars take.
 
