@@ -399,7 +399,8 @@ export function BrowsePanel({
           {/* Left out on a phone, where the bar has to fit on one line. */}
           <span className="browse-detail">
             {' '}
-            — {stack.cards.length} cards{' '}
+            — {stack.cards.length - pinnedIds.size} card
+            {stack.cards.length - pinnedIds.size === 1 ? '' : 's'}{' '}
             <span className="muted">(top first)</span>
           </span>
         </h2>

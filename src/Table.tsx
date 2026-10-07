@@ -1001,6 +1001,7 @@ export function TableView(props: Props) {
               previewed={previewed.has(id)}
               fixed={!!s.deck && !s.place}
               countless={ENCOUNTER_PLACES.some((p) => p.place === s.place)}
+              uncounted={pinnedOnTop(s)}
               shuffle={props.shuffled?.id === id ? props.shuffled.n : null}
               dealt={
                 props.dealt &&
@@ -1226,6 +1227,8 @@ interface StackViewProps {
   fixed?: boolean;
   /** An Encounter Deck place: its grip doesn't show how many cards it holds, so the deck's size stays unknown. */
   countless?: boolean;
+  /** How many cards on top its count leaves out: the card fixed there for good (the Damage Card, a deck's `keeps` card). */
+  uncounted?: number;
   /** Set while the pile shows being shuffled; a new value restarts it. */
   shuffle?: number | null;
   /** Just dealt here from another place: shown travelling from there. */
@@ -1251,6 +1254,7 @@ function StackView({
   previewed,
   fixed,
   countless,
+  uncounted = 0,
   shuffle,
   dealt,
 }: StackViewProps) {
@@ -1363,14 +1367,14 @@ function StackView({
             </div>
           ))}
       {fixed
-        ? count > 1 && <div className="slot-count">{count}</div>
+        ? count > 1 && <div className="slot-count">{count - uncounted}</div>
         : count > 1 && (
             <div
               className="grip"
               data-grip
               title="Drag here to move the whole pile"
             >
-              ⠿{countless ? '' : ` ${count}`}
+              ⠿{countless ? '' : ` ${count - uncounted}`}
               <Hit />
             </div>
           )}
