@@ -1,8 +1,11 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
+  "plugins": ["react", "typescript", "oxc", "jsx-a11y"],
   "rules": {
     "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    // Only dialogs focus a field on opening, which is what their pattern asks for.
+    "jsx-a11y/no-autofocus": "off",
     "react/only-export-components": ["warn", { "allowConstantExport": true }]
   }
 }

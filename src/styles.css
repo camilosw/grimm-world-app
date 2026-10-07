@@ -68,6 +68,22 @@ button,
   touch-action: manipulation;
 }
 
+/* Native elements used for their meaning (button groups, resize handles), without their default look. */
+fieldset {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.browse-resize,
+.tray-resize,
+.rules-resize {
+  margin: 0;
+  border: 0;
+  overflow: visible;
+}
+
 button:active,
 .button:active {
   background: #4c3c32;
@@ -530,7 +546,12 @@ input:not([type]) {
   padding: 16px;
 }
 
+/* A <dialog> laid out by its backdrop rather than by the browser. */
 .modal {
+  position: static;
+  margin: 0;
+  padding: 0;
+  color: inherit;
   display: flex;
   flex-direction: column;
   width: min(460px, 100%);

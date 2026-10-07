@@ -39,9 +39,10 @@ function Modal({
       className="modal-backdrop"
       onPointerDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div
+      <dialog
+        open
         className={`modal${wide ? ' wide' : ''}`}
-        role="dialog"
+        aria-modal="true"
         aria-label={title}
       >
         <header>
@@ -51,7 +52,7 @@ function Modal({
           </button>
         </header>
         {children}
-      </div>
+      </dialog>
     </div>
   );
 }
@@ -111,6 +112,7 @@ export function CardViewer({
       onPointerDown={(e) => e.target === e.currentTarget && onClose()}
     >
       {landscape ? (
+        // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- a tap shortcut for the Other side button
         <div
           ref={frameRef}
           className={`viewer-card${landscapeClass(true, shownFace)}`}
@@ -123,6 +125,7 @@ export function CardViewer({
           />
         </div>
       ) : (
+        // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- a tap shortcut for the Other side button
         <img
           ref={imgRef}
           src={cardImage(card.id, shownFace, 'lg')}
@@ -383,11 +386,10 @@ export function BrowsePanel({
           : undefined
       }
     >
-      <div
+      <hr
         className="browse-resize"
         {...resize}
         onPointerCancel={resize.onPointerUp}
-        role="separator"
         aria-orientation="horizontal"
         aria-label="Resize"
       />
@@ -411,7 +413,7 @@ export function BrowsePanel({
             setCount(null);
           }}
         />
-        <div className="segmented compact" role="group" aria-label="Card side">
+        <fieldset className="segmented compact" aria-label="Card side">
           <button
             className={fronts ? '' : 'on'}
             aria-pressed={!fronts}
@@ -426,7 +428,7 @@ export function BrowsePanel({
           >
             Fronts
           </button>
-        </div>
+        </fieldset>
         {pickable.length > 0 && (
           <button
             disabled={pickable.every((id) => picked.includes(id))}
@@ -439,7 +441,7 @@ export function BrowsePanel({
           </button>
         )}
         {pickable.length > 1 && (
-          <div className="random-pick" role="group" aria-label="Pick at random">
+          <fieldset className="random-pick" aria-label="Pick at random">
             <input
               type="number"
               inputMode="numeric"
@@ -462,7 +464,7 @@ export function BrowsePanel({
             >
               ⚄ <span>Random</span>
             </button>
-          </div>
+          </fieldset>
         )}
         <button className="icon" onClick={onClose} aria-label="Close">
           ✕
@@ -478,11 +480,12 @@ export function BrowsePanel({
             <div className="grid-caption">
               <span className="grid-label">{cardLabel(def)}</span>
             </div>
-            <div
+            <button
               className="thumb"
-              role="button"
               aria-pressed={picked.includes(card.id)}
               {...thumb.bind(card.id)}
+              // Taps come through the pointer events; a click without a pointer (detail 0) is the keyboard's.
+              onClick={(e) => e.detail === 0 && togglePick(card.id)}
             >
               <Thumb id={card.id} faceUp={fronts} def={def} />
               {chosen.includes(card.id) && (
@@ -492,7 +495,7 @@ export function BrowsePanel({
                     : '✓'}
                 </span>
               )}
-            </div>
+            </button>
             <div className="card-tools">
               {pinnedIds.has(card.id) ? (
                 <span

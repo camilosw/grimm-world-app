@@ -141,11 +141,10 @@ export function Tray({
       aria-label="Cards set aside"
       style={{ '--tray-width': `${width}px` } as React.CSSProperties}
     >
-      <div
+      <hr
         className="tray-resize"
         {...resize}
         onPointerCancel={resize.onPointerUp}
-        role="separator"
         aria-orientation="vertical"
         aria-label="Resize"
       />

@@ -295,11 +295,10 @@ export function RulesPanel({ rules, target, onClose }: Props) {
           : undefined
       }
     >
-      <div
+      <hr
         className="rules-resize"
         {...resize}
         onPointerCancel={resize.onPointerUp}
-        role="separator"
         aria-orientation="vertical"
         aria-label="Resize the rules"
       />
@@ -310,7 +309,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
             : 'rules-bar'
         }
       >
-        <div className="segmented rules-books" role="group" aria-label="Book">
+        <fieldset className="segmented rules-books" aria-label="Book">
           <button
             className={book === 'rulebook' ? 'on' : ''}
             onClick={() => showBook('rulebook')}
@@ -326,7 +325,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
           >
             Booklets
           </button>
-        </div>
+        </fieldset>
         <input
           type="search"
           className="rules-search"
@@ -354,11 +353,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
                 ☰ <span>Shelf</span>
               </button>
               {!onShelf && (
-                <div
-                  className="segmented"
-                  role="group"
-                  aria-label="Reading mode"
-                >
+                <fieldset className="segmented" aria-label="Reading mode">
                   <button
                     className={layout === 'spread' ? 'on' : ''}
                     onClick={() => setReadingLayout('spread')}
@@ -375,7 +370,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
                   >
                     📄
                   </button>
-                </div>
+                </fieldset>
               )}
             </>
           )

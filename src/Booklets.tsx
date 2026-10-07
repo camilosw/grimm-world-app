@@ -213,6 +213,7 @@ export function BookletSpread({
           className="booklet-frame"
           style={{ width: 2 * pageW, height: pageH }}
         >
+          {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- a tap shortcut for the Previous and Next page buttons (and the arrow keys) */}
           <div
             className="booklet-book"
             onClick={onClick}
