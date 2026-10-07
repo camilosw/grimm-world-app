@@ -88,6 +88,7 @@ never commit without the user's approval.
 
    If the rebase conflicts, or the fast-forward is refused because of
    uncommitted changes in the main checkout, stop and ask the user.
+
 4. Leave and remove the worktree: `ExitWorktree` with `action: "keep"` (it
    won't remove a worktree entered by path), then
 

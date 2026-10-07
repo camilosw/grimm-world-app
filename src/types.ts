@@ -1,4 +1,4 @@
-import type { DeckKind } from './decks'
+import type { DeckKind } from './decks';
 
 export type CardType =
   | 'title'
@@ -13,112 +13,112 @@ export type CardType =
   | 'encounter'
   | 'encounter-b'
   | 'encounter-x'
-  | 'lost-pages'
+  | 'lost-pages';
 
 /** One physical card as described by public/cards/cards.json. */
 export interface CardDef {
-  id: string
-  sheet: number
-  row: number
-  col: number
-  type?: CardType
+  id: string;
+  sheet: number;
+  row: number;
+  col: number;
+  type?: CardType;
   /** Printed card number, e.g. "Y003", "B23", "T07". */
-  code?: string
-  name?: string
+  code?: string;
+  name?: string;
 }
 
 export interface CardManifest {
-  source: string
-  cardSize: { width: number; height: number }
-  cards: CardDef[]
+  source: string;
+  cardSize: { width: number; height: number };
+  cards: CardDef[];
 }
 
 export interface CardRef {
-  id: string
-  faceUp: boolean
+  id: string;
+  faceUp: boolean;
 }
 
-export type Rotation = 0 | 90 | 180 | 270
+export type Rotation = 0 | 90 | 180 | 270;
 
 /** A pile of one or more cards lying on the table. `cards` is bottom → top. */
 export interface Stack {
-  id: string
-  x: number
-  y: number
-  rot: Rotation
-  cards: CardRef[]
-  label?: string
+  id: string;
+  x: number;
+  y: number;
+  rot: Rotation;
+  cards: CardRef[];
+  label?: string;
   /** Which deck this is (sidebar decks and the storybook). */
-  deck?: DeckKind
+  deck?: DeckKind;
   /** Fixed places on the table: the face-down storybook and its revealed cards. */
-  slot?: StorySlot
+  slot?: StorySlot;
   /** Fixed places: the Encounter Deck area's (the time card under the deck, and the used cards) and the Damage Card's. */
-  place?: Place
+  place?: Place;
 }
 
-export type StorySlot = 'story' | 'story-revealed'
+export type StorySlot = 'story' | 'story-revealed';
 
 /**
  * The Encounter Deck area's places, left to right: the 'Time Passes' and 'Next Chapter' cards, each for good at the
  * bottom of its place, with the Encounter Deck lying on one of them, and the used Encounter Cards.
  */
-export type EncounterPlace = 'time-passes' | 'next-chapter' | 'used'
+export type EncounterPlace = 'time-passes' | 'next-chapter' | 'used';
 
 /** The table's fixed places: the Encounter Deck area's, and the Damage Card's in the Actions area, with the cards under it. */
-export type Place = EncounterPlace | 'damage'
+export type Place = EncounterPlace | 'damage';
 
 export interface Token {
-  id: string
-  x: number
-  y: number
-  color: string
-  shape: 'pawn' | 'cube'
+  id: string;
+  x: number;
+  y: number;
+  color: string;
+  shape: 'pawn' | 'cube';
 }
 
 /** Where a battlefield was built, in older saves (`Table.battlefield`): now the Battlefield is an area like the others. */
 export interface Battlefield {
-  x: number
-  y: number
-  cols: number
-  rows: number
+  x: number;
+  y: number;
+  cols: number;
+  rows: number;
 }
 
 export interface Table {
-  stacks: Record<string, Stack>
+  stacks: Record<string, Stack>;
   /** Ids of the stacks lying on the table, from back to front. */
-  z: string[]
+  z: string[];
   /** Ids of the decks kept in the sidebar, top to bottom. */
-  dock?: string[]
+  dock?: string[];
   /** Ids of the piles set aside in the right sidebar (e.g. the setup cards), top to bottom. */
-  tray?: string[]
+  tray?: string[];
   /** The battlefield built, only in older saves: `migrateTable` lays its Terrain Cards out in the Battlefield area. */
-  battlefield?: Battlefield | null
+  battlefield?: Battlefield | null;
   /** The sidebar deck each card last came out of, so it can go back there. */
-  origin?: Record<string, DeckKind>
-  tokens: Token[]
+  origin?: Record<string, DeckKind>;
+  tokens: Token[];
   /** Cards in the hand, which the app no longer has: only in older saves, `migrateTable` sends them back to their decks. */
-  hand?: CardRef[]
+  hand?: CardRef[];
   /** Version of the area layout the cards lie in (missing: before the Storybook area grew for its Encounter Card). */
-  layout?: number
+  layout?: number;
   /** How far each area lies from its place in `AREAS`, with its spots, as `settleLayout()` laid it out (missing: not moved). */
-  shifts?: Record<string, { x: number; y: number }>
+  shifts?: Record<string, { x: number; y: number }>;
   /**
    * Where the player put each area (the top-left corner of its frame, by area id) once they dragged one: the areas then
    * lie there, pushed aside only by an area growing into them (`settleLayout()`). Missing: the areas lie packed together.
    */
-  anchors?: Record<string, { x: number; y: number }>
+  anchors?: Record<string, { x: number; y: number }>;
   /** Frames of the growing areas as last laid out: a card dropped on one belongs to that area (`settleLayout()`). */
-  frames?: Record<string, { x: number; y: number; w: number; h: number }>
+  frames?: Record<string, { x: number; y: number; w: number; h: number }>;
   /**
    * Where the battlefield's Enemy Card places lay, from its grid's first place, as last laid out: they move as the grid
    * grows or shrinks, and the cards on them with them (`settleEnemies()`). Missing: not laid out yet.
    */
-  enemies?: { x: number; y: number }
-  nextId: number
+  enemies?: { x: number; y: number };
+  nextId: number;
 }
 
 export interface View {
-  x: number
-  y: number
-  scale: number
+  x: number;
+  y: number;
+  scale: number;
 }

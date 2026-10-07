@@ -120,8 +120,8 @@ Character, Actions, the Enemy Deck and the Battlefield. Tap it again to see the 
 
 | Area          | Takes                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Map           | Region Cards edge to edge (see below), Encounter Cards on the Market Prices place beside each                           |
-| Encounter Bar | Y-Cards, in a row (see below)                                                                                             |
+| Map           | Region Cards edge to edge (see below), Encounter Cards on the Market Prices place beside each                            |
+| Encounter Bar | Y-Cards, in a row (see below)                                                                                            |
 | Character     | Character Card, Alignment Cards, Y-Cards (titles, skills, quests, status upgrades, Damage Card), Encounter Cards (items) |
 | Storage       | Storage Card and other Y-Cards, Encounter Cards (items, goods), Money Cards                                              |
 | Storybook     | the storybook itself (Y-Cards dropped here go into it), one Encounter Card (see below)                                   |
@@ -318,12 +318,12 @@ X-Encounters and Lost Pages, Hit Points and Money. The table starts
 empty apart from the storybook, the Encounter Deck and the four decks in their areas. The title card is left out; it
 isn't needed to play.
 
-| On a deck  | Action                                             |
-| ---------- | -------------------------------------------------- |
-| Drag       | Take the top card onto the table                   |
-| Tap        | Select it (actions appear at the bottom)           |
-| Double-tap | Flip the top card                                  |
-| Long-press | Read the top card at full size                     |
+| On a deck  | Action                                   |
+| ---------- | ---------------------------------------- |
+| Drag       | Take the top card onto the table         |
+| Tap        | Select it (actions appear at the bottom) |
+| Double-tap | Flip the top card                        |
+| Long-press | Read the top card at full size           |
 
 Every card knows which deck it belongs to: the deck it last came out of (so an Enemy Card goes back to the Enemy
 Deck), or else the deck of its type. **Drop a card (or a whole pile) anywhere on the sidebar and it goes back into its
@@ -334,14 +334,14 @@ deck to another, except from the four decks built during play back to the sideba
 Moves between decks that the rules ask for use **Put under…** on a card or pile on the table, or on the cards selected
 in the Browse panel, then tap the deck (in the sidebar or on the table). A deck only accepts the cards it may hold:
 
-| Deck           | Holds                                                             |
-| -------------- | ----------------------------------------------------------------- |
-| Encounter Deck | B- and X-Encounter Cards                                          |
-| Quest Deck     | Quest Cards Y705–Y707                                             |
-| Enemy Deck     | Y013 and the Enemy Cards Y800–Y849                                |
-| Training Deck  | Y012 and the training cards Y749–Y799                             |
-| Banned Cards   | any card (banished)                                               |
-| other decks    | only their own cards                                              |
+| Deck           | Holds                                 |
+| -------------- | ------------------------------------- |
+| Encounter Deck | B- and X-Encounter Cards              |
+| Quest Deck     | Quest Cards Y705–Y707                 |
+| Enemy Deck     | Y013 and the Enemy Cards Y800–Y849    |
+| Training Deck  | Y012 and the training cards Y749–Y799 |
+| Banned Cards   | any card (banished)                   |
+| other decks    | only their own cards                  |
 
 **Set aside (right sidebar).** A place to keep cards at hand while you move about the table, e.g. the setup cards.
 It is hidden while empty: drag a card (from the table, a sidebar deck or the Browse panel) to the right edge of the
@@ -406,16 +406,16 @@ name, switch between **Backs** and **Fronts** (it opens on the backs; cards drag
 move in their numbered order, card 1 on top; the pile they come from keeps its order. The actions for the selected
 cards (or those picked at random) appear in a row of their own below the bar.
 
-| In the Browse panel | Action                                                                              |
-| ------------------- | ----------------------------------------------------------------------------------- |
-| Tap a card          | Select / unselect it (✓; with several selected, numbered in the order you tapped them) |
-| **Select all**      | Select all the shown cards (those the filter leaves), after any already selected, top first, so they keep the pile's order |
-| **⚄ Random**        | Pick that many of the shown cards at random, unseen, in random order (by default all of them: shuffle them). Nothing marks them and the panel turns to the backs; drag them by the `⠿ n random cards` grip below the bar, or **Take out face down** / **Put under…**: they stay face down (**Take out face up** turns them face up). E.g. filter `Y705`, 2, **⚄ Random**, then drag them onto the Quest Deck (Y009). Tapping a card drops the random pick |
-| 🔍 or long-press    | Read it at full size                                                                |
-| **Take out face up** | Put the selected cards face up on the table as one pile (**Take out face down**: face down) |
-| **Put under…**      | Then tap a pile, a deck or the storybook to slide the selected cards under it       |
-| Drag `⠿ n cards`    | Put all the selected cards where you drop it, like dragging a selected card's grip |
-| Drag its `⠿` grip   | Put it (with the other selected cards, if it is selected) where you drop it, showing the side the panel shows: on the table or a pile, with the same area rules as any drop, or on the sidebar to send a table pile's cards back to their decks |
+| In the Browse panel  | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tap a card           | Select / unselect it (✓; with several selected, numbered in the order you tapped them)                                                                                                                                                                                                                                                                                                                                                                    |
+| **Select all**       | Select all the shown cards (those the filter leaves), after any already selected, top first, so they keep the pile's order                                                                                                                                                                                                                                                                                                                                |
+| **⚄ Random**         | Pick that many of the shown cards at random, unseen, in random order (by default all of them: shuffle them). Nothing marks them and the panel turns to the backs; drag them by the `⠿ n random cards` grip below the bar, or **Take out face down** / **Put under…**: they stay face down (**Take out face up** turns them face up). E.g. filter `Y705`, 2, **⚄ Random**, then drag them onto the Quest Deck (Y009). Tapping a card drops the random pick |
+| 🔍 or long-press     | Read it at full size                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Take out face up** | Put the selected cards face up on the table as one pile (**Take out face down**: face down)                                                                                                                                                                                                                                                                                                                                                               |
+| **Put under…**       | Then tap a pile, a deck or the storybook to slide the selected cards under it                                                                                                                                                                                                                                                                                                                                                                             |
+| Drag `⠿ n cards`     | Put all the selected cards where you drop it, like dragging a selected card's grip                                                                                                                                                                                                                                                                                                                                                                        |
+| Drag its `⠿` grip    | Put it (with the other selected cards, if it is selected) where you drop it, showing the side the panel shows: on the table or a pile, with the same area rules as any drop, or on the sidebar to send a table pile's cards back to their decks                                                                                                                                                                                                           |
 
 **Battlefield.** The Battlefield area, right of Home, is where a combat's Terrain Cards (rulebook 4.8, 8.1.2) are laid
 out, with room for the Enemy Cards and their Hit Point Cards on the right. Terrain Cards always lie landscape, like

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode } from 'react';
 
 /** Line drawings on a 24-unit grid, one per area id (`AREAS`), stroked in the header's text colour. */
 const ICONS: Record<string, ReactNode> = {
@@ -67,12 +67,12 @@ const ICONS: Record<string, ReactNode> = {
   battlefield: (
     <path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l3.5 3.5M19 21.5l2.5-2.5M9.5 17.5 21 6V3h-3L6.5 14.5M11 19l-6-6M8 16l-3.5 3.5M5 21.5 2.5 19" />
   ),
-}
+};
 
 /** The icon in an area's header, before its name; nothing for an area without one. */
 export function AreaIcon({ id }: { id: string }) {
-  const icon = ICONS[id]
-  if (!icon) return null
+  const icon = ICONS[id];
+  if (!icon) return null;
   return (
     <svg
       className="area-icon"
@@ -86,5 +86,5 @@ export function AreaIcon({ id }: { id: string }) {
     >
       {icon}
     </svg>
-  )
+  );
 }

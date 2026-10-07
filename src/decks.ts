@@ -1,21 +1,21 @@
-import { family } from "./cards";
-import type { CardDef, Stack, Table } from "./types";
+import { family } from './cards';
+import type { CardDef, Stack, Table } from './types';
 
 export type DeckKind =
-  | "storybook"
-  | "encounter"
-  | "x-encounters"
-  | "lost-pages"
-  | "regions"
-  | "terrain"
-  | "hitpoints"
-  | "character"
-  | "alignment"
-  | "money"
-  | "quest"
-  | "enemy"
-  | "training"
-  | "banned";
+  | 'storybook'
+  | 'encounter'
+  | 'x-encounters'
+  | 'lost-pages'
+  | 'regions'
+  | 'terrain'
+  | 'hitpoints'
+  | 'character'
+  | 'alignment'
+  | 'money'
+  | 'quest'
+  | 'enemy'
+  | 'training'
+  | 'banned';
 
 export interface DeckSpec {
   kind: DeckKind;
@@ -27,7 +27,7 @@ export interface DeckSpec {
   /** Facing of cards put into this deck; left out, they keep the side they show. */
   faceUp?: boolean;
   /** Where returned cards go: on top, underneath (rulebook: used Encounter Cards), or by card number. */
-  insert: "top" | "bottom" | "sorted";
+  insert: 'top' | 'bottom' | 'sorted';
   /** Cards this deck may hold (rulebook chapter 6 and cards Y003/Y009). */
   holds: (def: CardDef) => boolean;
   /**
@@ -39,11 +39,11 @@ export interface DeckSpec {
 
 /** Numeric part of a Y-card number: "Y815c" → 815. */
 function yNumber(def: CardDef): number | null {
-  const m = /^Y(\d{3})/.exec(def.code ?? "");
+  const m = /^Y(\d{3})/.exec(def.code ?? '');
   return m ? Number(m[1]) : null;
 }
 
-const isY = (def: CardDef) => family(def) === "lost-pages";
+const isY = (def: CardDef) => family(def) === 'lost-pages';
 const yIn = (def: CardDef, ...ranges: [number, number][]) => {
   const n = yNumber(def);
   return (
@@ -58,118 +58,118 @@ const yIn = (def: CardDef, ...ranges: [number, number][]) => {
 export const DECKS: DeckSpec[] = [
   // Y-cards are also put "into the corresponding chapters" of the Storybook Deck.
   {
-    kind: "storybook",
-    label: "Storybook",
+    kind: 'storybook',
+    label: 'Storybook',
     faceUp: false,
-    insert: "top",
-    holds: (d) => family(d) === "storybook" || isY(d),
+    insert: 'top',
+    holds: (d) => family(d) === 'storybook' || isY(d),
   },
   // X-cards are placed under the Encounter Deck. It lies in its own area on the table, on the 'Time Passes' or the
   // 'Next Chapter' card, which stay at the bottom of their places (see `ENCOUNTER_PLACES`).
   {
-    kind: "encounter",
-    label: "Encounter Deck",
+    kind: 'encounter',
+    label: 'Encounter Deck',
     faceUp: false,
-    insert: "bottom",
-    holds: (d) => family(d) === "encounter",
+    insert: 'bottom',
+    holds: (d) => family(d) === 'encounter',
   },
   {
-    kind: "character",
-    label: "Character",
+    kind: 'character',
+    label: 'Character',
     faceUp: true,
-    insert: "top",
-    holds: (d) => d.type === "character",
+    insert: 'top',
+    holds: (d) => d.type === 'character',
   },
   {
-    kind: "alignment",
-    label: "Alignment",
+    kind: 'alignment',
+    label: 'Alignment',
     faceUp: true,
-    insert: "top",
-    holds: (d) => d.type === "alignment",
+    insert: 'top',
+    holds: (d) => d.type === 'alignment',
   },
   {
-    kind: "regions",
-    label: "Regions",
+    kind: 'regions',
+    label: 'Regions',
     faceUp: false,
-    insert: "sorted",
-    holds: (d) => d.type === "region",
+    insert: 'sorted',
+    holds: (d) => d.type === 'region',
   },
   {
-    kind: "terrain",
-    label: "Terrain",
+    kind: 'terrain',
+    label: 'Terrain',
     faceUp: false,
-    insert: "sorted",
-    holds: (d) => d.type === "terrain",
+    insert: 'sorted',
+    holds: (d) => d.type === 'terrain',
   },
   {
-    kind: "x-encounters",
-    label: "X-Encounters",
+    kind: 'x-encounters',
+    label: 'X-Encounters',
     faceUp: true,
-    insert: "sorted",
-    holds: (d) => d.type === "encounter-x",
+    insert: 'sorted',
+    holds: (d) => d.type === 'encounter-x',
   },
   {
-    kind: "lost-pages",
-    label: "Lost Pages",
+    kind: 'lost-pages',
+    label: 'Lost Pages',
     faceUp: false,
-    insert: "sorted",
+    insert: 'sorted',
     holds: isY,
   },
   {
-    kind: "hitpoints",
-    label: "Hit Points",
+    kind: 'hitpoints',
+    label: 'Hit Points',
     faceUp: true,
-    insert: "top",
-    holds: (d) => d.type === "hitpoints",
+    insert: 'top',
+    holds: (d) => d.type === 'hitpoints',
   },
   {
-    kind: "money",
-    label: "Money",
+    kind: 'money',
+    label: 'Money',
     faceUp: true,
-    insert: "top",
-    holds: (d) => d.type === "money",
+    insert: 'top',
+    holds: (d) => d.type === 'money',
   },
   // Quest Cards are Y705–Y707 (Y009), kept face down.
   {
-    kind: "quest",
-    label: "Quest Deck",
-    emptyHint: "Built by card Y009",
-    holdsText: "Quest Cards Y705–Y707",
+    kind: 'quest',
+    label: 'Quest Deck',
+    emptyHint: 'Built by card Y009',
+    holdsText: 'Quest Cards Y705–Y707',
     faceUp: false,
-    insert: "top",
+    insert: 'top',
     holds: (d) => yIn(d, [705, 707]),
   },
   // The Enemy Card Y013, on top for good, with the Enemy Cards Y800–Y849 underneath (Y009), each lying as it was put there.
   {
-    kind: "enemy",
-    label: "Enemy Deck",
-    emptyHint: "Built by card Y009",
-    holdsText: "Y013, Y800–Y849",
-    insert: "bottom",
+    kind: 'enemy',
+    label: 'Enemy Deck',
+    emptyHint: 'Built by card Y009',
+    holdsText: 'Y013, Y800–Y849',
+    insert: 'bottom',
     holds: (d) => yIn(d, [13, 13], [800, 849]),
-    keeps: "Y013",
+    keeps: 'Y013',
   },
   // The Training Card Y012, on top for good, with training cards (Y749–Y799) underneath (Y003).
   {
-    kind: "training",
-    label: "Training Deck",
-    emptyHint: "Built by card Y003",
-    holdsText: "Y012, Y749–Y799",
+    kind: 'training',
+    label: 'Training Deck',
+    emptyHint: 'Built by card Y003',
+    holdsText: 'Y012, Y749–Y799',
     faceUp: true,
-    insert: "bottom",
+    insert: 'bottom',
     holds: (d) => yIn(d, [12, 12], [749, 799]),
-    keeps: "Y012",
+    keeps: 'Y012',
   },
   // Banished cards go under the 'Banned Cards' card Y011, on top for good, whatever they are.
   {
-    kind: "banned",
-    label: "Banned Cards",
-    emptyHint: "Y011 goes here",
-    holdsText: "Any card",
+    kind: 'banned',
+    label: 'Banned Cards',
+    emptyHint: 'Y011 goes here',
+    holdsText: 'Any card',
     faceUp: true,
-    insert: "bottom",
+    insert: 'bottom',
     holds: () => true,
-    keeps: "Y011",
+    keeps: 'Y011',
   },
 ];
 
@@ -181,7 +181,7 @@ export const DECK_SPECS = Object.fromEntries(
  * Decks built during play (cards Y003 and Y009), each lying in its own area on the table: cards dropped there go into
  * it. Like the sidebar decks they stay when empty, can't be moved, and keep track of where their cards came from.
  */
-export const TABLE_DECKS: DeckKind[] = ["quest", "enemy", "training", "banned"];
+export const TABLE_DECKS: DeckKind[] = ['quest', 'enemy', 'training', 'banned'];
 
 /** Whether cards taken off this deck may go back to the sidebar: those of the decks built during play, from their own decks. */
 export const returnsCards = (kind: DeckKind | undefined) =>
@@ -190,8 +190,8 @@ export const returnsCards = (kind: DeckKind | undefined) =>
 /** Decks shown in the sidebar (all but the storybook, the Encounter Deck and the table decks). */
 export const SIDEBAR_DECKS = DECKS.filter(
   (d) =>
-    d.kind !== "storybook" &&
-    d.kind !== "encounter" &&
+    d.kind !== 'storybook' &&
+    d.kind !== 'encounter' &&
     !TABLE_DECKS.includes(d.kind),
 );
 
@@ -212,7 +212,7 @@ export function deckStack(t: Table, kind: DeckKind): Stack | undefined {
 /** The storybook's two places on the table. */
 export function storySlot(
   t: Table,
-  slot: "story" | "story-revealed",
+  slot: 'story' | 'story-revealed',
 ): Stack | undefined {
   return t.z.map((id) => t.stacks[id]).find((s) => s.slot === slot);
 }
@@ -220,29 +220,29 @@ export function storySlot(
 /** The deck a card type starts in and goes back to by default. */
 function defaultDeck(def: CardDef): DeckKind {
   switch (def.type) {
-    case "storybook":
-      return "storybook";
-    case "encounter-b":
-    case "encounter":
+    case 'storybook':
+      return 'storybook';
+    case 'encounter-b':
+    case 'encounter':
     // Never moved off its place: only for saves from before the time cards had places.
-    case "time":
-      return "encounter";
-    case "encounter-x":
-      return "x-encounters";
-    case "region":
-      return "regions";
-    case "terrain":
-      return "terrain";
-    case "hitpoints":
-      return "hitpoints";
-    case "character":
-      return "character";
-    case "alignment":
-      return "alignment";
-    case "money":
-      return "money";
+    case 'time':
+      return 'encounter';
+    case 'encounter-x':
+      return 'x-encounters';
+    case 'region':
+      return 'regions';
+    case 'terrain':
+      return 'terrain';
+    case 'hitpoints':
+      return 'hitpoints';
+    case 'character':
+      return 'character';
+    case 'alignment':
+      return 'alignment';
+    case 'money':
+      return 'money';
     default:
-      return "lost-pages";
+      return 'lost-pages';
   }
 }
 
@@ -256,7 +256,7 @@ export function homeDeck(t: Table, def: CardDef, from?: DeckKind): DeckKind {
   // Older saves may name the Time Card deck, which is gone.
   if (
     origin &&
-    origin !== "banned" &&
+    origin !== 'banned' &&
     origin !== from &&
     DECK_SPECS[origin]?.holds(def)
   )

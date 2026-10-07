@@ -1,19 +1,19 @@
-import type { CardDef, CardManifest, CardType, Token } from "./types";
+import type { CardDef, CardManifest, CardType, Token } from './types';
 
 /** Card size in table (world) units. Poker ratio 63.5 x 88.9 mm. */
 export const CARD_W = 250;
 export const CARD_H = 350;
 
 /** A figure's size in table units: the Player marker (the only cube) is a small one. */
-export const tokenSize = (k: Pick<Token, "shape">) =>
-  k.shape === "cube" ? 30 : 70;
+export const tokenSize = (k: Pick<Token, 'shape'>) =>
+  k.shape === 'cube' ? 30 : 70;
 
 /** Card families used by the area and deck rules (B- and X-Encounter Cards behave the same). */
-export type Family = Exclude<CardType, "encounter-b" | "encounter-x">;
+export type Family = Exclude<CardType, 'encounter-b' | 'encounter-x'>;
 
 export function family(def: CardDef | undefined): Family | undefined {
   const t = def?.type;
-  return t === "encounter-b" || t === "encounter-x" ? "encounter" : t;
+  return t === 'encounter-b' || t === 'encounter-x' ? 'encounter' : t;
 }
 
 export const clampScale = (s: number) => Math.min(4, Math.max(0.08, s));
@@ -32,9 +32,9 @@ export async function loadManifest(): Promise<CardManifest> {
 export function cardImage(
   id: string,
   faceUp: boolean,
-  size: "sm" | "lg",
+  size: 'sm' | 'lg',
 ): string {
-  return `${BASE}/${size}/${id}-${faceUp ? "front" : "back"}.webp`;
+  return `${BASE}/${size}/${id}-${faceUp ? 'front' : 'back'}.webp`;
 }
 
 /**
@@ -42,15 +42,15 @@ export function cardImage(
  * Region Cards never rotate; Terrain Cards only turn around, their triangles pointing up or down (`rotateStack()`).
  */
 export function isLandscape(def: CardDef | undefined): boolean {
-  return def?.type === "region" || def?.type === "terrain";
+  return def?.type === 'region' || def?.type === 'terrain';
 }
 
 /** Side a card's image is turned to, a quarter, to lie landscape. */
-export type Turn = "left" | "right";
+export type Turn = 'left' | 'right';
 
 /** Classes of a landscape frame showing the portrait card image inside it turned a quarter to one side (with a leading space). */
 export function turnedClass(turn: Turn): string {
-  return ` landscape${turn === "right" ? " turned-right" : ""}`;
+  return ` landscape${turn === 'right' ? ' turned-right' : ''}`;
 }
 
 /**
@@ -58,7 +58,7 @@ export function turnedClass(turn: Turn): string {
  * quarter to the left for the front and to the right for the back, which is printed the other way round.
  */
 export function landscapeClass(landscape: boolean, faceUp: boolean): string {
-  return landscape ? turnedClass(faceUp ? "left" : "right") : "";
+  return landscape ? turnedClass(faceUp ? 'left' : 'right') : '';
 }
 
 /**
@@ -76,7 +76,7 @@ export function cardBox(x: number, y: number, landscape: boolean) {
 }
 
 export function cardLabel(card: CardDef | undefined): string {
-  if (!card) return "";
+  if (!card) return '';
   return card.code ?? card.name ?? `#${card.id}`;
 }
 
@@ -85,7 +85,7 @@ export function compareCards(
   a: CardDef | undefined,
   b: CardDef | undefined,
 ): number {
-  const byId = (a?.id ?? "").localeCompare(b?.id ?? "");
+  const byId = (a?.id ?? '').localeCompare(b?.id ?? '');
   if (a?.code && b?.code)
     return a.code.localeCompare(b.code, undefined, { numeric: true }) || byId;
   if (a?.code || b?.code) return a?.code ? -1 : 1;
@@ -96,7 +96,7 @@ export function compareCards(
 export function queryTerms(query: string): string[] {
   return query
     .toLowerCase()
-    .split(",")
+    .split(',')
     .map((t) => t.trim())
     .filter(Boolean);
 }

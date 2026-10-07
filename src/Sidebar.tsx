@@ -1,91 +1,151 @@
-import { useRef, useState } from 'react'
-import { cardImage, cardLabel, isLandscape, landscapeClass } from './cards'
-import { CardGhost } from './CardGhost'
-import { DECK_SPECS } from './decks'
-import type { CardDef, CardRef, Stack } from './types'
-import { useDragOut, type DragOut } from './useDragOut'
+import { useRef, useState } from 'react';
+import { cardImage, cardLabel, isLandscape, landscapeClass } from './cards';
+import { CardGhost } from './CardGhost';
+import { DECK_SPECS } from './decks';
+import type { CardDef, CardRef, Stack } from './types';
+import { useDragOut, type DragOut } from './useDragOut';
 
 interface Props {
-  decks: Stack[]
-  defs: Record<string, CardDef>
-  selectedId: string | null
+  decks: Stack[];
+  defs: Record<string, CardDef>;
+  selectedId: string | null;
   /** Decks a card dragged over the sidebar would go back to. */
-  hoverIds: string[]
-  onTap: (deckId: string) => void
-  onDoubleTap: (deckId: string) => void
-  onInspect: (card: CardRef) => void
+  hoverIds: string[];
+  onTap: (deckId: string) => void;
+  onDoubleTap: (deckId: string) => void;
+  onInspect: (card: CardRef) => void;
   /** The top card of a deck was dragged and released at this screen point. */
-  onDrop: (deckId: string, clientX: number, clientY: number) => void
+  onDrop: (deckId: string, clientX: number, clientY: number) => void;
   /** The top card of a deck is being dragged (null: the drag ended). */
-  onDragHover: (drag: DragOut<string> | null) => void
+  onDragHover: (drag: DragOut<string> | null) => void;
 }
 
-const DOUBLE_TAP_MS = 300
+const DOUBLE_TAP_MS = 300;
 
 /** The decks, kept out of the way on the left side of the screen. */
-export function Sidebar({ decks, defs, selectedId, hoverIds, onTap, onDoubleTap, onInspect, onDrop, onDragHover }: Props) {
-  const lastTap = useRef<{ id: string; time: number } | null>(null)
-  const ref = useRef<HTMLElement>(null)
+export function Sidebar({
+  decks,
+  defs,
+  selectedId,
+  hoverIds,
+  onTap,
+  onDoubleTap,
+  onInspect,
+  onDrop,
+  onDragHover,
+}: Props) {
+  const lastTap = useRef<{ id: string; time: number } | null>(null);
+  const ref = useRef<HTMLElement>(null);
   // A card dragged out over the table: on a phone, where the sidebar lies over the table, it lets the card through
   // (`.sidebar.passing`) until the card comes back over it.
-  const [passing, setPassing] = useState(false)
+  const [passing, setPassing] = useState(false);
   const top = (deckId: string) => {
-    const deck = decks.find((d) => d.id === deckId)
-    return deck?.cards[deck.cards.length - 1]
-  }
+    const deck = decks.find((d) => d.id === deckId);
+    return deck?.cards[deck.cards.length - 1];
+  };
   const { drag, bind } = useDragOut<string>({
     onTap: (id) => {
-      const now = Date.now()
-      if (lastTap.current?.id === id && now - lastTap.current.time < DOUBLE_TAP_MS) {
-        lastTap.current = null
-        return onDoubleTap(id)
+      const now = Date.now();
+      if (
+        lastTap.current?.id === id &&
+        now - lastTap.current.time < DOUBLE_TAP_MS
+      ) {
+        lastTap.current = null;
+        return onDoubleTap(id);
       }
-      lastTap.current = { id, time: now }
-      onTap(id)
+      lastTap.current = { id, time: now };
+      onTap(id);
     },
     onLongPress: (id) => {
-      const card = top(id)
-      if (card) onInspect(card)
+      const card = top(id);
+      if (card) onInspect(card);
     },
     onDrop,
     onHover: (d) => {
-      const box = d && ref.current?.getBoundingClientRect()
-      setPassing(!!box && (d.x < box.left || d.x > box.right || d.y < box.top || d.y > box.bottom))
-      onDragHover(d)
+      const box = d && ref.current?.getBoundingClientRect();
+      setPassing(
+        !!box &&
+          (d.x < box.left ||
+            d.x > box.right ||
+            d.y < box.top ||
+            d.y > box.bottom),
+      );
+      onDragHover(d);
     },
-  })
-  const dragged = drag && top(drag.item)
+  });
+  const dragged = drag && top(drag.item);
 
   return (
-    <aside ref={ref} className={`sidebar${hoverIds.length ? ' drop-hint' : ''}${passing ? ' passing' : ''}`} data-dock>
+    <aside
+      ref={ref}
+      className={`sidebar${hoverIds.length ? ' drop-hint' : ''}${passing ? ' passing' : ''}`}
+      data-dock
+    >
       {decks.map((deck) => {
-        const card = deck.cards[deck.cards.length - 1]
-        const classes = ['deck', selectedId === deck.id && 'selected', hoverIds.includes(deck.id) && 'drop-target'].filter(Boolean)
+        const card = deck.cards[deck.cards.length - 1];
+        const classes = [
+          'deck',
+          selectedId === deck.id && 'selected',
+          hoverIds.includes(deck.id) && 'drop-target',
+        ].filter(Boolean);
         // The Regions and Terrain decks lie landscape: their cards are printed sideways.
-        const landscape = deck.deck === 'regions' || deck.deck === 'terrain' || (!!card && isLandscape(defs[card.id]))
+        const landscape =
+          deck.deck === 'regions' ||
+          deck.deck === 'terrain' ||
+          (!!card && isLandscape(defs[card.id]));
         return (
-          <div key={deck.id} className={classes.join(' ')} data-deck={deck.id} {...bind(deck.id)}>
-            <div className={`deck-card${landscapeClass(landscape, card?.faceUp ?? false)}`} style={{ '--depth': Math.min(6, Math.ceil(Math.log2(deck.cards.length + 1))) } as React.CSSProperties}>
+          <div
+            key={deck.id}
+            className={classes.join(' ')}
+            data-deck={deck.id}
+            {...bind(deck.id)}
+          >
+            <div
+              className={`deck-card${landscapeClass(landscape, card?.faceUp ?? false)}`}
+              style={
+                {
+                  '--depth': Math.min(
+                    6,
+                    Math.ceil(Math.log2(deck.cards.length + 1)),
+                  ),
+                } as React.CSSProperties
+              }
+            >
               {card ? (
                 <img
                   src={cardImage(card.id, card.faceUp, 'sm')}
                   alt={cardLabel(defs[card.id])}
                   draggable={false}
-                  className={drag?.item === deck.id && deck.cards.length === 1 ? 'dragging' : ''}
+                  className={
+                    drag?.item === deck.id && deck.cards.length === 1
+                      ? 'dragging'
+                      : ''
+                  }
                 />
               ) : (
-                <span className="deck-empty">{(deck.deck && DECK_SPECS[deck.deck].emptyHint) ?? 'empty'}</span>
+                <span className="deck-empty">
+                  {(deck.deck && DECK_SPECS[deck.deck].emptyHint) ?? 'empty'}
+                </span>
               )}
-              {deck.cards.length > 0 && <span className="deck-count">{deck.cards.length}</span>}
+              {deck.cards.length > 0 && (
+                <span className="deck-count">{deck.cards.length}</span>
+              )}
             </div>
             <div className="deck-name">{deck.label ?? 'Deck'}</div>
           </div>
-        )
+        );
       })}
-      <p className="sidebar-hint">Drop a card anywhere here to put it back into its deck</p>
+      <p className="sidebar-hint">
+        Drop a card anywhere here to put it back into its deck
+      </p>
       {dragged && drag && (
-        <CardGhost src={cardImage(dragged.id, dragged.faceUp, 'sm')} x={drag.x} y={drag.y} frame={landscapeClass(isLandscape(defs[dragged.id]), dragged.faceUp)} />
+        <CardGhost
+          src={cardImage(dragged.id, dragged.faceUp, 'sm')}
+          x={drag.x}
+          y={drag.y}
+          frame={landscapeClass(isLandscape(defs[dragged.id]), dragged.faceUp)}
+        />
       )}
     </aside>
-  )
+  );
 }

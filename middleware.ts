@@ -2,36 +2,44 @@
 // Access gate: Vercel Routing Middleware, run before every request on the deployment (not in `npm run dev`).
 // The code is the ACCESS_CODE environment variable of the Vercel project, never in the repository. Entering it
 // sets a cookie holding a hash of the code for a year, so changing ACCESS_CODE locks every device out again.
-import { next } from '@vercel/functions'
+import { next } from '@vercel/functions';
 
-const COOKIE = 'gw-access'
-const LOGIN = '/__access'
-const YEAR = 365 * 24 * 60 * 60
+const COOKIE = 'gw-access';
+const LOGIN = '/__access';
+const YEAR = 365 * 24 * 60 * 60;
 
 // The manifest and icons are fetched without cookies (installing to the home screen) and give nothing away.
-const open = (path: string) => path === '/manifest.webmanifest' || path.startsWith('/icons/')
+const open = (path: string) =>
+  path === '/manifest.webmanifest' || path.startsWith('/icons/');
 
-const normalize = (code: string) => code.trim().toUpperCase()
+const normalize = (code: string) => code.trim().toUpperCase();
 
 async function token(code: string): Promise<string> {
-  const data = new TextEncoder().encode(`grimm-world:${normalize(code)}`)
-  const hash = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, '0')).join('')
+  const data = new TextEncoder().encode(`grimm-world:${normalize(code)}`);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash), (b) =>
+    b.toString(16).padStart(2, '0'),
+  ).join('');
 }
 
 function cookie(request: Request, name: string): string | undefined {
   for (const part of (request.headers.get('cookie') ?? '').split(';')) {
-    const [k, ...v] = part.trim().split('=')
-    if (k === name) return v.join('=')
+    const [k, ...v] = part.trim().split('=');
+    if (k === name) return v.join('=');
   }
 }
 
 // Only same-site paths, so the form can't redirect elsewhere.
 const safePath = (path: unknown) =>
-  typeof path === 'string' && path.startsWith('/') && !path.startsWith('//') && path !== LOGIN ? path : '/'
+  typeof path === 'string' &&
+  path.startsWith('/') &&
+  !path.startsWith('//') &&
+  path !== LOGIN
+    ? path
+    : '/';
 
 const escape = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
+  s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 function page(to: string, error: boolean): Response {
   const html = `<!doctype html>
@@ -78,28 +86,34 @@ function page(to: string, error: boolean): Response {
     The access code is on its download page.</p>
 </form>
 </body>
-</html>`
+</html>`;
   return new Response(html, {
     status: 401,
-    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
-  })
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+    },
+  });
 }
 
 export default async function middleware(request: Request): Promise<Response> {
-  const url = new URL(request.url)
-  if (open(url.pathname)) return next()
+  const url = new URL(request.url);
+  if (open(url.pathname)) return next();
 
-  const code = process.env.ACCESS_CODE
+  const code = process.env.ACCESS_CODE;
   if (!code?.trim()) {
-    return new Response('ACCESS_CODE is not set in the Vercel project.', { status: 503 })
+    return new Response('ACCESS_CODE is not set in the Vercel project.', {
+      status: 503,
+    });
   }
-  const expected = await token(code)
+  const expected = await token(code);
 
   if (url.pathname === LOGIN && request.method === 'POST') {
-    const form = await request.formData()
-    const to = safePath(form.get('next'))
-    const given = form.get('code')
-    if (typeof given !== 'string' || (await token(given)) !== expected) return page(to, true)
+    const form = await request.formData();
+    const to = safePath(form.get('next'));
+    const given = form.get('code');
+    if (typeof given !== 'string' || (await token(given)) !== expected)
+      return page(to, true);
     return new Response(null, {
       status: 303,
       headers: {
@@ -107,12 +121,17 @@ export default async function middleware(request: Request): Promise<Response> {
         'set-cookie': `${COOKIE}=${expected}; Path=/; Max-Age=${YEAR}; HttpOnly; Secure; SameSite=Lax`,
         'cache-control': 'no-store',
       },
-    })
+    });
   }
 
-  if (cookie(request, COOKIE) === expected) return next()
+  if (cookie(request, COOKIE) === expected) return next();
 
-  const wantsPage = request.method === 'GET' && (request.headers.get('accept') ?? '').includes('text/html')
-  if (wantsPage) return page(safePath(url.pathname + url.search), false)
-  return new Response('Access code required.', { status: 401, headers: { 'cache-control': 'no-store' } })
+  const wantsPage =
+    request.method === 'GET' &&
+    (request.headers.get('accept') ?? '').includes('text/html');
+  if (wantsPage) return page(safePath(url.pathname + url.search), false);
+  return new Response('Access code required.', {
+    status: 401,
+    headers: { 'cache-control': 'no-store' },
+  });
 }

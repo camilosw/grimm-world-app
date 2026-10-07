@@ -23,7 +23,7 @@
   font-family:
     system-ui,
     -apple-system,
-    "Segoe UI",
+    'Segoe UI',
     Roboto,
     sans-serif;
   color: var(--text);
@@ -82,8 +82,8 @@ button.primary {
   border-color: #e0504b;
 }
 
-input[type="search"],
-input[type="number"],
+input[type='search'],
+input[type='number'],
 input:not([type]) {
   font: inherit;
   font-size: 16px; /* avoids iOS zoom on focus */
@@ -233,10 +233,22 @@ input:not([type]) {
   touch-action: pan-y;
   scrollbar-width: none;
   background:
-    linear-gradient(var(--rail-bg) 40%, transparent) top / 100% 28px no-repeat local,
-    linear-gradient(transparent, var(--rail-bg) 60%) bottom / 100% 28px no-repeat local,
-    radial-gradient(farthest-side at 50% 0, rgba(232, 194, 122, 0.45), transparent) top / 100% 14px no-repeat scroll,
-    radial-gradient(farthest-side at 50% 100%, rgba(232, 194, 122, 0.45), transparent) bottom / 100% 14px no-repeat scroll,
+    linear-gradient(var(--rail-bg) 40%, transparent) top / 100% 28px no-repeat
+      local,
+    linear-gradient(transparent, var(--rail-bg) 60%) bottom / 100% 28px
+      no-repeat local,
+    radial-gradient(
+        farthest-side at 50% 0,
+        rgba(232, 194, 122, 0.45),
+        transparent
+      )
+      top / 100% 14px no-repeat scroll,
+    radial-gradient(
+        farthest-side at 50% 100%,
+        rgba(232, 194, 122, 0.45),
+        transparent
+      )
+      bottom / 100% 14px no-repeat scroll,
     var(--rail-bg);
   border-right: 1px solid #000;
   z-index: 2;
@@ -748,7 +760,7 @@ button.on {
 }
 
 .browse-resize::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 9px;
   left: 50%;
@@ -782,7 +794,7 @@ button.on {
 }
 
 /* Narrow, so the bar's buttons fit on one line. */
-.browse-bar input[type="search"] {
+.browse-bar input[type='search'] {
   flex: none;
   width: 150px;
   min-width: 0;
@@ -975,7 +987,7 @@ button.on {
   width: 100%;
   font:
     16px/1.4 ui-monospace,
-    "SF Mono",
+    'SF Mono',
     Menlo,
     monospace;
   color: var(--text);
@@ -1220,7 +1232,7 @@ button.on {
 
 /* Cards dragged here go before this pile. */
 .tray-pile.insert-before::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   right: 0;
@@ -1294,7 +1306,7 @@ button.on {
 }
 
 .tray-resize::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 9px;
   top: 50%;
@@ -1444,7 +1456,7 @@ button.on {
 
 .area-grip::before,
 .area-grip::after {
-  content: "";
+  content: '';
   position: absolute;
   width: var(--fillet);
   height: var(--fillet);
@@ -1826,7 +1838,7 @@ button.on {
 }
 
 .rules-resize::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 9px;
   top: 50%;
@@ -1849,7 +1861,8 @@ button.on {
   align-items: center;
   gap: 6px;
   /* At the top of the screen, as high as the toolbar beside it. */
-  padding: max(8px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) 8px 14px;
+  padding: max(8px, env(safe-area-inset-top))
+    max(6px, env(safe-area-inset-right)) 8px 14px;
   border-bottom: 1px solid #000;
 }
 
@@ -2252,7 +2265,7 @@ button.on {
   }
 
   /* What gives way on a narrow screen, and takes the room left over on a wider one. */
-  .browse-bar input[type="search"] {
+  .browse-bar input[type='search'] {
     flex: 1 1 150px;
     min-width: 70px;
   }
@@ -2346,7 +2359,7 @@ button.on {
   /* A touch 44px across, over the edge of the card. */
   .browse .card-grip::after,
   .browse .card-view::after {
-    content: "";
+    content: '';
     position: absolute;
     inset: -4px;
   }
@@ -2425,7 +2438,8 @@ button.on {
     grid-area: 1 / 3 / 3 / 4;
     flex-direction: column;
     gap: 4px;
-    padding: 4px max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) 4px;
+    padding: 4px max(4px, env(safe-area-inset-right))
+      max(4px, env(safe-area-inset-bottom)) 4px;
     border-top: none;
     border-left: 1px solid #000;
     overflow-x: hidden;

@@ -6,15 +6,9 @@ import {
   tokenSize,
   type Family,
   type Turn,
-} from "./cards";
-import { DECK_SPECS, TABLE_DECKS, type DeckKind } from "./decks";
-import type {
-  CardDef,
-  EncounterPlace,
-  Stack,
-  StorySlot,
-  Table,
-} from "./types";
+} from './cards';
+import { DECK_SPECS, TABLE_DECKS, type DeckKind } from './decks';
+import type { CardDef, EncounterPlace, Stack, StorySlot, Table } from './types';
 
 /** A framed part of the table reserved for certain cards (rulebook chapters 4 and 10). */
 export interface Area {
@@ -106,7 +100,7 @@ const story = {
   ...box(2, 2 - STORY_COVERED),
 };
 /** Table decks with a Browse button below their place: the Training Deck, whose cards are all taken to train. */
-export const BROWSE_DECKS: DeckKind[] = ["training"];
+export const BROWSE_DECKS: DeckKind[] = ['training'];
 // One card each, two by two right of the Actions area as laid out (`settleLayout()`): the decks built during play,
 // each on its place (see `deckPlace()`), with its Browse button below it (`BROWSE_DECKS`).
 const deckBox = box(1, 1);
@@ -193,47 +187,45 @@ const battlefield = {
 
 export const AREAS: Area[] = [
   {
-    id: "map",
-    label: "Map",
+    id: 'map',
+    label: 'Map',
     ...map,
-    accepts: ["region"],
+    accepts: ['region'],
   },
-  { id: "bar", label: "Encounter Bar", ...bar, accepts: ["lost-pages"] },
+  { id: 'bar', label: 'Encounter Bar', ...bar, accepts: ['lost-pages'] },
   {
-    id: "encounter",
-    label: "Encounter Deck",
+    id: 'encounter',
+    label: 'Encounter Deck',
     ...encounter,
-    accepts: ["encounter"],
+    accepts: ['encounter'],
   },
   {
-    id: "character",
-    label: "Character",
+    id: 'character',
+    label: 'Character',
     ...character,
-    accepts: ["character", "alignment", "lost-pages", "encounter"],
+    accepts: ['character', 'alignment', 'lost-pages', 'encounter'],
   },
   {
-    id: "storage",
-    label: "Storage",
+    id: 'storage',
+    label: 'Storage',
     ...storage,
-    accepts: ["lost-pages", "encounter", "money"],
+    accepts: ['lost-pages', 'encounter', 'money'],
   },
-  { id: "storybook", label: "Storybook", ...story, accepts: ["storybook"] },
-  ...TABLE_DECKS.map(
-    (kind, i): Area => ({
-      id: kind,
-      label: DECK_SPECS[kind].label,
-      ...deckArea(i),
-      accepts: [],
-      deck: kind,
-    }),
-  ),
-  { id: "hand", label: "Actions", ...hand, accepts: ["lost-pages"] },
-  { id: "home", label: "Home", ...home, accepts: ["lost-pages", "encounter"] },
+  { id: 'storybook', label: 'Storybook', ...story, accepts: ['storybook'] },
+  ...TABLE_DECKS.map((kind, i): Area => ({
+    id: kind,
+    label: DECK_SPECS[kind].label,
+    ...deckArea(i),
+    accepts: [],
+    deck: kind,
+  })),
+  { id: 'hand', label: 'Actions', ...hand, accepts: ['lost-pages'] },
+  { id: 'home', label: 'Home', ...home, accepts: ['lost-pages', 'encounter'] },
   {
-    id: "battlefield",
-    label: "Battlefield",
+    id: 'battlefield',
+    label: 'Battlefield',
     ...battlefield,
-    accepts: ["terrain", "hitpoints", "lost-pages"],
+    accepts: ['terrain', 'hitpoints', 'lost-pages'],
   },
 ];
 
@@ -341,22 +333,22 @@ function fanMax(spot: Spot): number {
 }
 
 const OPPOSITE: Record<Side, Side> = {
-  left: "right",
-  right: "left",
-  top: "bottom",
-  bottom: "top",
+  left: 'right',
+  right: 'left',
+  top: 'bottom',
+  bottom: 'top',
 };
 
 /** Which way a fanned spot's row runs: away from the card covering it, the way its cards lie on each other, else right. */
 function growth(spot: Spot): Side {
   const side = coveredSide(spot);
-  return spot.overlaps ?? (side ? OPPOSITE[side] : "right");
+  return spot.overlaps ?? (side ? OPPOSITE[side] : 'right');
 }
 
 /** Whether a spot's row runs down or up. */
 function vertical(spot: Spot): boolean {
   const side = growth(spot);
-  return side === "top" || side === "bottom";
+  return side === 'top' || side === 'bottom';
 }
 
 /** Size of a spot's card as it lies there. */
@@ -368,7 +360,7 @@ function lyingSize(spot: Spot): { w: number; h: number } {
 /** Signed distance between the places of a fanned spot (negative: the row grows to the left or up). */
 function fanStep(spot: Spot): number {
   const side = growth(spot);
-  const dir = side === "left" || side === "top" ? -1 : 1;
+  const dir = side === 'left' || side === 'top' ? -1 : 1;
   const size = lyingSize(spot);
   return dir * (spot.shows ?? 0.5) * (vertical(spot) ? size.h : size.w);
 }
@@ -425,22 +417,22 @@ export function splitBox(
   const y = Math.min(spot.y, partner?.y ?? spot.y);
   // Beyond the edge of the last card, which covers the part of the free place that doesn't show.
   switch (growth(spot)) {
-    case "top": {
+    case 'top': {
       const edge = free.y + Math.round(shows * h);
       return { x, y: edge - Math.round(size * h), w, h: Math.round(size * h) };
     }
-    case "bottom":
+    case 'bottom':
       return {
         x,
         y: free.y + Math.round((1 - shows) * h),
         w,
         h: Math.round(size * h),
       };
-    case "left": {
+    case 'left': {
       const edge = free.x + Math.round(shows * w);
       return { x: edge - Math.round(size * w), y, w: Math.round(size * w), h };
     }
-    case "right":
+    case 'right':
       return {
         x: free.x + Math.round((1 - shows) * w),
         y,
@@ -589,7 +581,7 @@ export function spotPlace(
     : { x: spot.x, y: spot.y, onto: null };
 }
 
-export type Side = "left" | "right" | "top" | "bottom";
+export type Side = 'left' | 'right' | 'top' | 'bottom';
 
 /** Whether a spot takes cards of family `f`. */
 export function takes(spot: Spot, f: Family | undefined): boolean {
@@ -645,8 +637,8 @@ export function coveredSide(spot: Spot): Side | null {
   spot = SPOTS.find((s) => s.id === spot.id) ?? spot;
   // Side by side, or one above the other (a row `after` another lies a unit beside it).
   if (Math.abs(cover.x - spot.x) > Math.abs(cover.y - spot.y))
-    return cover.x > spot.x ? "right" : "left";
-  return cover.y > spot.y ? "bottom" : "top";
+    return cover.x > spot.x ? 'right' : 'left';
+  return cover.y > spot.y ? 'bottom' : 'top';
 }
 
 // Top center, so titles/skills can go above it and items to its right (rulebook 4.1).
@@ -712,40 +704,40 @@ export const SPOTS: Spot[] = [
   // left part of the one after it, so a new card, which goes first, lies on top of the others. Its free place stays
   // before them, partly under the first; Y-cards dropped anywhere in the area go into the row. Any number of them: the area grows with it.
   {
-    id: "bar",
-    label: "Encounter Bar",
-    hint: "Y-Cards, face down",
-    area: "bar",
-    family: "lost-pages",
+    id: 'bar',
+    label: 'Encounter Bar',
+    hint: 'Y-Cards, face down',
+    area: 'bar',
+    family: 'lost-pages',
     attracts: false,
     ...barSpot,
     shows: BAR_SHOWS,
     fan: { count: Infinity },
     fillsArea: true,
     landscape: true,
-    turn: "left",
+    turn: 'left',
     faceDown: true,
     addsFirst: true,
     takesPiles: true,
   },
   {
-    id: "character",
-    label: "Character Card",
-    area: "character",
-    family: "character",
+    id: 'character',
+    label: 'Character Card',
+    area: 'character',
+    family: 'character',
     attracts: true,
     ...characterSpot,
   },
   // Slid half under the left side of the Character Card (rulebook 4.2).
   {
-    id: "alignment",
-    label: "Alignment Card",
-    area: "character",
-    family: "alignment",
+    id: 'alignment',
+    label: 'Alignment Card',
+    area: 'character',
+    family: 'alignment',
     attracts: true,
     x: characterSpot.x - CARD_W / 2,
     y: characterSpot.y,
-    under: "character",
+    under: 'character',
   },
   // Above it, the titles and skills received (rulebook 4.1), upside down ("Attach this card above your Character Card"),
   // so the strip printed upside down at their bottom reads the right way up. First the titles, slid under its top edge,
@@ -753,30 +745,30 @@ export const SPOTS: Spot[] = [
   // Character Card), showing only their name banner. One placeholder above them both, split: Titles left, Skills right.
   // Any number of each: the area grows up with the column.
   {
-    id: "titles",
-    label: "Titles",
-    hint: "Y-Cards",
-    area: "character",
-    family: "lost-pages",
+    id: 'titles',
+    label: 'Titles',
+    hint: 'Y-Cards',
+    area: 'character',
+    family: 'lost-pages',
     attracts: false,
     x: characterSpot.x,
     y: characterSpot.y - Math.round(TITLES_SHOWS * CARD_H),
-    under: "character",
+    under: 'character',
     shows: TITLES_SHOWS,
     fan: { count: Infinity },
     upsideDown: true,
   },
   {
-    id: "skills",
-    label: "Skills",
-    hint: "Y-Cards",
-    area: "character",
-    family: "lost-pages",
+    id: 'skills',
+    label: 'Skills',
+    hint: 'Y-Cards',
+    area: 'character',
+    family: 'lost-pages',
     attracts: false,
     x: characterSpot.x + 1,
     y: characterSpot.y - Math.round(SKILLS_SHOWS * CARD_H),
-    under: "titles",
-    after: "titles",
+    under: 'titles',
+    after: 'titles',
     split: true,
     shows: SKILLS_SHOWS,
     fan: { count: Infinity },
@@ -787,16 +779,16 @@ export const SPOTS: Spot[] = [
   // down along their left edge shows (rulebook figure 18), each further one likewise under the one before. Any number of
   // them: the area grows right with the row.
   {
-    id: "upgrades",
+    id: 'upgrades',
     // No hint: the strip is too narrow for a second line.
-    label: "Status Upgrades & Items",
-    area: "character",
-    family: "lost-pages",
-    also: ["encounter"],
+    label: 'Status Upgrades & Items',
+    area: 'character',
+    family: 'lost-pages',
+    also: ['encounter'],
     attracts: false,
     x: characterSpot.x + Math.round(UPGRADES_SHOWS * CARD_W),
     y: characterSpot.y,
-    under: "character",
+    under: 'character',
     shows: UPGRADES_SHOWS,
     fan: { count: Infinity },
     upsideDown: true,
@@ -805,25 +797,25 @@ export const SPOTS: Spot[] = [
   // Below it, the Quest Cards (Y-cards) slid under its bottom edge so only their bottom quarter shows, each further one
   // likewise under the one before. Any number of them: the area grows with the column.
   {
-    id: "quests",
-    label: "Quest Cards",
-    hint: "Y-Cards",
-    area: "character",
-    family: "lost-pages",
+    id: 'quests',
+    label: 'Quest Cards',
+    hint: 'Y-Cards',
+    area: 'character',
+    family: 'lost-pages',
     attracts: false,
     x: characterSpot.x,
     y: characterSpot.y + Math.round(QUESTS_SHOWS * CARD_H),
-    under: "character",
+    under: 'character',
     shows: QUESTS_SHOWS,
     fan: { count: Infinity },
   },
   // Top center. The Storage Card is a Y-card; goods go left and below it, items and money right (rulebook 4.7.4).
   {
-    id: "storage",
-    label: "Storage Card",
-    hint: "any Y-Card",
-    area: "storage",
-    family: "lost-pages",
+    id: 'storage',
+    label: 'Storage Card',
+    hint: 'any Y-Card',
+    area: 'storage',
+    family: 'lost-pages',
     attracts: false,
     ...storageSpot,
   },
@@ -832,16 +824,16 @@ export const SPOTS: Spot[] = [
   // likewise under the one before. Mostly Encounter Cards; some items are Y-cards. Any number of them: the area grows up
   // with the column.
   {
-    id: "broken",
-    label: "Broken Items",
-    hint: "Encounter Cards, Y-Cards",
-    area: "storage",
-    family: "encounter",
-    also: ["lost-pages"],
+    id: 'broken',
+    label: 'Broken Items',
+    hint: 'Encounter Cards, Y-Cards',
+    area: 'storage',
+    family: 'encounter',
+    also: ['lost-pages'],
     attracts: false,
     x: storageSpot.x,
     y: storageSpot.y - Math.round(BROKEN_SHOWS * CARD_H),
-    under: "storage",
+    under: 'storage',
     shows: BROKEN_SHOWS,
     fan: { count: Infinity },
     upsideDown: true,
@@ -852,17 +844,17 @@ export const SPOTS: Spot[] = [
   // status values along their left edge shows (rulebook figure 16), each further one likewise under the one before.
   // Any number of them; the Money Cards lie beyond them, sharing their placeholder. A unit below the Money Cards' line.
   {
-    id: "items",
-    label: "Items",
+    id: 'items',
+    label: 'Items',
     // A non-breaking hyphen: the half is narrow, and "Y-" alone on a line reads badly.
-    hint: "Encounter Cards, Y\u2011Cards",
-    area: "storage",
-    family: "encounter",
-    also: ["lost-pages"],
+    hint: 'Encounter Cards, Y\u2011Cards',
+    area: 'storage',
+    family: 'encounter',
+    also: ['lost-pages'],
     attracts: false,
     x: storageSpot.x + Math.round(UPGRADES_SHOWS * CARD_W),
     y: storageSpot.y + 1,
-    under: "storage",
+    under: 'storage',
     shows: UPGRADES_SHOWS,
     fan: { count: Infinity },
     upsideDown: true,
@@ -873,58 +865,58 @@ export const SPOTS: Spot[] = [
   // Each is its own pile, so it can be turned to its amount. One placeholder beyond both rows, split: Items above, Money
   // below.
   {
-    id: "money",
-    label: "Money Card",
-    area: "storage",
-    family: "money",
+    id: 'money',
+    label: 'Money Card',
+    area: 'storage',
+    family: 'money',
     attracts: true,
     x: storageSpot.x + CARD_W / 2,
     y: storageSpot.y,
-    under: "items",
-    after: "items",
+    under: 'items',
+    after: 'items',
     split: true,
     fan: { count: 3 },
   },
   // Slid under the left side of the Storage Card so only their left third shows, and each further one likewise under
   // the one before (rulebook 4.7.4). Any number of them: the area grows with the row.
   {
-    id: "goods",
-    label: "Goods",
-    hint: "Encounter Cards",
-    area: "storage",
-    family: "encounter",
+    id: 'goods',
+    label: 'Goods',
+    hint: 'Encounter Cards',
+    area: 'storage',
+    family: 'encounter',
     attracts: false,
     x: goodsX,
     y: storageSpot.y,
-    under: "storage",
+    under: 'storage',
     shows: GOODS_LEFT_SHOWS,
     fan: { count: Infinity },
   },
   // The same below the Storage Card: only their bottom part shows, each further one under the one before.
   {
-    id: "goods-below",
-    label: "Goods",
-    hint: "Encounter Cards",
-    area: "storage",
-    family: "encounter",
+    id: 'goods-below',
+    label: 'Goods',
+    hint: 'Encounter Cards',
+    area: 'storage',
+    family: 'encounter',
     attracts: false,
     x: storageSpot.x,
     y: goodsBelowY,
-    under: "storage",
+    under: 'storage',
     shows: GOODS_BELOW_SHOWS,
     fan: { count: Infinity },
   },
   // Below the revealed storybook cards, lying over the bottom edge of the top one. A single card: it takes the
   // Storybook area's only Encounter Card.
   {
-    id: "story-encounter",
-    label: "Encounter Card",
-    area: "storybook",
-    family: "encounter",
+    id: 'story-encounter',
+    label: 'Encounter Card',
+    area: 'storybook',
+    family: 'encounter',
     attracts: false,
     x: story.x + AREA_PAD,
     y: story.y + AREA_HEADER + Math.round((1 - STORY_COVERED) * CARD_H),
-    over: "story-revealed",
+    over: 'story-revealed',
     fillsArea: true,
     fan: { count: 1 },
   },
@@ -933,16 +925,16 @@ export const SPOTS: Spot[] = [
   // of the one before showing (`HAND_SHOWS`). Y-cards dropped anywhere in the area but on the discard pile go into
   // it. Any number of them: the area grows down with the column.
   {
-    id: "hand",
-    label: "Hand",
-    hint: "Y-Cards",
-    area: "hand",
-    family: "lost-pages",
+    id: 'hand',
+    label: 'Hand',
+    hint: 'Y-Cards',
+    area: 'hand',
+    family: 'lost-pages',
     attracts: false,
     ...handSpot,
     shows: HAND_SHOWS,
     fan: { count: Infinity },
-    overlaps: "bottom",
+    overlaps: 'bottom',
     fillsArea: true,
     upsideDown: true,
     faceUp: true,
@@ -950,11 +942,11 @@ export const SPOTS: Spot[] = [
   },
   // Right of the hand: the cards played from it (rulebook 8.2.1.1.1), upside down too, in one pile.
   {
-    id: "discard",
-    label: "Discard",
-    hint: "Y-Cards",
-    area: "hand",
-    family: "lost-pages",
+    id: 'discard',
+    label: 'Discard',
+    hint: 'Y-Cards',
+    area: 'hand',
+    family: 'lost-pages',
     attracts: false,
     x: handSpot.x + CARD_W + PLACE_GAP,
     y: handSpot.y,
@@ -964,11 +956,11 @@ export const SPOTS: Spot[] = [
   // with the Action Cards discarded as damage under it (rulebook 4.7.9), so they aren't mixed up with the played ones.
   // Cards dropped on it go under it.
   {
-    id: "damage",
-    label: "Damage Card",
-    hint: "Y010",
-    area: "hand",
-    family: "lost-pages",
+    id: 'damage',
+    label: 'Damage Card',
+    hint: 'Y010',
+    area: 'hand',
+    family: 'lost-pages',
     attracts: false,
     x: handSpot.x + CARD_W + PLACE_GAP,
     y: handSpot.y + CARD_H + PLACE_GAP,
@@ -976,87 +968,85 @@ export const SPOTS: Spot[] = [
   },
   // In the middle of the Home area. The House Card is a Y-card; its extensions lie under it (rulebook 10).
   {
-    id: "house",
-    label: "House Card",
-    hint: "Y730",
-    area: "home",
-    family: "lost-pages",
+    id: 'house',
+    label: 'House Card',
+    hint: 'Y730',
+    area: 'home',
+    family: 'lost-pages',
     attracts: false,
     ...houseSpot,
   },
   // Left and right of the House Card, up to two extensions each: the first slid half under it, the second half under
   // the first (`HOUSE_SIDE_SHOWS`).
-  ...(["left", "right"] as const).map(
-    (side): Spot => ({
-      id: `house-${side}`,
-      label: "House Extension",
-      area: "home",
-      family: "lost-pages",
-      attracts: false,
-      x: houseSpot.x + (side === "left" ? -1 : 1) * houseSideStep,
-      y: houseSpot.y,
-      under: "house",
-      shows: HOUSE_SIDE_SHOWS,
-      fan: { count: HOUSE_SIDE_CARDS },
-    }),
-  ),
+  ...(['left', 'right'] as const).map((side): Spot => ({
+    id: `house-${side}`,
+    label: 'House Extension',
+    area: 'home',
+    family: 'lost-pages',
+    attracts: false,
+    x: houseSpot.x + (side === 'left' ? -1 : 1) * houseSideStep,
+    y: houseSpot.y,
+    under: 'house',
+    shows: HOUSE_SIDE_SHOWS,
+    fan: { count: HOUSE_SIDE_CARDS },
+  })),
   // Above and below it, one extension each, mostly under it (`HOUSE_ABOVE_SHOWS`, `HOUSE_BELOW_SHOWS`).
   {
-    id: "house-above",
-    label: "House Extension",
-    area: "home",
-    family: "lost-pages",
+    id: 'house-above',
+    label: 'House Extension',
+    area: 'home',
+    family: 'lost-pages',
     attracts: false,
     x: houseSpot.x,
     y: houseSpot.y - Math.round(HOUSE_ABOVE_SHOWS * CARD_H),
-    under: "house",
+    under: 'house',
     shows: HOUSE_ABOVE_SHOWS,
     fan: { count: 1 },
   },
   {
-    id: "house-below",
-    label: "House Extension",
-    area: "home",
-    family: "lost-pages",
+    id: 'house-below',
+    label: 'House Extension',
+    area: 'home',
+    family: 'lost-pages',
     attracts: false,
     x: houseSpot.x,
     y: houseSpot.y + Math.round(HOUSE_BELOW_SHOWS * CARD_H),
-    under: "house",
+    under: 'house',
     shows: HOUSE_BELOW_SHOWS,
     fan: { count: 1 },
   },
   // Left of the house extensions, slid under the outer one as the Goods in the Storage area are under the Storage Card,
   // each further one under the one before.
   {
-    id: "home-goods",
-    label: "Goods",
-    hint: "Encounter Cards",
-    area: "home",
-    family: "encounter",
+    id: 'home-goods',
+    label: 'Goods',
+    hint: 'Encounter Cards',
+    area: 'home',
+    family: 'encounter',
     attracts: false,
     x:
       houseSpot.x -
       HOUSE_SIDE_CARDS * houseSideStep -
       Math.round(GOODS_LEFT_SHOWS * CARD_W),
     y: houseSpot.y,
-    under: "house-left",
+    under: 'house-left',
     shows: GOODS_LEFT_SHOWS,
     fan: { count: HOME_GOODS_CARDS },
   },
   // The same right of them, showing only a narrow strip of each card.
   {
-    id: "home-equipment",
-    label: "Equipment",
-    hint: "Encounter Cards",
-    area: "home",
-    family: "encounter",
+    id: 'home-equipment',
+    label: 'Equipment',
+    hint: 'Encounter Cards',
+    area: 'home',
+    family: 'encounter',
     attracts: false,
     x:
       houseSpot.x +
       HOUSE_SIDE_CARDS * houseSideStep +
       Math.round(EQUIPMENT_SHOWS * CARD_W),
     y: houseSpot.y,
-    under: "house-right",
+    under: 'house-right',
     shows: EQUIPMENT_SHOWS,
     fan: { count: EQUIPMENT_CARDS },
   },
@@ -1064,7 +1054,7 @@ export const SPOTS: Spot[] = [
 
 /** Fixed places of the storybook: revealed cards on the left, the face-down deck on the right. */
 export const STORY_SLOTS = {
-  "story-revealed": { x: story.x + AREA_PAD, y: story.y + AREA_HEADER },
+  'story-revealed': { x: story.x + AREA_PAD, y: story.y + AREA_HEADER },
   story: { x: story.x + AREA_PAD + CARD_W, y: story.y + AREA_HEADER },
 };
 
@@ -1078,15 +1068,15 @@ export const ENCOUNTER_PLACES: {
   label: string;
   hint?: string;
 }[] = [
-  { place: "time-passes", label: "Time Passes" },
-  { place: "next-chapter", label: "Next Chapter" },
-  { place: "used", label: "Used Cards", hint: "Encounter Cards" },
+  { place: 'time-passes', label: 'Time Passes' },
+  { place: 'next-chapter', label: 'Next Chapter' },
+  { place: 'used', label: 'Used Cards', hint: 'Encounter Cards' },
 ];
 
 /** Where an Encounter Deck place lies on this table: its pile, or its placeholder. */
 export function encounterPlace(t: Table, place: EncounterPlace): Point {
   const i = ENCOUNTER_PLACES.findIndex((p) => p.place === place);
-  const d = shiftOf(t, "encounter");
+  const d = shiftOf(t, 'encounter');
   return {
     x: encounter.x + AREA_PAD + i * (CARD_W + PLACE_GAP) + d.x,
     y: encounter.y + AREA_HEADER + d.y,
@@ -1109,28 +1099,31 @@ export function deckPlace(t: Table, kind: DeckKind): Point {
  * Where the battlefield lay before it was an area of its own, at the left edge below the other areas: the height below
  * the areas' own places, for migrating older saves.
  */
-export const BATTLEFIELD_ORIGIN = { x: 0, y: character.y + character.h + OWN_GAP };
+export const BATTLEFIELD_ORIGIN = {
+  x: 0,
+  y: character.y + character.h + OWN_GAP,
+};
 
 /**
  * The grids of landscape card places, edge to edge, growing from a first place in every direction: the Map's Region
  * Cards (rulebook 7.1.1: a region entered goes beside the one left, the way its compass points) and the battlefield's
  * Terrain Cards (rulebook 8.1.2). Each is named after its area.
  */
-export type GridId = "map" | "battlefield";
+export type GridId = 'map' | 'battlefield';
 
-const GRIDS: GridId[] = ["map", "battlefield"];
+const GRIDS: GridId[] = ['map', 'battlefield'];
 
 /** The cards each grid takes. */
 const GRID_FAMILY: Record<GridId, Family> = {
-  map: "region",
-  battlefield: "terrain",
+  map: 'region',
+  battlefield: 'terrain',
 };
 
 /** Top-left corner of a grid's first place (column 0, row 0), as its area lies on this table. */
 function gridOrigin(t: Table, g: GridId): Point {
   const d = shiftOf(t, g);
   const own =
-    g === "map"
+    g === 'map'
       ? regionGrid
       : {
           x: battlefield.x + AREA_PAD + GRID_STRIP,
@@ -1147,15 +1140,20 @@ const MAP_COLS = 2;
  * number of rows, and right of its first column (`MAP_COLS`).
  */
 function grows(g: GridId, col: number, side: Side): boolean {
-  if (g === "battlefield") return true;
-  return side === "top" || (side === "right" && col < MAP_COLS - 1);
+  if (g === 'battlefield') return true;
+  return side === 'top' || (side === 'right' && col < MAP_COLS - 1);
 }
 
 /**
  * Where a card lies on a grid's place (`col`, `row`): the place of a portrait card, which `cardBox()` draws it
  * landscape across.
  */
-export function cellPlace(t: Table, g: GridId, col: number, row: number): Point {
+export function cellPlace(
+  t: Table,
+  g: GridId,
+  col: number,
+  row: number,
+): Point {
   const o = gridOrigin(t, g);
   return {
     x: o.x + col * CARD_H + (CARD_H - CARD_W) / 2,
@@ -1165,7 +1163,7 @@ export function cellPlace(t: Table, g: GridId, col: number, row: number): Point 
 
 /** Where a Terrain Card lies on the battlefield grid's place (`col`, `row`). */
 export function terrainPlace(t: Table, col: number, row: number): Point {
-  return cellPlace(t, "battlefield", col, row);
+  return cellPlace(t, 'battlefield', col, row);
 }
 
 /** The landscape box of a grid's place (`col`, `row`). */
@@ -1190,11 +1188,9 @@ function gridPiles(t: Table, g: GridId): Map<string, string> {
   grid = new Map();
   const o = cellPlace(t, g, 0, 0);
   // The areas' spots only: the battlefield's lie right of its grid, where it ends (`battlefieldSpots()`).
-  const elsewhere = new Set(
-    baseSpots(t).flatMap((sp) => stacksOnSpot(t, sp)),
-  );
-  if (g === "battlefield") {
-    for (const id of gridPiles(t, "map").values()) elsewhere.add(id);
+  const elsewhere = new Set(baseSpots(t).flatMap((sp) => stacksOnSpot(t, sp)));
+  if (g === 'battlefield') {
+    for (const id of gridPiles(t, 'map').values()) elsewhere.add(id);
     for (const sp of mapSpots(t))
       for (const id of stacksOnSpot(t, sp)) elsewhere.add(id);
   }
@@ -1213,9 +1209,12 @@ function gridPiles(t: Table, g: GridId): Map<string, string> {
 }
 
 /** The piles lying on a grid's places, with their place (`col`, `row`, which may be negative: grids grow every way). */
-export function gridCells(t: Table, g: GridId): { col: number; row: number; id: string }[] {
+export function gridCells(
+  t: Table,
+  g: GridId,
+): { col: number; row: number; id: string }[] {
   return [...gridPiles(t, g)].map(([key, id]) => {
-    const [col, row] = key.split(",").map(Number);
+    const [col, row] = key.split(',').map(Number);
     return { col, row, id };
   });
 }
@@ -1242,7 +1241,7 @@ export function gridFaceUp(g: GridId): string {
 
 /** Whether Terrain Cards lie on the battlefield. */
 export function battlefieldInUse(t: Table): boolean {
-  return gridPiles(t, "battlefield").size > 0;
+  return gridPiles(t, 'battlefield').size > 0;
 }
 
 /** A free place of a grid for a card. */
@@ -1257,10 +1256,10 @@ export interface GridPlace extends Point {
 }
 
 const SIDE_STEPS: [Side, number, number][] = [
-  ["top", 0, -1],
-  ["right", 1, 0],
-  ["bottom", 0, 1],
-  ["left", -1, 0],
+  ['top', 0, -1],
+  ['right', 1, 0],
+  ['bottom', 0, 1],
+  ['left', -1, 0],
 ];
 
 /**
@@ -1268,16 +1267,17 @@ const SIDE_STEPS: [Side, number, number][] = [
  * beside it: the regions lie two by two side by side, odd numbers left and even right (as their compasses show), each
  * with its goods strip on the outer edge.
  */
-function marketSide(col: number): "left" | "right" {
-  return col % 2 ? "right" : "left";
+function marketSide(col: number): 'left' | 'right' {
+  return col % 2 ? 'right' : 'left';
 }
 
 /** The strip along `side` of a card lying in `card`. */
 function stripBox(card: Rect, side: Side): Rect {
   const s = GRID_STRIP;
-  if (side === "top") return { x: card.x, y: card.y - s, w: card.w, h: s };
-  if (side === "bottom") return { x: card.x, y: card.y + card.h, w: card.w, h: s };
-  if (side === "left") return { x: card.x - s, y: card.y, w: s, h: card.h };
+  if (side === 'top') return { x: card.x, y: card.y - s, w: card.w, h: s };
+  if (side === 'bottom')
+    return { x: card.x, y: card.y + card.h, w: card.w, h: s };
+  if (side === 'left') return { x: card.x - s, y: card.y, w: s, h: card.h };
   return { x: card.x + card.w, y: card.y, w: s, h: card.h };
 }
 
@@ -1323,14 +1323,21 @@ export function gridPlaces(
     .map((id) => cardRect(t.stacks[id].x, t.stacks[id].y));
   const places: GridPlace[] = [];
   for (const key of grid.keys()) {
-    const [col, row] = key.split(",").map(Number);
+    const [col, row] = key.split(',').map(Number);
     for (const [side, dc, dr] of SIDE_STEPS) {
       const [c, r] = [col + dc, row + dr];
       if (!grows(g, col, side) || grid.has(cellKey(c, r))) continue;
       const cell = cellBox(t, g, c, r);
       if (others.some((o) => overlap(o, cell) > 0)) continue;
       const box = stripBox(cellBox(t, g, col, row), side);
-      places.push({ ...cellPlace(t, g, c, r), grid: g, col: c, row: r, box, side });
+      places.push({
+        ...cellPlace(t, g, c, r),
+        grid: g,
+        col: c,
+        row: r,
+        box,
+        side,
+      });
     }
   }
   return places;
@@ -1341,7 +1348,7 @@ export function terrainPlaces(
   t: Table,
   moving: string | null = null,
 ): GridPlace[] {
-  return gridPlaces(t, "battlefield", moving);
+  return gridPlaces(t, 'battlefield', moving);
 }
 
 /**
@@ -1351,14 +1358,14 @@ export function terrainPlaces(
 function gridBox(t: Table, g: GridId): Rect {
   const cells = [...gridPiles(t, g).keys()];
   const boxes = (cells.length ? cells : [cellKey(0, 0)]).map((k) => {
-    const [c, r] = k.split(",").map(Number);
+    const [c, r] = k.split(',').map(Number);
     const b = cellBox(t, g, c, r);
     const reach = (side: Side) => (grows(g, c, side) ? GRID_STRIP : 0);
     return {
-      x: b.x - reach("left"),
-      y: b.y - reach("top"),
-      w: b.w + reach("left") + reach("right"),
-      h: b.h + reach("top") + reach("bottom"),
+      x: b.x - reach('left'),
+      y: b.y - reach('top'),
+      w: b.w + reach('left') + reach('right'),
+      h: b.h + reach('top') + reach('bottom'),
     };
   });
   const x = Math.min(...boxes.map((b) => b.x));
@@ -1370,7 +1377,7 @@ function gridBox(t: Table, g: GridId): Rect {
 
 /** Where the battlefield's grid lies (`gridBox()`), and right of it the place for the Enemy Cards. */
 export function battlefieldBoxes(t: Table): { grid: Rect; enemies: Rect } {
-  const grid = gridBox(t, "battlefield");
+  const grid = gridBox(t, 'battlefield');
   const enemies = {
     x: rightOf(grid) + ENEMY_GAP,
     y: grid.y,
@@ -1391,25 +1398,25 @@ const marketCache = new WeakMap<Table, Spot[]>();
 function mapSpots(t: Table): Spot[] {
   let spots = marketCache.get(t);
   if (spots) return spots;
-  spots = [...gridPiles(t, "map")].map(([key, id]): Spot => {
-    const [col, row] = key.split(",").map(Number);
+  spots = [...gridPiles(t, 'map')].map(([key, id]): Spot => {
+    const [col, row] = key.split(',').map(Number);
     const side = marketSide(col);
-    const p = cellPlace(t, "map", col, row);
+    const p = cellPlace(t, 'map', col, row);
     return {
       id: `market-${key}`,
-      label: "Market Prices",
-      hint: "Encounter Card",
-      area: "map",
-      family: "encounter",
+      label: 'Market Prices',
+      hint: 'Encounter Card',
+      area: 'map',
+      family: 'encounter',
       attracts: false,
       // Both lie landscape, so the shown part of the card is as wide as its place is away from the Region Card's.
-      x: p.x + (side === "left" ? -marketStrip : marketStrip),
+      x: p.x + (side === 'left' ? -marketStrip : marketStrip),
       y: p.y,
       underPile: { id, side: OPPOSITE[side] },
       shows: MARKET_SHOWS,
       fan: { count: 1 },
       landscape: true,
-      turn: side === "left" ? "right" : "left",
+      turn: side === 'left' ? 'right' : 'left',
     };
   });
   marketCache.set(t, spots);
@@ -1435,8 +1442,8 @@ function framedPlaces(t: Table, spot: Spot): Point[] {
   return [
     ...places,
     {
-      x: side === "right" ? box.x + box.w - w : box.x,
-      y: side === "bottom" ? box.y + box.h - h : box.y,
+      x: side === 'right' ? box.x + box.w - w : box.x,
+      y: side === 'bottom' ? box.y + box.h - h : box.y,
     },
   ];
 }
@@ -1449,13 +1456,13 @@ type Rect = { x: number; y: number; w: number; h: number };
  * it away (`settleLayout()`); the Encounter Bar only grows right, until the Storybook area beside it moves down.
  */
 const GROWING = [
-  "map",
-  "bar",
-  "character",
-  "storage",
-  "hand",
-  "home",
-  "battlefield",
+  'map',
+  'bar',
+  'character',
+  'storage',
+  'hand',
+  'home',
+  'battlefield',
 ];
 
 const NO_SHIFT: Point = { x: 0, y: 0 };
@@ -1502,9 +1509,9 @@ function battlefieldSpots(t: Table): Spot[] {
     );
     const hp = (id: string, dx: number, dy: number, alt: boolean): Spot => ({
       id,
-      label: "Hit Point Card",
-      area: "battlefield",
-      family: "hitpoints",
+      label: 'Hit Point Card',
+      area: 'battlefield',
+      family: 'hitpoints',
       attracts: false,
       x: x + dx,
       y: y + dy,
@@ -1515,10 +1522,10 @@ function battlefieldSpots(t: Table): Spot[] {
     return [
       {
         id: `enemy-${n}`,
-        label: "Enemy Card",
-        hint: "Y-Card",
-        area: "battlefield",
-        family: "lost-pages",
+        label: 'Enemy Card',
+        hint: 'Y-Card',
+        area: 'battlefield',
+        family: 'lost-pages',
         attracts: false,
         x,
         y,
@@ -1563,7 +1570,11 @@ export function settleEnemies(t: Table): Table {
  * Whether one of the places holding a single card between them (a spot and its `alt` places) holds a pile other than
  * `moving`.
  */
-export function holdsOne(t: Table, spot: Spot, moving: string | null = null): boolean {
+export function holdsOne(
+  t: Table,
+  spot: Spot,
+  moving: string | null = null,
+): boolean {
   const main = spot.alt ?? spot.id;
   return spotsOf(t).some(
     (s) =>
@@ -1676,7 +1687,7 @@ function measure(t: Table): Measured {
   for (const id of t.z) {
     const s = t.stacks[id];
     const area = s.slot
-      ? "storybook"
+      ? 'storybook'
       : (onSpot.get(id) ??
         fixed.find((a) => inRect(a, s.x + CARD_W / 2, s.y + CARD_H / 2))?.id);
     if (area) owner.set(id, area);
@@ -1690,10 +1701,10 @@ function measure(t: Table): Measured {
   const frame = (area: string) => ({
     id: area,
     ...frameAround([
-      ...(area === "battlefield"
+      ...(area === 'battlefield'
         ? [field.grid, field.enemies]
-        : area === "map"
-          ? [gridBox(t, "map")]
+        : area === 'map'
+          ? [gridBox(t, 'map')]
           : []),
       ...spots
         .filter((s) => s.area === area)
@@ -1754,7 +1765,7 @@ function bottomUnder(
 
 /** Where `packedPlaces()` puts a battlefield `w` wide: right of the Home area, below the areas it reaches under. */
 function battlefieldPlace(laid: Map<string, Rect>, w: number): Point {
-  const home = laid.get("home")!;
+  const home = laid.get('home')!;
   const x = rightOf(home) + GAP;
   const below = [...laid].filter(([id]) => !ABOVE_PLAY.includes(id));
   return {
@@ -1769,12 +1780,12 @@ function battlefieldPlace(laid: Map<string, Rect>, w: number): Point {
 }
 
 /** The areas of the two top rows, above the character's areas: the battlefield and the Home area lie below them. */
-const ABOVE_PLAY = ["bar", "map", "encounter", "storybook"];
+const ABOVE_PLAY = ['bar', 'map', 'encounter', 'storybook'];
 
 /** The decks' block of areas right of the Actions area, two by two: each row left to right. */
 const DECK_BLOCK: DeckKind[][] = [
-  ["banned", "enemy"],
-  ["quest", "training"],
+  ['banned', 'enemy'],
+  ['quest', 'training'],
 ];
 
 /**
@@ -1783,9 +1794,9 @@ const DECK_BLOCK: DeckKind[][] = [
  */
 export const PLAY_AREAS = [
   ...ABOVE_PLAY,
-  "storage",
-  "character",
-  "hand",
+  'storage',
+  'character',
+  'hand',
   ...DECK_BLOCK[0],
 ];
 
@@ -1793,7 +1804,7 @@ export const PLAY_AREAS = [
  * The areas used in a combat (rulebook 8): the character, their hand and Damage Card, the Enemy Deck and the
  * battlefield. **Fit** shows these while Terrain Cards lie on the battlefield.
  */
-export const COMBAT_AREAS = ["character", "hand", "enemy", "battlefield"];
+export const COMBAT_AREAS = ['character', 'hand', 'enemy', 'battlefield'];
 
 /**
  * Where the areas lie packed together, each `GAP` from the one before however they grew, in rows:
@@ -1816,22 +1827,22 @@ function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
     laid.set(id, { x: a.x + dx, y: a.y + dy, w: a.w, h: a.h });
     return laid.get(id)!;
   };
-  const bar = put("bar", { x: 0, y: 0 });
+  const bar = put('bar', { x: 0, y: 0 });
   const top = bottomOf(bar) + GAP;
-  const map = put("map", { x: 0, y: top });
-  const encounter = put("encounter", { x: rightOf(map) + GAP, y: top });
+  const map = put('map', { x: 0, y: top });
+  const encounter = put('encounter', { x: rightOf(map) + GAP, y: top });
   const x = rightOf(encounter) + GAP;
-  const story = now.get("storybook")!;
+  const story = now.get('storybook')!;
   const raised = Math.max(bottomOf(map), bottomOf(encounter)) - story.h;
-  const storybook = put("storybook", {
+  const storybook = put('storybook', {
     x,
     y: crowd(bar, { ...story, x, y: raised }) ? top : raised,
   });
   const row =
     Math.max(bottomOf(map), bottomOf(encounter), bottomOf(storybook)) + GAP;
-  const storage = put("storage", { x: 0, y: row });
-  const character = put("character", { x: rightOf(storage) + GAP, y: row });
-  const hand = put("hand", { x: rightOf(character) + GAP, y: row });
+  const storage = put('storage', { x: 0, y: row });
+  const character = put('character', { x: rightOf(storage) + GAP, y: row });
+  const hand = put('hand', { x: rightOf(character) + GAP, y: row });
   DECK_BLOCK.forEach((kinds, i) =>
     kinds.forEach((kind, j) => {
       const left = j ? laid.get(kinds[j - 1])! : hand;
@@ -1844,9 +1855,9 @@ function packedPlaces(t: Table, now: Map<string, Area>): Map<string, Rect> {
       );
     }),
   );
-  const home = now.get("home")!;
-  put("home", { x: 0, y: bottomUnder(laid.values(), 0, home.w, row) });
-  put("battlefield", battlefieldPlace(laid, now.get("battlefield")!.w));
+  const home = now.get('home')!;
+  put('home', { x: 0, y: bottomUnder(laid.values(), 0, home.w, row) });
+  put('battlefield', battlefieldPlace(laid, now.get('battlefield')!.w));
   return laid;
 }
 
@@ -2062,47 +2073,47 @@ export function settleLayout(t: Table): Table {
 
 /** The one area for card families that have a dedicated place. */
 const HOME_AREA: Partial<Record<Family, string>> = {
-  region: "map",
-  character: "character",
-  alignment: "character",
-  money: "storage",
-  storybook: "storybook",
-  terrain: "battlefield",
-  hitpoints: "battlefield",
+  region: 'map',
+  character: 'character',
+  alignment: 'character',
+  money: 'storage',
+  storybook: 'storybook',
+  terrain: 'battlefield',
+  hitpoints: 'battlefield',
 };
 
 const FAMILY_NAMES: Record<Family, string> = {
-  title: "The title card",
-  character: "The Character Card",
-  alignment: "Alignment Cards",
-  money: "Money Cards",
-  region: "Region Cards",
-  terrain: "Terrain Cards",
-  hitpoints: "Hit Point Cards",
-  storybook: "Storybook Cards",
+  title: 'The title card',
+  character: 'The Character Card',
+  alignment: 'Alignment Cards',
+  money: 'Money Cards',
+  region: 'Region Cards',
+  terrain: 'Terrain Cards',
+  hitpoints: 'Hit Point Cards',
+  storybook: 'Storybook Cards',
   time: "'Time Passes' / 'Next Chapter' cards",
-  encounter: "Encounter Cards",
-  "lost-pages": "Lost Pages Cards",
+  encounter: 'Encounter Cards',
+  'lost-pages': 'Lost Pages Cards',
 };
 
 const SHORT_NAMES: Record<Family, string> = {
-  title: "Title",
-  character: "Character",
-  alignment: "Alignment",
-  money: "Money",
-  region: "Regions",
-  terrain: "Terrain",
-  hitpoints: "Hit Points",
-  storybook: "Storybook",
-  time: "Time",
-  encounter: "Encounter Cards",
-  "lost-pages": "Y-Cards",
+  title: 'Title',
+  character: 'Character',
+  alignment: 'Alignment',
+  money: 'Money',
+  region: 'Regions',
+  terrain: 'Terrain',
+  hitpoints: 'Hit Points',
+  storybook: 'Storybook',
+  time: 'Time',
+  encounter: 'Encounter Cards',
+  'lost-pages': 'Y-Cards',
 };
 
 /** "Regions · Encounter Cards · Y-Cards", or what a table deck holds. */
 export function acceptsText(area: Area): string {
-  if (area.deck) return DECK_SPECS[area.deck].holdsText ?? "";
-  return area.accepts.map((f) => SHORT_NAMES[f]).join(" · ");
+  if (area.deck) return DECK_SPECS[area.deck].holdsText ?? '';
+  return area.accepts.map((f) => SHORT_NAMES[f]).join(' · ');
 }
 
 /**
@@ -2138,7 +2149,7 @@ export function refusal(
     const home = HOME_AREA[f];
     if (!home)
       return `${FAMILY_NAMES[f]} don't belong in the ${area.label} area`;
-    return `${FAMILY_NAMES[f]} belong in ${home === "battlefield" ? "the Battlefield" : `the ${AREAS.find((a) => a.id === home)?.label} area`}`;
+    return `${FAMILY_NAMES[f]} belong in ${home === 'battlefield' ? 'the Battlefield' : `the ${AREAS.find((a) => a.id === home)?.label} area`}`;
   }
   return null;
 }
@@ -2160,10 +2171,10 @@ function spotAt(
     const box = splitBox(t, spot);
     const side = growth(spot);
     const near = {
-      x: box.x - (side === "left" ? reach : 0),
-      y: box.y - (side === "top" ? reach : 0),
-      w: box.w + (side === "left" || side === "right" ? reach : 0),
-      h: box.h + (side === "top" || side === "bottom" ? reach : 0),
+      x: box.x - (side === 'left' ? reach : 0),
+      y: box.y - (side === 'top' ? reach : 0),
+      w: box.w + (side === 'left' || side === 'right' ? reach : 0),
+      h: box.h + (side === 'top' || side === 'bottom' ? reach : 0),
     };
     if (!inRect(near, cx, cy)) continue;
     const halves = splitHalves(t, spot);
@@ -2190,8 +2201,8 @@ function spotAt(
   const shown = (spot: Spot): Point => {
     const side = coveredSide(spot);
     const hidden = 1 - (spot.shows ?? 0.5);
-    const dx = side === "left" ? 1 : side === "right" ? -1 : 0;
-    const dy = side === "top" ? 1 : side === "bottom" ? -1 : 0;
+    const dx = side === 'left' ? 1 : side === 'right' ? -1 : 0;
+    const dy = side === 'top' ? 1 : side === 'bottom' ? -1 : 0;
     const { w, h } = lyingSize(spot);
     return { x: (dx * hidden * w) / 2, y: (dy * hidden * h) / 2 };
   };
@@ -2309,7 +2320,7 @@ export function placement(
   // Nothing goes on top of a card on a grid; dropped on a Region Card near its Market Prices place, an Encounter Card
   // goes there.
   const under = target ? gridOf(t, target.id) : undefined;
-  const market = under === "map" && spotAt(t, x, y, families, pointer);
+  const market = under === 'map' && spotAt(t, x, y, families, pointer);
   if (under && !(market && families.every((f) => takes(market.spot, f))))
     return {
       x,
@@ -2320,10 +2331,8 @@ export function placement(
       refused: `Nothing goes on top of a ${CARD_NAMES[GRID_FAMILY[under]]} on the ${gridLabel(under)}`,
     };
   if (area?.deck) return intoDeck(t, area, area.deck, cardIds, defs);
-  if (area?.id === "encounter") return ontoPlace(t, area, cardIds, defs, at);
-  const own = spotsOf(t).find(
-    (s) => s.attracts && families.includes(s.family),
-  );
+  if (area?.id === 'encounter') return ontoPlace(t, area, cardIds, defs, at);
+  const own = spotsOf(t).find((s) => s.attracts && families.includes(s.family));
   if (own) {
     const area = allAreas(t).find((a) => a.id === own.area)!;
     const mixed = families.every((f) => f === own.family)
@@ -2363,7 +2372,7 @@ export function placement(
   const from = moving ? pairedRow(t, moving) : undefined;
   if (
     from &&
-    !("split" in taken && taken.split) &&
+    !('split' in taken && taken.split) &&
     from.id !== spot.id &&
     (from.after === spot.id || spot.after === from.id)
   ) {
@@ -2398,8 +2407,7 @@ export function placement(
 /** The row pile `id` lies in, if it is one of two rows sharing a split placeholder (the Titles, the Skills). */
 function pairedRow(t: Table, id: string): Spot | undefined {
   return spotsOf(t).find(
-    (s) =>
-      (s.split || sharesPlaceholder(t, s)) && fanRow(t, s).includes(id),
+    (s) => (s.split || sharesPlaceholder(t, s)) && fanRow(t, s).includes(id),
   );
 }
 
@@ -2431,8 +2439,8 @@ function gridLabel(g: GridId): string {
 
 /** A card of each family, as named on the table: "Region Card", "Terrain Card". */
 const CARD_NAMES: Partial<Record<Family, string>> = {
-  region: "Region Card",
-  terrain: "Terrain Card",
+  region: 'Region Card',
+  terrain: 'Terrain Card',
 };
 
 /**
@@ -2485,7 +2493,7 @@ function intoDeck(
     area,
     spot: null,
     refused: bad
-      ? `${bad.code ?? bad.name ?? "This card"} can't go into the ${spec.label}`
+      ? `${bad.code ?? bad.name ?? 'This card'} can't go into the ${spec.label}`
       : null,
   };
 }
@@ -2521,9 +2529,7 @@ function areaSpot(
 ): { spot: Spot; place: Point } | undefined {
   const spot = spotsOf(t).find(
     (s) =>
-      s.fillsArea &&
-      s.area === area?.id &&
-      families.every((f) => takes(s, f)),
+      s.fillsArea && s.area === area?.id && families.every((f) => takes(s, f)),
   );
   return spot && { spot, place: { x: spot.x, y: spot.y } };
 }
@@ -2539,7 +2545,7 @@ function oneEach(spot: Spot, cardIds: string[]): string | null {
 function familyNames(spot: Spot): string {
   return [spot.family, ...(spot.also ?? [])]
     .map((f) => FAMILY_NAMES[f])
-    .join(" and ");
+    .join(' and ');
 }
 
 function full(spot: Spot): string {

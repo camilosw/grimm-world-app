@@ -1,6 +1,21 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { AreaIcon } from './AreaIcon'
-import { dropOnto, flipTop, intoStory, isFixed, liftPile, moveArea, moveStack, moveToken, pinned, pinnedOnTop, settleSpots, stackTargetAt, takeTop, unpinned } from './actions'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { AreaIcon } from './AreaIcon';
+import {
+  dropOnto,
+  flipTop,
+  intoStory,
+  isFixed,
+  liftPile,
+  moveArea,
+  moveStack,
+  moveToken,
+  pinned,
+  pinnedOnTop,
+  settleSpots,
+  stackTargetAt,
+  takeTop,
+  unpinned,
+} from './actions';
 import {
   acceptsText,
   allAreas,
@@ -31,84 +46,113 @@ import {
   type Area,
   type Side,
   type Spot,
-} from './areas'
-import { CARD_H, CARD_W, cardBox, cardImage, cardLabel, clampScale, isLandscape, landscapeClass, tokenSize, turnedClass, type Turn } from './cards'
-import { CardGhost } from './CardGhost'
-import { DECK_SPECS, deckStack, returnsCards, storySlot, type DeckKind } from './decks'
-import { update } from './store'
-import type { CardDef, CardRef, Stack, StorySlot, Table as TableState, Token, View } from './types'
-import { useFlip } from './useFlip'
+} from './areas';
+import {
+  CARD_H,
+  CARD_W,
+  cardBox,
+  cardImage,
+  cardLabel,
+  clampScale,
+  isLandscape,
+  landscapeClass,
+  tokenSize,
+  turnedClass,
+  type Turn,
+} from './cards';
+import { CardGhost } from './CardGhost';
+import {
+  DECK_SPECS,
+  deckStack,
+  returnsCards,
+  storySlot,
+  type DeckKind,
+} from './decks';
+import { update } from './store';
+import type {
+  CardDef,
+  CardRef,
+  Stack,
+  StorySlot,
+  Table as TableState,
+  Token,
+  View,
+} from './types';
+import { useFlip } from './useFlip';
 
-export type Selection = { kind: 'stack' | 'token'; id: string } | null
+export type Selection = { kind: 'stack' | 'token'; id: string } | null;
 
 /**
  * Places outside the table that accept cards: a sidebar deck, the sidebar itself, or the right sidebar of cards set
  * aside (before the set-aside pile `before`, else last).
  */
-export type Zone = { kind: 'deck'; id: string } | { kind: 'dock' } | { kind: 'tray'; before: string | null }
+export type Zone =
+  | { kind: 'deck'; id: string }
+  | { kind: 'dock' }
+  | { kind: 'tray'; before: string | null };
 
 /** Where cards dragged in from outside the table (sidebar, set-aside cards, Browse panel) would land, to light it up. */
 export interface Incoming {
-  area: { id: string; ok: boolean } | null
-  spot: string | null
-  dropOn: string | null
+  area: { id: string; ok: boolean } | null;
+  spot: string | null;
+  dropOn: string | null;
   /** Where they would lie (a free place of the battlefield grid lights up). */
-  to?: { x: number; y: number } | null
+  to?: { x: number; y: number } | null;
 }
 
 interface Props {
-  table: TableState
-  defs: Record<string, CardDef>
-  view: View
-  onView: (v: View) => void
-  selection: Selection
-  onSelect: (s: Selection) => void
+  table: TableState;
+  defs: Record<string, CardDef>;
+  view: View;
+  onView: (v: View) => void;
+  selection: Selection;
+  onSelect: (s: Selection) => void;
   /** When set, the next tap on a pile is handed to this callback instead of selecting. */
-  onPickTarget: ((stackId: string) => void) | null
-  onInspect: (card: CardRef) => void
+  onPickTarget: ((stackId: string) => void) | null;
+  onInspect: (card: CardRef) => void;
   /** Drop zone under a screen point, if any. */
-  zoneAt: (clientX: number, clientY: number) => Zone | null
+  zoneAt: (clientX: number, clientY: number) => Zone | null;
   /** The dragged cards are over a drop zone (or left it: null). */
-  onZoneHover: (zone: Zone | null, cardIds: string[], from?: DeckKind) => void
+  onZoneHover: (zone: Zone | null, cardIds: string[], from?: DeckKind) => void;
   /** A pile (or its top card) was dropped onto a zone. */
-  onZoneDrop: (zone: Zone, stackId: string, whole: boolean) => void
-  onClearBattlefield: () => void
+  onZoneDrop: (zone: Zone, stackId: string, whole: boolean) => void;
+  onClearBattlefield: () => void;
   /** Open the bar for typing the battlefield (the Battlefield's header, its empty first place). */
-  onTypeBattlefield: () => void
+  onTypeBattlefield: () => void;
   /**
    * The table with the battlefield being typed laid out: shown instead, its Terrain Cards faded, while the table can
    * only be panned and zoomed.
    */
-  preview?: TableState | null
+  preview?: TableState | null;
   /** A drop was refused because the cards don't belong in that area. */
-  onRefuse: (message: string) => void
+  onRefuse: (message: string) => void;
   /** A tap on the storybook (reveal) or on its revealed cards (put back). */
-  onSlotTap: (slot: StorySlot) => void
+  onSlotTap: (slot: StorySlot) => void;
   /** A table pile (or its top card) was dropped on the face-down storybook. */
-  onStoryDrop: (stackId: string, whole: boolean) => void
+  onStoryDrop: (stackId: string, whole: boolean) => void;
   /** The ⓘ of an area: open the rules about it. */
-  onAreaRules: (areaId: string) => void
+  onAreaRules: (areaId: string) => void;
   /** The Shuffle button below an Encounter Deck place. */
-  onShufflePlace: (stackId: string) => void
+  onShufflePlace: (stackId: string) => void;
   /** The Browse button below a table deck's place (`BROWSE_DECKS`). */
-  onBrowseDeck: (stackId: string) => void
+  onBrowseDeck: (stackId: string) => void;
   /** The pile shown in the browse panel, if any. */
-  browsing: string | null
+  browsing: string | null;
   /** Cards dragged in from outside the table, while over it. */
-  incoming?: Incoming | null
+  incoming?: Incoming | null;
   /** The pile just shuffled, shown shuffling (`n` restarts the animation). */
-  shuffled: { id: string; n: number } | null
+  shuffled: { id: string; n: number } | null;
   /** A card just dealt from elsewhere on the table, shown moving from there to its place (`n` restarts it). */
-  dealt?: Dealt | null
+  dealt?: Dealt | null;
   /** The view is gliding to where it now is (`.world.gliding`), not jumping there. */
-  gliding?: boolean
+  gliding?: boolean;
 }
 
 /** A card just moved by an action, not a drag: it is shown travelling from `from`, a card place, to where it lies now. */
 export interface Dealt {
-  cardId: string
-  from: { x: number; y: number }
-  n: number
+  cardId: string;
+  from: { x: number; y: number };
+  n: number;
 }
 
 type Target =
@@ -117,354 +161,511 @@ type Target =
   | { kind: 'token'; id: string }
   /** An area, dragged by the grip in its header. */
   | { kind: 'area'; id: string }
-  | { kind: 'bg' }
+  | { kind: 'bg' };
 
 type Gesture =
   | { type: 'idle' }
   | { type: 'press'; x: number; y: number; target: Target; timer: number }
   | { type: 'pan'; x: number; y: number }
   | { type: 'pinch'; dist: number; mid: { x: number; y: number }; view: View }
-  | { type: 'drag'; target: Target; offX: number; offY: number }
+  | { type: 'drag'; target: Target; offX: number; offY: number };
 
 interface Drag {
-  target: Target
-  x: number
-  y: number
-  dropOn: string | null
-  zone: Zone | null
+  target: Target;
+  x: number;
+  y: number;
+  dropOn: string | null;
+  zone: Zone | null;
   /** Screen position, for the floating card shown over the sidebar. */
-  clientX: number
-  clientY: number
+  clientX: number;
+  clientY: number;
   /** Area under the dragged card and whether it takes the card. */
-  area: { id: string; ok: boolean } | null
+  area: { id: string; ok: boolean } | null;
   /** Spot the card goes to (or is refused from). */
-  spot: string | null
+  spot: string | null;
   /** Where the card would really land. */
-  to: { x: number; y: number } | null
+  to: { x: number; y: number } | null;
   /** The pointer, in table coordinates (the dragged card lies offset from it, as it was taken). */
-  pointer?: { x: number; y: number }
+  pointer?: { x: number; y: number };
 }
 
 /** Below this breadth (world units) a covered place's label is set smaller to fit (Market Prices showing only their price strip). */
-const NARROW_SPOT = 70
-const TAP_SLOP = 8
-const LONG_PRESS_MS = 500
-const DOUBLE_TAP_MS = 300
+const NARROW_SPOT = 70;
+const TAP_SLOP = 8;
+const LONG_PRESS_MS = 500;
+const DOUBLE_TAP_MS = 300;
 
 export function TableView(props: Props) {
-  const { table, defs, view, onView, selection, onSelect, onPickTarget, onInspect, zoneAt, onZoneHover, onZoneDrop } = props
-  const rootRef = useRef<HTMLDivElement>(null)
-  const pointers = useRef(new Map<number, { x: number; y: number }>())
-  const gesture = useRef<Gesture>({ type: 'idle' })
-  const lastTap = useRef<{ id: string; time: number } | null>(null)
-  const [drag, setDrag] = useState<Drag | null>(null)
+  const {
+    table,
+    defs,
+    view,
+    onView,
+    selection,
+    onSelect,
+    onPickTarget,
+    onInspect,
+    zoneAt,
+    onZoneHover,
+    onZoneDrop,
+  } = props;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gesture = useRef<Gesture>({ type: 'idle' });
+  const lastTap = useRef<{ id: string; time: number } | null>(null);
+  const [drag, setDrag] = useState<Drag | null>(null);
 
   // Latest props for use inside native/async handlers.
-  const live = useRef({ table, view, onView, onInspect })
+  const live = useRef({ table, view, onView, onInspect });
   useLayoutEffect(() => {
-    live.current = { table, view, onView, onInspect }
-  })
+    live.current = { table, view, onView, onInspect };
+  });
 
-  const toWorld = (x: number, y: number, v = view) => ({ x: (x - v.x) / v.scale, y: (y - v.y) / v.scale })
+  const toWorld = (x: number, y: number, v = view) => ({
+    x: (x - v.x) / v.scale,
+    y: (y - v.y) / v.scale,
+  });
 
   const local = (e: { clientX: number; clientY: number }) => {
-    const r = rootRef.current!.getBoundingClientRect()
-    return { x: e.clientX - r.left, y: e.clientY - r.top }
-  }
+    const r = rootRef.current!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
 
   // Wheel zoom (desktop / trackpad) needs a non-passive listener.
   useEffect(() => {
-    const el = rootRef.current!
+    const el = rootRef.current!;
     const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const { view: v, onView: set } = live.current
-      const r = el.getBoundingClientRect()
-      const px = e.clientX - r.left
-      const py = e.clientY - r.top
-      const scale = clampScale(v.scale * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)))
-      const k = scale / v.scale
-      set({ scale, x: px - (px - v.x) * k, y: py - (py - v.y) * k })
-    }
-    const stop = (e: Event) => e.preventDefault()
-    el.addEventListener('wheel', onWheel, { passive: false })
+      e.preventDefault();
+      const { view: v, onView: set } = live.current;
+      const r = el.getBoundingClientRect();
+      const px = e.clientX - r.left;
+      const py = e.clientY - r.top;
+      const scale = clampScale(
+        v.scale * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)),
+      );
+      const k = scale / v.scale;
+      set({ scale, x: px - (px - v.x) * k, y: py - (py - v.y) * k });
+    };
+    const stop = (e: Event) => e.preventDefault();
+    el.addEventListener('wheel', onWheel, { passive: false });
     // Safari pinch gestures would otherwise zoom the whole page.
-    el.addEventListener('gesturestart', stop)
+    el.addEventListener('gesturestart', stop);
     return () => {
-      el.removeEventListener('wheel', onWheel)
-      el.removeEventListener('gesturestart', stop)
-    }
-  }, [])
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('gesturestart', stop);
+    };
+  }, []);
 
   function itemPos(target: Target): { x: number; y: number } | null {
-    if (target.kind === 'stack') return table.stacks[target.id] ?? null
-    if (target.kind === 'token') return table.tokens.find((t) => t.id === target.id) ?? null
-    if (target.kind === 'area') return allAreas(table).find((a) => a.id === target.id) ?? null
-    return null
+    if (target.kind === 'stack') return table.stacks[target.id] ?? null;
+    if (target.kind === 'token')
+      return table.tokens.find((t) => t.id === target.id) ?? null;
+    if (target.kind === 'area')
+      return allAreas(table).find((a) => a.id === target.id) ?? null;
+    return null;
   }
 
   function resetGesture() {
-    const g = gesture.current
-    if (g.type === 'press') window.clearTimeout(g.timer)
-    gesture.current = { type: 'idle' }
+    const g = gesture.current;
+    if (g.type === 'press') window.clearTimeout(g.timer);
+    gesture.current = { type: 'idle' };
   }
 
   function startPinch() {
-    resetGesture()
-    setDrag(null)
-    const [a, b] = [...pointers.current.values()]
+    resetGesture();
+    setDrag(null);
+    const [a, b] = [...pointers.current.values()];
     gesture.current = {
       type: 'pinch',
       dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
       mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
       view,
-    }
+    };
   }
 
   function onPointerDown(e: React.PointerEvent) {
-    if (e.button !== 0 && e.pointerType === 'mouse') return
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     // Buttons drawn on the table (battlefield) handle their own clicks.
-    if ((e.target as HTMLElement).closest('[data-ui]')) return
-    const p = local(e)
-    pointers.current.set(e.pointerId, p)
+    if ((e.target as HTMLElement).closest('[data-ui]')) return;
+    const p = local(e);
+    pointers.current.set(e.pointerId, p);
     try {
-      rootRef.current!.setPointerCapture(e.pointerId)
+      rootRef.current!.setPointerCapture(e.pointerId);
     } catch {
       // Pointer already gone (e.g. synthetic events); capture is best effort.
     }
-    if (pointers.current.size === 2) return startPinch()
-    if (pointers.current.size > 2) return
+    if (pointers.current.size === 2) return startPinch();
+    if (pointers.current.size > 2) return;
 
-    const el = e.target as HTMLElement
-    const stackEl = el.closest<HTMLElement>('[data-stack]')
-    const tokenEl = el.closest<HTMLElement>('[data-token]')
-    const areaEl = el.closest<HTMLElement>('[data-area-grip]')
-    let target: Target = { kind: 'bg' }
+    const el = e.target as HTMLElement;
+    const stackEl = el.closest<HTMLElement>('[data-stack]');
+    const tokenEl = el.closest<HTMLElement>('[data-token]');
+    const areaEl = el.closest<HTMLElement>('[data-area-grip]');
+    let target: Target = { kind: 'bg' };
     if (props.preview) {
       // Only panned and zoomed: what it shows isn't the table yet.
-    } else if (areaEl) target = { kind: 'area', id: areaEl.dataset.areaGrip! }
-    else if (tokenEl) target = { kind: 'token', id: tokenEl.dataset.token! }
+    } else if (areaEl) target = { kind: 'area', id: areaEl.dataset.areaGrip! };
+    else if (tokenEl) target = { kind: 'token', id: tokenEl.dataset.token! };
     else if (stackEl) {
-      const id = stackEl.dataset.stack!
-      const s = table.stacks[id]
-      const grip = !!el.closest('[data-grip]')
+      const id = stackEl.dataset.stack!;
+      const s = table.stacks[id];
+      const grip = !!el.closest('[data-grip]');
       // A deck lying on the table stays: dragging it takes its top card. An Encounter Deck place stays too: its grip
       // moves its cards but the time card; so does the Damage Card's, its grip moving the cards under the Damage Card.
-      const whole = s?.place ? grip : !s?.deck && (grip || (s?.cards.length ?? 0) <= 1)
-      target = s?.slot ? { kind: 'slot', id, slot: s.slot } : { kind: 'stack', id, whole }
+      const whole = s?.place
+        ? grip
+        : !s?.deck && (grip || (s?.cards.length ?? 0) <= 1);
+      target = s?.slot
+        ? { kind: 'slot', id, slot: s.slot }
+        : { kind: 'stack', id, whole };
     }
     const timer = window.setTimeout(() => {
       // The face-down storybook can't be looked at.
-      if (target.kind !== 'stack' && !(target.kind === 'slot' && target.slot === 'story-revealed')) return
-      const s = live.current.table.stacks[target.id]
-      const top = s?.cards[s.cards.length - 1]
-      gesture.current = { type: 'idle' }
-      if (top) live.current.onInspect(top)
-    }, LONG_PRESS_MS)
-    gesture.current = { type: 'press', x: p.x, y: p.y, target, timer }
+      if (
+        target.kind !== 'stack' &&
+        !(target.kind === 'slot' && target.slot === 'story-revealed')
+      )
+        return;
+      const s = live.current.table.stacks[target.id];
+      const top = s?.cards[s.cards.length - 1];
+      gesture.current = { type: 'idle' };
+      if (top) live.current.onInspect(top);
+    }, LONG_PRESS_MS);
+    gesture.current = { type: 'press', x: p.x, y: p.y, target, timer };
   }
 
   function onPointerMove(e: React.PointerEvent) {
-    if (!pointers.current.has(e.pointerId)) return
-    const p = local(e)
-    const prev = pointers.current.get(e.pointerId)!
-    pointers.current.set(e.pointerId, p)
-    const g = gesture.current
+    if (!pointers.current.has(e.pointerId)) return;
+    const p = local(e);
+    const prev = pointers.current.get(e.pointerId)!;
+    pointers.current.set(e.pointerId, p);
+    const g = gesture.current;
 
     if (g.type === 'pinch') {
-      const [a, b] = [...pointers.current.values()]
-      if (!b) return
-      const dist = Math.hypot(a.x - b.x, a.y - b.y)
-      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-      const scale = clampScale((g.view.scale * dist) / g.dist)
-      const anchor = toWorld(g.mid.x, g.mid.y, g.view)
-      onView({ scale, x: mid.x - anchor.x * scale, y: mid.y - anchor.y * scale })
-      return
+      const [a, b] = [...pointers.current.values()];
+      if (!b) return;
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const scale = clampScale((g.view.scale * dist) / g.dist);
+      const anchor = toWorld(g.mid.x, g.mid.y, g.view);
+      onView({
+        scale,
+        x: mid.x - anchor.x * scale,
+        y: mid.y - anchor.y * scale,
+      });
+      return;
     }
 
     if (g.type === 'press') {
-      if (Math.hypot(p.x - g.x, p.y - g.y) < TAP_SLOP) return
-      window.clearTimeout(g.timer)
+      if (Math.hypot(p.x - g.x, p.y - g.y) < TAP_SLOP) return;
+      window.clearTimeout(g.timer);
       // Only a revealed Y-card may leave the storybook (it goes to the Encounter Bar).
       if (g.target.kind === 'slot') {
-        const top = table.stacks[g.target.id]?.cards.at(-1)
-        const loose = g.target.slot === 'story-revealed' && top && defs[top.id]?.type !== 'storybook'
-        g.target = loose ? { kind: 'stack', id: g.target.id, whole: false } : { kind: 'bg' }
+        const top = table.stacks[g.target.id]?.cards.at(-1);
+        const loose =
+          g.target.slot === 'story-revealed' &&
+          top &&
+          defs[top.id]?.type !== 'storybook';
+        g.target = loose
+          ? { kind: 'stack', id: g.target.id, whole: false }
+          : { kind: 'bg' };
       }
       // A time card alone on its place stays there.
-      if (g.target.kind === 'stack' && movedCards(g.target).length === 0) g.target = { kind: 'bg' }
-      const pos = itemPos(g.target)
+      if (g.target.kind === 'stack' && movedCards(g.target).length === 0)
+        g.target = { kind: 'bg' };
+      const pos = itemPos(g.target);
       if (g.target.kind === 'bg' || !pos) {
-        gesture.current = { type: 'pan', x: p.x, y: p.y }
+        gesture.current = { type: 'pan', x: p.x, y: p.y };
       } else {
-        const w = toWorld(g.x, g.y)
-        gesture.current = { type: 'drag', target: g.target, offX: w.x - pos.x, offY: w.y - pos.y }
+        const w = toWorld(g.x, g.y);
+        gesture.current = {
+          type: 'drag',
+          target: g.target,
+          offX: w.x - pos.x,
+          offY: w.y - pos.y,
+        };
       }
     }
 
-    const g2 = gesture.current
+    const g2 = gesture.current;
     if (g2.type === 'pan') {
-      onView({ ...view, x: view.x + p.x - prev.x, y: view.y + p.y - prev.y })
-      gesture.current = { type: 'pan', x: p.x, y: p.y }
+      onView({ ...view, x: view.x + p.x - prev.x, y: view.y + p.y - prev.y });
+      gesture.current = { type: 'pan', x: p.x, y: p.y };
     } else if (g2.type === 'drag') {
-      const w = toWorld(p.x, p.y)
+      const w = toWorld(p.x, p.y);
       if (g2.target.kind === 'area') {
-        const at = snapArea(table, g2.target.id, w.x - g2.offX, w.y - g2.offY)
-        setDrag({ target: g2.target, ...at, dropOn: null, zone: null, clientX: e.clientX, clientY: e.clientY, area: null, spot: null, to: null })
-        return
+        const at = snapArea(table, g2.target.id, w.x - g2.offX, w.y - g2.offY);
+        setDrag({
+          target: g2.target,
+          ...at,
+          dropOn: null,
+          zone: null,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          area: null,
+          spot: null,
+          to: null,
+        });
+        return;
       }
-      const x = w.x - g2.offX
-      const y = w.y - g2.offY
-      let dropOn: string | null = null
-      let zone: Zone | null = null
+      const x = w.x - g2.offX;
+      const y = w.y - g2.offY;
+      let dropOn: string | null = null;
+      let zone: Zone | null = null;
       if (g2.target.kind === 'stack') {
-        zone = zoneAt(e.clientX, e.clientY)
-        const exclude = g2.target.whole ? g2.target.id : null
-        dropOn = zone ? null : (stackTargetAt(table, x + CARD_W / 2, y + CARD_H / 2, exclude)?.id ?? null)
-        if (dropOn === g2.target.id) dropOn = null
+        zone = zoneAt(e.clientX, e.clientY);
+        const exclude = g2.target.whole ? g2.target.id : null;
+        dropOn = zone
+          ? null
+          : (stackTargetAt(table, x + CARD_W / 2, y + CARD_H / 2, exclude)
+              ?.id ?? null);
+        if (dropOn === g2.target.id) dropOn = null;
       }
-      if (JSON.stringify(zone) !== JSON.stringify(drag?.zone ?? null) && g2.target.kind === 'stack') {
-        const s = table.stacks[g2.target.id]
+      if (
+        JSON.stringify(zone) !== JSON.stringify(drag?.zone ?? null) &&
+        g2.target.kind === 'stack'
+      ) {
+        const s = table.stacks[g2.target.id];
         // A card taken off a deck doesn't go back to the sidebar (App refuses it), so no deck lights up; but one taken
         // off a deck built during play does, to the deck it came from.
-        const cards = s.deck && !returnsCards(s.deck) ? [] : g2.target.whole ? s.cards : pinnedOnTop(s) ? [] : s.cards.slice(-1)
-        onZoneHover(zone, cards.map((c) => c.id), s.deck)
+        const cards =
+          s.deck && !returnsCards(s.deck)
+            ? []
+            : g2.target.whole
+              ? s.cards
+              : pinnedOnTop(s)
+                ? []
+                : s.cards.slice(-1);
+        onZoneHover(
+          zone,
+          cards.map((c) => c.id),
+          s.deck,
+        );
       }
-      let area: Drag['area'] = null
-      let spot: string | null = null
-      let to: Drag['to'] = null
-      const story = g2.target.kind === 'stack' && !zone ? storyDrop(g2.target, x, y) : undefined
+      let area: Drag['area'] = null;
+      let spot: string | null = null;
+      let to: Drag['to'] = null;
+      const story =
+        g2.target.kind === 'stack' && !zone
+          ? storyDrop(g2.target, x, y)
+          : undefined;
       if (story) {
-        dropOn = story.id
-        area = { id: 'storybook', ok: true }
+        dropOn = story.id;
+        area = { id: 'storybook', ok: true };
       } else if (g2.target.kind === 'stack' && !zone) {
-        const dest = destination(g2.target, x, y, dropOn, w)
-        dropOn = dest.onto
-        if (dest.area) area = { id: dest.area.id, ok: !dest.refused }
-        spot = dest.spot?.id ?? null
-        to = { x: dest.x, y: dest.y }
+        const dest = destination(g2.target, x, y, dropOn, w);
+        dropOn = dest.onto;
+        if (dest.area) area = { id: dest.area.id, ok: !dest.refused };
+        spot = dest.spot?.id ?? null;
+        to = { x: dest.x, y: dest.y };
       }
-      setDrag({ target: g2.target, x, y, dropOn, zone, clientX: e.clientX, clientY: e.clientY, area, spot, to, pointer: w })
+      setDrag({
+        target: g2.target,
+        x,
+        y,
+        dropOn,
+        zone,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        area,
+        spot,
+        to,
+        pointer: w,
+      });
     }
   }
 
   function onTap(target: Target) {
-    if (target.kind === 'area') return
-    if (target.kind === 'bg') return onSelect(null)
-    if (target.kind === 'slot') return onPickTarget ? onPickTarget(target.id) : props.onSlotTap(target.slot)
-    if (target.kind === 'token') return onSelect({ kind: 'token', id: target.id })
-    if (onPickTarget) return onPickTarget(target.id)
-    const now = Date.now()
-    const last = lastTap.current
+    if (target.kind === 'area') return;
+    if (target.kind === 'bg') return onSelect(null);
+    if (target.kind === 'slot')
+      return onPickTarget
+        ? onPickTarget(target.id)
+        : props.onSlotTap(target.slot);
+    if (target.kind === 'token')
+      return onSelect({ kind: 'token', id: target.id });
+    if (onPickTarget) return onPickTarget(target.id);
+    const now = Date.now();
+    const last = lastTap.current;
     if (last && last.id === target.id && now - last.time < DOUBLE_TAP_MS) {
-      lastTap.current = null
-      const fixed = facedSpot(table, target.id)
-      if (fixed) return props.onRefuse(`Cards on the ${fixed.label} place lie face ${fixed.faceDown ? 'down' : 'up'}`)
-      const grid = gridOf(table, target.id)
-      if (grid) return props.onRefuse(gridFaceUp(grid))
-      update((t) => flipTop(t, target.id))
-      return
+      lastTap.current = null;
+      const fixed = facedSpot(table, target.id);
+      if (fixed)
+        return props.onRefuse(
+          `Cards on the ${fixed.label} place lie face ${fixed.faceDown ? 'down' : 'up'}`,
+        );
+      const grid = gridOf(table, target.id);
+      if (grid) return props.onRefuse(gridFaceUp(grid));
+      update((t) => flipTop(t, target.id));
+      return;
     }
-    lastTap.current = { id: target.id, time: now }
-    onSelect({ kind: 'stack', id: target.id })
+    lastTap.current = { id: target.id, time: now };
+    onSelect({ kind: 'stack', id: target.id });
   }
 
   /**
    * The face-down storybook, if the dragged pile (or its top card) goes into it (`intoStory`): the cards then go under
    * one of its cards (App asks which). Other cards (an Encounter Card for its place below) land as usual.
    */
-  function storyDrop(target: { id: string; whole: boolean }, x: number, y: number) {
-    return intoStory(table, movedCards(target), defs, x, y) ? storySlot(table, 'story') : undefined
+  function storyDrop(
+    target: { id: string; whole: boolean },
+    x: number,
+    y: number,
+  ) {
+    return intoStory(table, movedCards(target), defs, x, y)
+      ? storySlot(table, 'story')
+      : undefined;
   }
 
   /** The cards a drag moves: the whole pile (but its pinned cards), or its top card (none, when that is pinned). */
   function movedCards(target: { id: string; whole: boolean }) {
-    const s = table.stacks[target.id]
-    if (!s) return []
-    const free = unpinned(s)
-    const cards = target.whole ? free : pinnedOnTop(s) ? [] : free.slice(-1)
-    return cards.map((c) => c.id)
+    const s = table.stacks[target.id];
+    if (!s) return [];
+    const free = unpinned(s);
+    const cards = target.whole ? free : pinnedOnTop(s) ? [] : free.slice(-1);
+    return cards.map((c) => c.id);
   }
 
   /** The pile a drag moves whole: dragged by its grip, or a card alone on its place of a grid (Map, battlefield). */
   function movingPile(target: { id: string; whole: boolean }) {
-    const whole = target.whole || !!gridOf(table, target.id)
-    return whole && !isFixed(table.stacks[target.id]) ? target.id : null
+    const whole = target.whole || !!gridOf(table, target.id);
+    return whole && !isFixed(table.stacks[target.id]) ? target.id : null;
   }
 
   /** Where a dragged pile (or its top card) would really land, and why it can't go there. */
-  function destination(target: { id: string; whole: boolean }, x: number, y: number, dropOn: string | null, pointer?: { x: number; y: number }) {
+  function destination(
+    target: { id: string; whole: boolean },
+    x: number,
+    y: number,
+    dropOn: string | null,
+    pointer?: { x: number; y: number },
+  ) {
     // A fixed pile (an Encounter Deck place) stays: its cards leave it as a new pile.
-    const moving = movingPile(target)
-    return placement(table, movedCards(target), defs, x, y, dropOn, moving, pointer)
+    const moving = movingPile(target);
+    return placement(
+      table,
+      movedCards(target),
+      defs,
+      x,
+      y,
+      dropOn,
+      moving,
+      pointer,
+    );
   }
 
   function commitDrag(d: Drag) {
-    const { target, x, y, dropOn, zone } = d
-    if (target.kind === 'token') return update((t) => moveToken(t, target.id, x, y))
-    if (target.kind === 'area') return update((t) => moveArea(t, target.id, x, y))
-    if (target.kind !== 'stack') return
-    if (zone) return onZoneDrop(zone, target.id, target.whole)
-    if (dropOn && table.stacks[dropOn]?.slot === 'story') return props.onStoryDrop(target.id, target.whole)
-    const dest = destination(target, x, y, dropOn, d.pointer)
-    if (dest.refused) return props.onRefuse(dest.refused)
-    const onto = dest.onto
+    const { target, x, y, dropOn, zone } = d;
+    if (target.kind === 'token')
+      return update((t) => moveToken(t, target.id, x, y));
+    if (target.kind === 'area')
+      return update((t) => moveArea(t, target.id, x, y));
+    if (target.kind !== 'stack') return;
+    if (zone) return onZoneDrop(zone, target.id, target.whole);
+    if (dropOn && table.stacks[dropOn]?.slot === 'story')
+      return props.onStoryDrop(target.id, target.whole);
+    const dest = destination(target, x, y, dropOn, d.pointer);
+    if (dest.refused) return props.onRefuse(dest.refused);
+    const onto = dest.onto;
     // Put back where it came from (a card dropped back on its deck).
-    if (onto === target.id) return
+    if (onto === target.id) return;
     update((t) => {
-      if (target.whole && !isFixed(t.stacks[target.id])) return onto ? dropOnto(t, target.id, onto, defs) : moveStack(t, target.id, dest.x, dest.y)
-      const [t2, newId] = target.whole ? liftPile(t, target.id, dest.x, dest.y) : takeTop(t, target.id, dest.x, dest.y)
-      return onto && newId ? dropOnto(t2, newId, onto, defs) : t2
-    })
-    const source = table.stacks[target.id]
-    if (!onto && !isFixed(source) && (target.whole || source.cards.length === 1)) onSelect({ kind: 'stack', id: target.id })
-    else if (onto) onSelect({ kind: 'stack', id: onto })
+      if (target.whole && !isFixed(t.stacks[target.id]))
+        return onto
+          ? dropOnto(t, target.id, onto, defs)
+          : moveStack(t, target.id, dest.x, dest.y);
+      const [t2, newId] = target.whole
+        ? liftPile(t, target.id, dest.x, dest.y)
+        : takeTop(t, target.id, dest.x, dest.y);
+      return onto && newId ? dropOnto(t2, newId, onto, defs) : t2;
+    });
+    const source = table.stacks[target.id];
+    if (
+      !onto &&
+      !isFixed(source) &&
+      (target.whole || source.cards.length === 1)
+    )
+      onSelect({ kind: 'stack', id: target.id });
+    else if (onto) onSelect({ kind: 'stack', id: onto });
   }
 
   function onPointerUp(e: React.PointerEvent) {
-    if (!pointers.current.delete(e.pointerId)) return
-    const g = gesture.current
+    if (!pointers.current.delete(e.pointerId)) return;
+    const g = gesture.current;
     if (g.type === 'press') {
-      window.clearTimeout(g.timer)
-      onTap(g.target)
+      window.clearTimeout(g.timer);
+      onTap(g.target);
     } else if (g.type === 'drag' && drag) {
-      commitDrag(drag)
+      commitDrag(drag);
     }
-    if (drag?.zone) onZoneHover(null, [])
-    setDrag(null)
+    if (drag?.zone) onZoneHover(null, []);
+    setDrag(null);
     // After a pinch, wait until all fingers are lifted before starting anything new.
-    gesture.current = { type: 'idle' }
+    gesture.current = { type: 'idle' };
   }
 
   function onPointerCancel(e: React.PointerEvent) {
-    pointers.current.delete(e.pointerId)
-    resetGesture()
-    if (drag?.zone) onZoneHover(null, [])
-    setDrag(null)
+    pointers.current.delete(e.pointerId);
+    resetGesture();
+    if (drag?.zone) onZoneHover(null, []);
+    setDrag(null);
   }
 
-  const dpr = window.devicePixelRatio || 1
-  const imgSize: 'sm' | 'lg' = view.scale * CARD_W * dpr > 330 ? 'lg' : 'sm'
-  const dragStack = drag?.target.kind === 'stack' ? drag.target : null
-  const liftedFrom = dragStack && !dragStack.whole ? table.stacks[dragStack.id] : null
+  const dpr = window.devicePixelRatio || 1;
+  const imgSize: 'sm' | 'lg' = view.scale * CARD_W * dpr > 330 ? 'lg' : 'sm';
+  const dragStack = drag?.target.kind === 'stack' ? drag.target : null;
+  const liftedFrom =
+    dragStack && !dragStack.whole ? table.stacks[dragStack.id] : null;
   // Over the sidebar the table can't show the card, so it floats above everything.
-  const ghost = drag?.zone && dragStack ? table.stacks[dragStack.id]?.cards.at(-1) : null
+  const ghost =
+    drag?.zone && dragStack ? table.stacks[dragStack.id]?.cards.at(-1) : null;
   // While a card is dragged along a row of Money Cards, the others make room for it.
-  const fanTo = dragStack?.whole && drag?.to && drag.area?.ok && spotsOf(table).some((s) => s.fan && s.id === drag.spot) ? drag.to : null
+  const fanTo =
+    dragStack?.whole &&
+    drag?.to &&
+    drag.area?.ok &&
+    spotsOf(table).some((s) => s.fan && s.id === drag.spot)
+      ? drag.to
+      : null;
   // While an area is dragged, the table shows it (and the areas it pushes aside) where it would go.
-  const movingArea = drag?.target.kind === 'area' ? drag.target.id : null
+  const movingArea = drag?.target.kind === 'area' ? drag.target.id : null;
   const areaPreview = useMemo(
-    () => (movingArea && drag ? moveArea(table, movingArea, drag.x, drag.y) : null),
+    () =>
+      movingArea && drag ? moveArea(table, movingArea, drag.x, drag.y) : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only where the area is dropped matters, not the rest of the drag
     [table, movingArea, drag?.x, drag?.y],
-  )
-  const shownTable = props.preview ?? areaPreview ?? (fanTo && dragStack ? settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y)) : table)
-  const spots = spotsOf(shownTable)
+  );
+  const shownTable =
+    props.preview ??
+    areaPreview ??
+    (fanTo && dragStack
+      ? settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y))
+      : table);
+  const spots = spotsOf(shownTable);
   // What a drag lights up: a drag on the table, else cards dragged in from outside it.
-  const hl: Incoming | null = drag ?? props.incoming ?? null
-  const sliding = new Set(spots.filter((s) => s.fan).flatMap((s) => fanRow(shownTable, s)))
-  const covered = new Map(spots.filter((s) => s.under || s.underPile).flatMap((s) => stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)])))
-  const previewed = new Set(props.preview ? gridCells(props.preview, 'battlefield').map((c) => c.id) : [])
-  const turned = new Map(spots.flatMap((s) => (s.turn ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const) : [])))
+  const hl: Incoming | null = drag ?? props.incoming ?? null;
+  const sliding = new Set(
+    spots.filter((s) => s.fan).flatMap((s) => fanRow(shownTable, s)),
+  );
+  const covered = new Map(
+    spots
+      .filter((s) => s.under || s.underPile)
+      .flatMap((s) =>
+        stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)]),
+      ),
+  );
+  const previewed = new Set(
+    props.preview
+      ? gridCells(props.preview, 'battlefield').map((c) => c.id)
+      : [],
+  );
+  const turned = new Map(
+    spots.flatMap((s) =>
+      s.turn
+        ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const)
+        : [],
+    ),
+  );
 
   /** A spot's placeholders: its free place(s), only the part showing beside a card covering it. */
   const placeholders = (spot: Spot) => {
@@ -473,14 +674,28 @@ export function TableView(props: Props) {
     // A row sharing a split placeholder shows no free place of its own: the split one takes its cards, beyond both rows
     // (Titles | Skills above the Character Card, Items over Money right of the Storage Card), all of it once the other
     // row is full.
-    if (spots.some((s) => s.split && s.after === spot.id)) return []
+    if (spots.some((s) => s.split && s.after === spot.id)) return [];
     if (spot.split) {
-      const halves = splitHalves(shownTable, spot)
-      const side = freeCovered(shownTable, spot)
-      const across = side === 'top' || side === 'bottom'
+      const halves = splitHalves(shownTable, spot);
+      const side = freeCovered(shownTable, spot);
+      const across = side === 'top' || side === 'bottom';
       return halves.map((half, i) => {
-        const state = hl?.spot === half.spot.id ? (hl.area?.ok ? ' accept' : ' refuse') : ''
-        const pos = halves.length === 1 ? 'whole' : across ? (i ? 'right' : 'left') : i ? 'bottom' : 'top'
+        const state =
+          hl?.spot === half.spot.id
+            ? hl.area?.ok
+              ? ' accept'
+              : ' refuse'
+            : '';
+        const pos =
+          halves.length === 1
+            ? 'whole'
+            : across
+              ? i
+                ? 'right'
+                : 'left'
+              : i
+                ? 'bottom'
+                : 'top';
         return (
           <div
             key={`${spot.id}-${i}`}
@@ -492,45 +707,58 @@ export function TableView(props: Props) {
               {half.spot.hint && <small>{half.spot.hint}</small>}
             </span>
           </div>
-        )
-      })
+        );
+      });
     }
-    if (spot.fan && !fanHasPlace(shownTable, spot)) return []
+    if (spot.fan && !fanHasPlace(shownTable, spot)) return [];
     // A place holding one card shows none once that card is there (a Hit Point Card on any of its places); another place
     // for a spot's card shows none of its own (the spent side, over the defeated enemy); a Hit Point Card's place shows
     // only once its Enemy Card is there.
-    if (spot.alt || (spot.one && holdsOne(shownTable, spot))) return []
-    const needed = spot.needs && spots.find((s) => s.id === spot.needs)
-    if (needed && !stacksOnSpot(shownTable, needed).length) return []
-    const row = spot.addsFirst ? fanRow(shownTable, spot) : []
+    if (spot.alt || (spot.one && holdsOne(shownTable, spot))) return [];
+    const needed = spot.needs && spots.find((s) => s.id === spot.needs);
+    if (needed && !stacksOnSpot(shownTable, needed).length) return [];
+    const row = spot.addsFirst ? fanRow(shownTable, spot) : [];
     // Where the dragged card goes: after the row's last card (not counting the card itself), else before its first.
     // Taken from the table itself: the preview spreads a dragged pile out into cards that aren't on it.
-    const others = spot.addsFirst ? fanRow(table, spot).filter((id) => id !== dragStack?.id) : []
-    const toEnd = !!drag?.to && others.length > 0 && drag.to.x > table.stacks[others[others.length - 1]].x
+    const others = spot.addsFirst
+      ? fanRow(table, spot).filter((id) => id !== dragStack?.id)
+      : [];
+    const toEnd =
+      !!drag?.to &&
+      others.length > 0 &&
+      drag.to.x > table.stacks[others[others.length - 1]].x;
     return freePlaces(shownTable, spot).map((at, i) => {
-      const end = i > 0
+      const end = i > 0;
       // A covered spot only shows the part beside the card lying on it. The Encounter Bar's free place lies under
       // its first card, though the cards put there go on top; its place after the last card lies under that card. So
       // does the hand's place after its last card, though the card put there goes on top.
-      const side = end ? 'left' : row.length ? 'right' : freeCovered(shownTable, spot)
-      const hover = hl?.spot === spot.id && (!spot.addsFirst || end === toEnd)
-      const state = hover ? (hl.area?.ok ? ' accept' : ' refuse') : ''
-      const box = cardBox(at.x, at.y, !!spot.landscape)
-      const hidden = 1 - (spot.shows ?? 0.5)
-      if (side === 'left') box.left += hidden * box.width
-      if (side === 'top') box.top += hidden * box.height
-      if (side === 'left' || side === 'right') box.width *= 1 - hidden
-      if (side === 'top' || side === 'bottom') box.height *= 1 - hidden
+      const side = end
+        ? 'left'
+        : row.length
+          ? 'right'
+          : freeCovered(shownTable, spot);
+      const hover = hl?.spot === spot.id && (!spot.addsFirst || end === toEnd);
+      const state = hover ? (hl.area?.ok ? ' accept' : ' refuse') : '';
+      const box = cardBox(at.x, at.y, !!spot.landscape);
+      const hidden = 1 - (spot.shows ?? 0.5);
+      if (side === 'left') box.left += hidden * box.width;
+      if (side === 'top') box.top += hidden * box.height;
+      if (side === 'left' || side === 'right') box.width *= 1 - hidden;
+      if (side === 'top' || side === 'bottom') box.height *= 1 - hidden;
       return (
-        <div key={end ? `${spot.id}-end` : spot.id} className={`card-spot${side ? ` covered covered-${side}` : ''}${box.width > box.height ? ' wide' : ''}${Math.min(box.width, box.height) < NARROW_SPOT ? ' narrow' : ''}${state}`} style={box}>
+        <div
+          key={end ? `${spot.id}-end` : spot.id}
+          className={`card-spot${side ? ` covered covered-${side}` : ''}${box.width > box.height ? ' wide' : ''}${Math.min(box.width, box.height) < NARROW_SPOT ? ' narrow' : ''}${state}`}
+          style={box}
+        >
           <span>
             {spot.label}
             {spot.hint && <small>{spot.hint}</small>}
           </span>
         </div>
-      )
-    })
-  }
+      );
+    });
+  };
 
   return (
     <div
@@ -542,24 +770,55 @@ export function TableView(props: Props) {
       onPointerCancel={onPointerCancel}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className={`world${props.gliding ? ' gliding' : ''}`} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, '--inv-scale': 1 / view.scale } as React.CSSProperties}>
+      <div
+        className={`world${props.gliding ? ' gliding' : ''}`}
+        style={
+          {
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+            '--inv-scale': 1 / view.scale,
+          } as React.CSSProperties
+        }
+      >
         {allAreas(shownTable).map((area) => (
           <AreaView
             key={area.id}
             area={area}
-            state={movingArea === area.id ? 'moving' : hl?.area?.id === area.id ? (hl.area.ok ? 'accept' : 'refuse') : null}
-            onClear={area.id === 'battlefield' && !props.preview && battlefieldInUse(shownTable) ? props.onClearBattlefield : undefined}
-            onType={area.id === 'battlefield' && !props.preview ? props.onTypeBattlefield : undefined}
+            state={
+              movingArea === area.id
+                ? 'moving'
+                : hl?.area?.id === area.id
+                  ? hl.area.ok
+                    ? 'accept'
+                    : 'refuse'
+                  : null
+            }
+            onClear={
+              area.id === 'battlefield' &&
+              !props.preview &&
+              battlefieldInUse(shownTable)
+                ? props.onClearBattlefield
+                : undefined
+            }
+            onType={
+              area.id === 'battlefield' && !props.preview
+                ? props.onTypeBattlefield
+                : undefined
+            }
             onRules={() => props.onAreaRules(area.id)}
           />
         ))}
         {/* The grids' free places (the Map's, the battlefield's): the first one, then a strip on each free side of their cards. */}
         {/* While a battlefield is typed, only its first place: there are no cards to lay beside yet. */}
         {(['map', 'battlefield'] as const).flatMap((g) =>
-          gridPlaces(shownTable, g, dragStack ? movingPile(dragStack) : null).flatMap((p) => {
-            if (g === 'battlefield' && props.preview && p.side) return []
-            const hover = hl?.area?.id === g && hl.to?.x === p.x && hl.to?.y === p.y
-            const state = hover ? (hl.area?.ok ? ' accept' : ' refuse') : ''
+          gridPlaces(
+            shownTable,
+            g,
+            dragStack ? movingPile(dragStack) : null,
+          ).flatMap((p) => {
+            if (g === 'battlefield' && props.preview && p.side) return [];
+            const hover =
+              hl?.area?.id === g && hl.to?.x === p.x && hl.to?.y === p.y;
+            const state = hover ? (hl.area?.ok ? ' accept' : ' refuse') : '';
             return (
               <div
                 key={`${g}-${p.col},${p.row}-${p.side}`}
@@ -573,7 +832,11 @@ export function TableView(props: Props) {
                     {GRID_START[g].label}
                     <small>{GRID_START[g].hint}</small>
                     {g === 'battlefield' && !props.preview && (
-                      <button className="spot-button" data-ui onClick={props.onTypeBattlefield}>
+                      <button
+                        className="spot-button"
+                        data-ui
+                        onClick={props.onTypeBattlefield}
+                      >
                         ⌨ or type the layout
                         <Hit />
                       </button>
@@ -581,7 +844,7 @@ export function TableView(props: Props) {
                   </span>
                 )}
               </div>
-            )
+            );
           }),
         )}
         {spots.flatMap(placeholders)}
@@ -590,18 +853,27 @@ export function TableView(props: Props) {
           // time card's (it stays at the bottom).
           if (area.id === 'encounter')
             return ENCOUNTER_PLACES.flatMap(({ place, label, hint }) => {
-              const at = encounterPlace(shownTable, place)
-              const s = placeStack(shownTable, place)
-              const state = s && hl?.dropOn === s.id ? (hl.area?.ok ? ' accept' : ' refuse') : ''
+              const at = encounterPlace(shownTable, place);
+              const s = placeStack(shownTable, place);
+              const state =
+                s && hl?.dropOn === s.id
+                  ? hl.area?.ok
+                    ? ' accept'
+                    : ' refuse'
+                  : '';
               const spot = (
-                <div key={`place-${place}`} className={`card-spot${state}`} style={cardBox(at.x, at.y, false)}>
+                <div
+                  key={`place-${place}`}
+                  className={`card-spot${state}`}
+                  style={cardBox(at.x, at.y, false)}
+                >
                   <span>
                     {label}
                     {hint && <small>{hint}</small>}
                   </span>
                 </div>
-              )
-              if (!s || !pinned(s)) return [spot]
+              );
+              if (!s || !pinned(s)) return [spot];
               return [
                 spot,
                 <button
@@ -610,17 +882,22 @@ export function TableView(props: Props) {
                   data-ui
                   disabled={s.cards.length - pinned(s) < 2}
                   onClick={() => props.onShufflePlace(s.id)}
-                  style={{ left: at.x, top: at.y + CARD_H + PLACE_BUTTON.gap, width: CARD_W, height: PLACE_BUTTON.h }}
+                  style={{
+                    left: at.x,
+                    top: at.y + CARD_H + PLACE_BUTTON.gap,
+                    width: CARD_W,
+                    height: PLACE_BUTTON.h,
+                  }}
                 >
                   ⤮ Shuffle
                   <Hit />
                 </button>,
-              ]
-            })
+              ];
+            });
           // A Browse button below the face-down storybook, to look through it and fix mistakes.
           if (area.id === 'storybook') {
-            const s = storySlot(shownTable, 'story')
-            if (!s) return []
+            const s = storySlot(shownTable, 'story');
+            if (!s) return [];
             return [
               <button
                 key="browse-story"
@@ -628,29 +905,43 @@ export function TableView(props: Props) {
                 data-ui
                 disabled={!s.cards.length}
                 onClick={() => props.onBrowseDeck(s.id)}
-                style={{ left: s.x, top: s.y + CARD_H + PLACE_BUTTON.gap, width: CARD_W, height: PLACE_BUTTON.h }}
+                style={{
+                  left: s.x,
+                  top: s.y + CARD_H + PLACE_BUTTON.gap,
+                  width: CARD_W,
+                  height: PLACE_BUTTON.h,
+                }}
               >
                 ☰ Browse
                 <Hit />
               </button>,
-            ]
+            ];
           }
           // The place of a deck lying on the table, shown while it is empty (its pile covers it), with a Browse button
           // below the Training Deck's (`BROWSE_DECKS`).
-          if (!area.deck) return []
-          const spec = DECK_SPECS[area.deck]
-          const state = hl?.area?.id === area.id ? (hl.area.ok ? ' accept' : ' refuse') : ''
-          const at = deckPlace(shownTable, area.deck)
-          const s = deckStack(shownTable, area.deck)
+          if (!area.deck) return [];
+          const spec = DECK_SPECS[area.deck];
+          const state =
+            hl?.area?.id === area.id
+              ? hl.area.ok
+                ? ' accept'
+                : ' refuse'
+              : '';
+          const at = deckPlace(shownTable, area.deck);
+          const s = deckStack(shownTable, area.deck);
           const spot = (
-            <div key={`deck-${area.id}`} className={`card-spot${state}`} style={cardBox(at.x, at.y, false)}>
+            <div
+              key={`deck-${area.id}`}
+              className={`card-spot${state}`}
+              style={cardBox(at.x, at.y, false)}
+            >
               <span>
                 {spec.label}
                 {spec.emptyHint && <small>{spec.emptyHint}</small>}
               </span>
             </div>
-          )
-          if (!s || !BROWSE_DECKS.includes(area.deck)) return [spot]
+          );
+          if (!s || !BROWSE_DECKS.includes(area.deck)) return [spot];
           return [
             spot,
             <button
@@ -659,23 +950,42 @@ export function TableView(props: Props) {
               data-ui
               disabled={!unpinned(s).length}
               onClick={() => props.onBrowseDeck(s.id)}
-              style={{ left: at.x, top: at.y + CARD_H + PLACE_BUTTON.gap, width: CARD_W, height: PLACE_BUTTON.h }}
+              style={{
+                left: at.x,
+                top: at.y + CARD_H + PLACE_BUTTON.gap,
+                width: CARD_W,
+                height: PLACE_BUTTON.h,
+              }}
             >
               ☰ Browse
               <Hit />
             </button>,
-          ]
+          ];
         })}
         {drawOrder(shownTable).map((id) => {
-          const s = shownTable.stacks[id]
-          let shown = s
+          const s = shownTable.stacks[id];
+          let shown = s;
           if (dragStack?.id === id) {
             // A pile moved as a whole is drawn above everything (below); a fixed one leaves its pinned cards.
-            if (dragStack.whole && !isFixed(s)) return null
-            shown = { ...s, cards: dragStack.whole ? s.cards.filter((c) => !unpinned(s).includes(c)) : s.cards.slice(0, -1) }
+            if (dragStack.whole && !isFixed(s)) return null;
+            shown = {
+              ...s,
+              cards: dragStack.whole
+                ? s.cards.filter((c) => !unpinned(s).includes(c))
+                : s.cards.slice(0, -1),
+            };
           }
-          if (s.slot) return <SlotView key={id} stack={shown} defs={defs} size={imgSize} dropTarget={hl?.dropOn === id} />
-          if (!shown.cards.length) return null
+          if (s.slot)
+            return (
+              <SlotView
+                key={id}
+                stack={shown}
+                defs={defs}
+                size={imgSize}
+                dropTarget={hl?.dropOn === id}
+              />
+            );
+          if (!shown.cards.length) return null;
           return (
             <StackView
               key={id}
@@ -692,26 +1002,47 @@ export function TableView(props: Props) {
               fixed={!!s.deck && !s.place}
               countless={ENCOUNTER_PLACES.some((p) => p.place === s.place)}
               shuffle={props.shuffled?.id === id ? props.shuffled.n : null}
-              dealt={props.dealt && shown.cards.some((c) => c.id === props.dealt!.cardId) ? props.dealt : null}
+              dealt={
+                props.dealt &&
+                shown.cards.some((c) => c.id === props.dealt!.cardId)
+                  ? props.dealt
+                  : null
+              }
             />
-          )
+          );
         })}
         {dragStack?.whole && drag && !ghost && table.stacks[dragStack.id] && (
           <StackView
-            stack={{ ...table.stacks[dragStack.id], x: drag.x, y: drag.y, cards: unpinned(table.stacks[dragStack.id]) }}
+            stack={{
+              ...table.stacks[dragStack.id],
+              x: drag.x,
+              y: drag.y,
+              cards: unpinned(table.stacks[dragStack.id]),
+            }}
             defs={defs}
             size={imgSize}
-            selected={selection?.kind === 'stack' && selection.id === dragStack.id}
+            selected={
+              selection?.kind === 'stack' && selection.id === dragStack.id
+            }
             dropTarget={false}
             lifted
             covered={null}
             sliding={false}
-            countless={ENCOUNTER_PLACES.some((p) => p.place === table.stacks[dragStack.id].place)}
+            countless={ENCOUNTER_PLACES.some(
+              (p) => p.place === table.stacks[dragStack.id].place,
+            )}
           />
         )}
         {liftedFrom && drag && !ghost && (
           <StackView
-            stack={{ ...liftedFrom, id: 'lifted', x: drag.x, y: drag.y, cards: liftedFrom.cards.slice(-1), label: undefined }}
+            stack={{
+              ...liftedFrom,
+              id: 'lifted',
+              x: drag.x,
+              y: drag.y,
+              cards: liftedFrom.cards.slice(-1),
+              label: undefined,
+            }}
             defs={defs}
             size={imgSize}
             selected={false}
@@ -724,54 +1055,104 @@ export function TableView(props: Props) {
         {shownTable.tokens.map((tok) => (
           <TokenView
             key={tok.id}
-            token={drag?.target.kind === 'token' && drag.target.id === tok.id ? { ...tok, x: drag.x, y: drag.y } : tok}
+            token={
+              drag?.target.kind === 'token' && drag.target.id === tok.id
+                ? { ...tok, x: drag.x, y: drag.y }
+                : tok
+            }
             selected={selection?.kind === 'token' && selection.id === tok.id}
           />
         ))}
       </div>
       {ghost && drag && (
-        <CardGhost src={cardImage(ghost.id, ghost.faceUp, 'sm')} x={drag.clientX} y={drag.clientY} frame={landscapeClass(isLandscape(defs[ghost.id]), ghost.faceUp)} />
+        <CardGhost
+          src={cardImage(ghost.id, ghost.faceUp, 'sm')}
+          x={drag.clientX}
+          y={drag.clientY}
+          frame={landscapeClass(isLandscape(defs[ghost.id]), ghost.faceUp)}
+        />
       )}
     </div>
-  )
+  );
 }
 
 /** One of the storybook's two fixed places. */
-function SlotView({ stack, defs, size, dropTarget }: { stack: Stack; defs: Record<string, CardDef>; size: 'sm' | 'lg'; dropTarget: boolean }) {
-  const top = stack.cards[stack.cards.length - 1]
-  const depth = Math.min(8, Math.ceil(Math.log2(stack.cards.length + 1)))
-  const shadow = Array.from({ length: depth }, (_, i) => `${i + 1}px ${(i + 1) * 1.5}px 0 ${i % 2 ? '#3a2e24' : '#d8cdb8'}`)
+function SlotView({
+  stack,
+  defs,
+  size,
+  dropTarget,
+}: {
+  stack: Stack;
+  defs: Record<string, CardDef>;
+  size: 'sm' | 'lg';
+  dropTarget: boolean;
+}) {
+  const top = stack.cards[stack.cards.length - 1];
+  const depth = Math.min(8, Math.ceil(Math.log2(stack.cards.length + 1)));
+  const shadow = Array.from(
+    { length: depth },
+    (_, i) =>
+      `${i + 1}px ${(i + 1) * 1.5}px 0 ${i % 2 ? '#3a2e24' : '#d8cdb8'}`,
+  );
   return (
-    <div className={`stack slot${dropTarget ? ' drop-target' : ''}`} data-stack={stack.id} style={{ left: stack.x, top: stack.y, width: CARD_W, height: CARD_H }}>
+    <div
+      className={`stack slot${dropTarget ? ' drop-target' : ''}`}
+      data-stack={stack.id}
+      style={{ left: stack.x, top: stack.y, width: CARD_W, height: CARD_H }}
+    >
       {top ? (
-        <div className="card" style={{ boxShadow: [...shadow, '0 4px 10px rgba(0,0,0,.45)'].join(', ') }}>
-          <img src={cardImage(top.id, top.faceUp, size)} alt={top.faceUp ? cardLabel(defs[top.id]) : 'Storybook'} draggable={false} />
+        <div
+          className="card"
+          style={{
+            boxShadow: [...shadow, '0 4px 10px rgba(0,0,0,.45)'].join(', '),
+          }}
+        >
+          <img
+            src={cardImage(top.id, top.faceUp, size)}
+            alt={top.faceUp ? cardLabel(defs[top.id]) : 'Storybook'}
+            draggable={false}
+          />
         </div>
       ) : (
-        <div className="slot-empty">{stack.slot === 'story' ? 'The story is over' : 'Tap the storybook to turn over its next card'}</div>
+        <div className="slot-empty">
+          {stack.slot === 'story'
+            ? 'The story is over'
+            : 'Tap the storybook to turn over its next card'}
+        </div>
       )}
-      {stack.cards.length > 1 && <div className="slot-count">{stack.cards.length}</div>}
+      {stack.cards.length > 1 && (
+        <div className="slot-count">{stack.cards.length}</div>
+      )}
     </div>
-  )
+  );
 }
 
 /** What the first place of an empty grid says. */
 const GRID_START = {
   map: { label: 'Region Card', hint: 'start the map here' },
-  battlefield: { label: 'Terrain Card', hint: 'build the battlefield from here' },
-}
+  battlefield: {
+    label: 'Terrain Card',
+    hint: 'build the battlefield from here',
+  },
+};
 
 /** Position and size of a table rectangle as an absolutely placed element's style. */
-const rectStyle = (r: { x: number; y: number; w: number; h: number }) => ({ left: r.x, top: r.y, width: r.w, height: r.h })
+const rectStyle = (r: { x: number; y: number; w: number; h: number }) => ({
+  left: r.x,
+  top: r.y,
+  width: r.w,
+  height: r.h,
+});
 
 interface AreaViewProps {
-  area: Area
+  area: Area;
   /** Cards dragged over it are taken or refused; or it is being moved. */
-  state: 'accept' | 'refuse' | 'moving' | null
-  onClear?: () => void
+  state: 'accept' | 'refuse' | 'moving' | null;
+  onClear?: () => void;
   /** The battlefield's: type its layout. */
-  onType?: () => void
-  onRules: () => void
+  onType?: () => void;
+  onRules: () => void;
 }
 
 function AreaView({ area, state, onClear, onType, onRules }: AreaViewProps) {
@@ -780,7 +1161,11 @@ function AreaView({ area, state, onClear, onType, onRules }: AreaViewProps) {
       className={`area area-${area.id}${area.deck ? ' area-deck' : ''}${state ? ` ${state}` : ''}`}
       style={{ left: area.x, top: area.y, width: area.w, height: area.h }}
     >
-      <div className="area-grip" data-area-grip={area.id} title="Drag here to move the area">
+      <div
+        className="area-grip"
+        data-area-grip={area.id}
+        title="Drag here to move the area"
+      >
         ⠿
         <Hit />
       </div>
@@ -788,11 +1173,18 @@ function AreaView({ area, state, onClear, onType, onRules }: AreaViewProps) {
         <span>
           <AreaIcon id={area.id} />
           {area.label}
-          <button className="area-info" data-ui onClick={onRules} aria-label={`Rules: ${area.label}`}>
+          <button
+            className="area-info"
+            data-ui
+            onClick={onRules}
+            aria-label={`Rules: ${area.label}`}
+          >
             ⓘ
             <Hit />
           </button>
-          {acceptsText(area) !== area.label && <small>{acceptsText(area)}</small>}
+          {acceptsText(area) !== area.label && (
+            <small>{acceptsText(area)}</small>
+          )}
         </span>
         {(onType || onClear) && (
           <span className="area-buttons">
@@ -812,109 +1204,181 @@ function AreaView({ area, state, onClear, onType, onRules }: AreaViewProps) {
         )}
       </div>
     </div>
-  )
+  );
 }
 
 interface StackViewProps {
-  stack: Stack
-  defs: Record<string, CardDef>
-  size: 'sm' | 'lg'
-  selected: boolean
-  dropTarget: boolean
-  lifted: boolean
+  stack: Stack;
+  defs: Record<string, CardDef>;
+  size: 'sm' | 'lg';
+  selected: boolean;
+  dropTarget: boolean;
+  lifted: boolean;
   /** Part of it lies under another card (the Alignment Card under the Character Card, Money and Goods under the Storage Card). */
-  covered: Side | null
+  covered: Side | null;
   /** Lies landscape, turned a quarter to this side by its place (Market Prices face up, the Encounter Bar face down). */
-  turn?: Turn | null
+  turn?: Turn | null;
   /** Lies in a row of Money Cards or Goods, whose cards slide when it rearranges. */
-  sliding: boolean
+  sliding: boolean;
   /** A Terrain Card of the battlefield being typed, not on the table yet. */
-  previewed?: boolean
+  previewed?: boolean;
   /** A deck lying on its place in its area, named by it: it shows how many cards it holds but can't be moved as a whole. */
-  fixed?: boolean
+  fixed?: boolean;
   /** An Encounter Deck place: its grip doesn't show how many cards it holds, so the deck's size stays unknown. */
-  countless?: boolean
+  countless?: boolean;
   /** Set while the pile shows being shuffled; a new value restarts it. */
-  shuffle?: number | null
+  shuffle?: number | null;
   /** Just dealt here from another place: shown travelling from there. */
-  dealt?: Dealt | null
+  dealt?: Dealt | null;
 }
 
 /** How long a dealt card takes to travel to its place (see `DEAL_MS` in App.tsx). */
-const DEAL_TRAVEL_MS = 380
+const DEAL_TRAVEL_MS = 380;
 
 /** Most cards shown splitting and sliding back together while a pile is shuffled. */
-const SHUFFLE_CARDS = 4
+const SHUFFLE_CARDS = 4;
 
-function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, turn, sliding, previewed, fixed, countless, shuffle, dealt }: StackViewProps) {
-  const top = stack.cards[stack.cards.length - 1]
-  const count = stack.cards.length
-  const landscape = isLandscape(defs[top.id]) || !!turn
-  const cardRef = useRef<HTMLDivElement>(null)
-  const stackRef = useRef<HTMLDivElement>(null)
-  const faceUp = useFlip(cardRef, top, landscape ? 'x' : 'y')
-  const { x, y } = stack
+function StackView({
+  stack,
+  defs,
+  size,
+  selected,
+  dropTarget,
+  lifted,
+  covered,
+  turn,
+  sliding,
+  previewed,
+  fixed,
+  countless,
+  shuffle,
+  dealt,
+}: StackViewProps) {
+  const top = stack.cards[stack.cards.length - 1];
+  const count = stack.cards.length;
+  const landscape = isLandscape(defs[top.id]) || !!turn;
+  const cardRef = useRef<HTMLDivElement>(null);
+  const stackRef = useRef<HTMLDivElement>(null);
+  const faceUp = useFlip(cardRef, top, landscape ? 'x' : 'y');
+  const { x, y } = stack;
 
   // Just dealt: travel from where it came from, above everything, lifted on the way and turning (upright where it came
   // from) to lie as its place has it.
   useLayoutEffect(() => {
-    const node = stackRef.current
-    if (!dealt || !node || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const back = turn === 'left' ? 90 : turn === 'right' ? -90 : 0
-    const from = `translate(${dealt.from.x - x}px, ${dealt.from.y - y}px) rotate(${back}deg)`
+    const node = stackRef.current;
+    if (
+      !dealt ||
+      !node ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    )
+      return;
+    const back = turn === 'left' ? 90 : turn === 'right' ? -90 : 0;
+    const from = `translate(${dealt.from.x - x}px, ${dealt.from.y - y}px) rotate(${back}deg)`;
     const run = node.animate(
       [
-        { transform: from, zIndex: 1000, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,.4))' },
-        { transform: `translate(${(dealt.from.x - x) / 2}px, ${(dealt.from.y - y) / 2}px) rotate(${back / 2}deg) scale(1.12)`, zIndex: 1000, filter: 'drop-shadow(0 24px 22px rgba(0,0,0,.5))', offset: 0.5 },
-        { transform: 'none', zIndex: 1000, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,.4))' },
+        {
+          transform: from,
+          zIndex: 1000,
+          filter: 'drop-shadow(0 4px 6px rgba(0,0,0,.4))',
+        },
+        {
+          transform: `translate(${(dealt.from.x - x) / 2}px, ${(dealt.from.y - y) / 2}px) rotate(${back / 2}deg) scale(1.12)`,
+          zIndex: 1000,
+          filter: 'drop-shadow(0 24px 22px rgba(0,0,0,.5))',
+          offset: 0.5,
+        },
+        {
+          transform: 'none',
+          zIndex: 1000,
+          filter: 'drop-shadow(0 4px 6px rgba(0,0,0,.4))',
+        },
       ],
       { duration: DEAL_TRAVEL_MS, easing: 'cubic-bezier(.45,.05,.35,1)' },
-    )
-    return () => run.cancel()
-  }, [dealt, x, y, turn])
+    );
+    return () => run.cancel();
+  }, [dealt, x, y, turn]);
   // A countless pile (the Encounter Deck's places) gives no hint of its size: one edge, whatever it holds.
-  const depth = countless ? 1 : Math.min(8, Math.ceil(Math.log2(count + 1)))
-  const shadow = Array.from({ length: depth }, (_, i) => `${i + 1}px ${(i + 1) * 1.5}px 0 ${i % 2 ? '#3a2e24' : '#d8cdb8'}`)
-  const classes = ['stack', selected && 'selected', dropTarget && 'drop-target', lifted && 'lifted', covered && `covered-${covered}`, sliding && 'sliding', previewed && 'previewed']
+  const depth = countless ? 1 : Math.min(8, Math.ceil(Math.log2(count + 1)));
+  const shadow = Array.from(
+    { length: depth },
+    (_, i) =>
+      `${i + 1}px ${(i + 1) * 1.5}px 0 ${i % 2 ? '#3a2e24' : '#d8cdb8'}`,
+  );
+  const classes = [
+    'stack',
+    selected && 'selected',
+    dropTarget && 'drop-target',
+    lifted && 'lifted',
+    covered && `covered-${covered}`,
+    sliding && 'sliding',
+    previewed && 'previewed',
+  ]
     .filter(Boolean)
-    .join(' ')
+    .join(' ');
   return (
-    <div ref={stackRef} className={classes} data-stack={stack.id} style={cardBox(stack.x, stack.y, landscape)}>
+    <div
+      ref={stackRef}
+      className={classes}
+      data-stack={stack.id}
+      style={cardBox(stack.x, stack.y, landscape)}
+    >
       <div
         ref={cardRef}
         className={`card${turn ? turnedClass(turn) : landscapeClass(landscape, faceUp)}`}
         style={{
           rotate: `${stack.rot}deg`,
-          boxShadow: [...shadow, lifted ? '0 18px 30px rgba(0,0,0,.55)' : '0 4px 10px rgba(0,0,0,.45)'].join(', '),
+          boxShadow: [
+            ...shadow,
+            lifted
+              ? '0 18px 30px rgba(0,0,0,.55)'
+              : '0 4px 10px rgba(0,0,0,.45)',
+          ].join(', '),
         }}
       >
-        <img src={cardImage(top.id, faceUp, size)} alt={cardLabel(defs[top.id])} draggable={false} />
+        <img
+          src={cardImage(top.id, faceUp, size)}
+          alt={cardLabel(defs[top.id])}
+          draggable={false}
+        />
       </div>
       {/* Being shuffled: its top cards (not a pinned card) split to both sides and slide back in, one after another. */}
       {shuffle != null &&
-        unpinned(stack).slice(-SHUFFLE_CARDS).map((c, i) => (
-          <div
-            key={`${shuffle}-${i}`}
-            className={`card shuffle-card${i % 2 ? ' right' : ''}${turn ? turnedClass(turn) : landscapeClass(landscape, c.faceUp)}`}
-            style={{ rotate: `${stack.rot}deg`, animationDelay: `${i * 60}ms` }}
-            aria-hidden
-          >
-            <img src={cardImage(c.id, c.faceUp, size)} alt="" draggable={false} />
-          </div>
-        ))}
-      {fixed ? (
-        count > 1 && <div className="slot-count">{count}</div>
-      ) : (
-        count > 1 && (
-          <div className="grip" data-grip title="Drag here to move the whole pile">
-            ⠿{countless ? '' : ` ${count}`}
-            <Hit />
-          </div>
-        )
+        unpinned(stack)
+          .slice(-SHUFFLE_CARDS)
+          .map((c, i) => (
+            <div
+              key={`${shuffle}-${i}`}
+              className={`card shuffle-card${i % 2 ? ' right' : ''}${turn ? turnedClass(turn) : landscapeClass(landscape, c.faceUp)}`}
+              style={{
+                rotate: `${stack.rot}deg`,
+                animationDelay: `${i * 60}ms`,
+              }}
+              aria-hidden
+            >
+              <img
+                src={cardImage(c.id, c.faceUp, size)}
+                alt=""
+                draggable={false}
+              />
+            </div>
+          ))}
+      {fixed
+        ? count > 1 && <div className="slot-count">{count}</div>
+        : count > 1 && (
+            <div
+              className="grip"
+              data-grip
+              title="Drag here to move the whole pile"
+            >
+              ⠿{countless ? '' : ` ${count}`}
+              <Hit />
+            </div>
+          )}
+      {stack.label && !fixed && !stack.place && (
+        <div className="stack-label">{stack.label}</div>
       )}
-      {stack.label && !fixed && !stack.place && <div className="stack-label">{stack.label}</div>}
     </div>
-  )
+  );
 }
 
 /**
@@ -922,7 +1386,7 @@ function StackView({ stack, defs, size, selected, dropTarget, lifted, covered, t
  * table is zoomed out (up to a limit), so the control is still easy to hit.
  */
 function Hit() {
-  return <span className="hit" aria-hidden />
+  return <span className="hit" aria-hidden />;
 }
 
 function TokenView({ token, selected }: { token: Token; selected: boolean }) {
@@ -930,7 +1394,13 @@ function TokenView({ token, selected }: { token: Token; selected: boolean }) {
     <div
       className={`token ${token.shape}${selected ? ' selected' : ''}`}
       data-token={token.id}
-      style={{ left: token.x, top: token.y, width: tokenSize(token), height: tokenSize(token), background: token.color }}
+      style={{
+        left: token.x,
+        top: token.y,
+        width: tokenSize(token),
+        height: tokenSize(token),
+        background: token.color,
+      }}
     />
-  )
+  );
 }
