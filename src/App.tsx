@@ -1097,8 +1097,9 @@ export default function App() {
                 onTap={(id) => {
                   if (putUnder) return putUnderTarget(id);
                   setSelection({ kind: 'stack', id });
-                  // An open Browse panel follows the deck tapped.
-                  if (browseId) setBrowseId(id);
+                  // Tapping a deck browses it (an open panel follows the deck tapped, even an empty one).
+                  if (browseId || table.stacks[id]?.cards.length)
+                    setBrowseId(id);
                 }}
                 onDoubleTap={(id) => update((t) => A.flipTop(t, id))}
                 onInspect={(card) => setDialog({ kind: 'inspect', card })}

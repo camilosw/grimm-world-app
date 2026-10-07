@@ -320,12 +320,12 @@ X-Encounters and Lost Pages, Hit Points and Money. The table starts
 empty apart from the storybook, the Encounter Deck and the four decks in their areas. The title card is left out; it
 isn't needed to play.
 
-| On a deck  | Action                                   |
-| ---------- | ---------------------------------------- |
-| Drag       | Take the top card onto the table         |
-| Tap        | Select it (actions appear at the bottom) |
-| Double-tap | Flip the top card                        |
-| Long-press | Read the top card at full size           |
+| On a deck  | Action                                 |
+| ---------- | -------------------------------------- |
+| Drag       | Take the top card onto the table       |
+| Tap        | Select it and open **☰ Browse** on it |
+| Double-tap | Flip the top card                      |
+| Long-press | Read the top card at full size         |
 
 Every card knows which deck it belongs to: the deck it last came out of (so an Enemy Card goes back to the Enemy
 Deck), or else the deck of its type. **Drop a card (or a whole pile) anywhere on the sidebar and it goes back into its
@@ -402,8 +402,8 @@ area moves with it.
 
 **☰ Browse** opens a panel over the bottom half of the screen with the pile's cards, top card first. The table above
 stays in use (pan, zoom, move cards) until you close the panel with ✕ or tap **Browse** again. Drag the handle on its
-top edge to make it taller or shorter (the tablet remembers the height). While it is open, tapping another deck in the
-sidebar shows that deck's cards in it instead. Filter by number or
+top edge to make it taller or shorter (the tablet remembers the height). Tapping a deck in the sidebar opens it on that
+deck; while it is open, tapping another deck there shows that deck's cards in it instead. Filter by number or
 name, switch between **Backs** and **Fronts** (it opens on the backs; cards dragged out land showing the side shown), and swipe up and down to scroll. Selected cards
 move in their numbered order, card 1 on top; the pile they come from keeps its order. The actions for the selected
 cards (or those picked at random) appear in a row of their own below the bar.
