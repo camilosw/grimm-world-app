@@ -128,9 +128,9 @@ Character, Actions, the Enemy Deck and the Battlefield. Tap it again to see the 
 | Storage       | Storage Card and other Y-Cards, Encounter Cards (items, goods), Money Cards                                              |
 | Storybook     | the storybook itself (Y-Cards dropped here go into it), one Encounter Card (see below)                                   |
 | Home          | Y-Cards (House Card and extensions, on their places), Encounter Cards (stored items and goods)                           |
-| Quest Deck    | the Quest Deck: Quest Cards Y705–Y707 (see below)                                                                        |
-| Enemy Deck    | the Enemy Deck: Y013 and the Enemy Cards Y800–Y849                                                                       |
-| Training Deck | the Training Deck: Y012 and the training cards Y749–Y799                                                                 |
+| Quest Deck    | the Quest Deck: any Y-Card (the Quest Cards Y705–Y707, see below)                                                        |
+| Enemy Deck    | the Enemy Deck: any Y-Card (Y013 and the Enemy Cards Y800–Y849)                                                          |
+| Training Deck | the Training Deck: any Y-Card (Y012 and the training cards Y749–Y799)                                                    |
 | Banned Cards  | the Banned Cards pile: Y011 and any banished card                                                                        |
 | Actions       | Y-Cards, upside down: the hand (a column), the discard pile and the Damage Card (see below)                              |
 | Battlefield   | Terrain Cards, Hit Point Cards, Y-Cards (enemies)                                                                        |
@@ -336,14 +336,14 @@ deck to another, except from the four decks built during play back to the sideba
 Moves between decks that the rules ask for use **Put under…** on a card or pile on the table, or on the cards selected
 in the Browse panel, then tap the deck (in the sidebar or on the table). A deck only accepts the cards it may hold:
 
-| Deck           | Holds                                 |
-| -------------- | ------------------------------------- |
-| Encounter Deck | B- and X-Encounter Cards              |
-| Quest Deck     | Quest Cards Y705–Y707                 |
-| Enemy Deck     | Y013 and the Enemy Cards Y800–Y849    |
-| Training Deck  | Y012 and the training cards Y749–Y799 |
-| Banned Cards   | any card (banished)                   |
-| other decks    | only their own cards                  |
+| Deck           | Holds                                       |
+| -------------- | ------------------------------------------- |
+| Encounter Deck | B- and X-Encounter Cards                    |
+| Quest Deck     | any Y-card (Quest Cards Y705–Y707)          |
+| Enemy Deck     | any Y-card (Y013, Enemy Cards Y800–Y849)    |
+| Training Deck  | any Y-card (Y012, training cards Y749–Y799) |
+| Banned Cards   | any card (banished)                         |
+| other decks    | only their own cards                        |
 
 **Set aside (right sidebar).** A place to keep cards at hand while you move about the table, e.g. the setup cards.
 It is hidden while empty: drag a card (from the table, a sidebar deck or the Browse panel) to the right edge of the

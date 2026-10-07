@@ -37,19 +37,7 @@ export interface DeckSpec {
   keeps?: string;
 }
 
-/** Numeric part of a Y-card number: "Y815c" → 815. */
-function yNumber(def: CardDef): number | null {
-  const m = /^Y(\d{3})/.exec(def.code ?? '');
-  return m ? Number(m[1]) : null;
-}
-
 const isY = (def: CardDef) => family(def) === 'lost-pages';
-const yIn = (def: CardDef, ...ranges: [number, number][]) => {
-  const n = yNumber(def);
-  return (
-    isY(def) && n !== null && ranges.some(([lo, hi]) => n >= lo && n <= hi)
-  );
-};
 
 /**
  * All decks. The storybook, the Encounter Deck and the decks built during play (`TABLE_DECKS`) lie in their areas on the
@@ -129,35 +117,36 @@ export const DECKS: DeckSpec[] = [
     insert: 'top',
     holds: (d) => d.type === 'money',
   },
-  // Quest Cards are Y705–Y707 (Y009), kept face down.
+  // Quest Cards are Y705–Y707 (Y009), kept face down; any Y-card is allowed, for cards that add others.
   {
     kind: 'quest',
     label: 'Quest Deck',
     emptyHint: 'Built by card Y009',
-    holdsText: 'Quest Cards Y705–Y707',
+    holdsText: 'Any Y-card',
     faceUp: false,
     insert: 'top',
-    holds: (d) => yIn(d, [705, 707]),
+    holds: isY,
   },
-  // The Enemy Card Y013, on top for good, with the Enemy Cards Y800–Y849 underneath (Y009), each lying as it was put there.
+  // The Enemy Card Y013, on top for good, with the Enemy Cards Y800–Y849 underneath (Y009), each lying as it was put there;
+  // any Y-card is allowed.
   {
     kind: 'enemy',
     label: 'Enemy Deck',
     emptyHint: 'Built by card Y009',
-    holdsText: 'Y013, Y800–Y849',
+    holdsText: 'Any Y-card',
     insert: 'bottom',
-    holds: (d) => yIn(d, [13, 13], [800, 849]),
+    holds: isY,
     keeps: 'Y013',
   },
-  // The Training Card Y012, on top for good, with training cards (Y749–Y799) underneath (Y003).
+  // The Training Card Y012, on top for good, with training cards (Y749–Y799) underneath (Y003); any Y-card is allowed.
   {
     kind: 'training',
     label: 'Training Deck',
     emptyHint: 'Built by card Y003',
-    holdsText: 'Y012, Y749–Y799',
+    holdsText: 'Any Y-card',
     faceUp: true,
     insert: 'bottom',
-    holds: (d) => yIn(d, [12, 12], [749, 799]),
+    holds: isY,
     keeps: 'Y012',
   },
   // Banished cards go under the 'Banned Cards' card Y011, on top for good, whatever they are.
