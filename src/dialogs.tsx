@@ -273,7 +273,7 @@ export function BrowsePanel({ table, stackId, defs, dropAt, onInspect, onDrop, o
             setCount(null)
           }}
         />
-        <div className="segmented" role="group" aria-label="Card side">
+        <div className="segmented compact" role="group" aria-label="Card side">
           <button className={fronts ? '' : 'on'} aria-pressed={!fronts} onClick={() => setFronts(false)}>
             Backs
           </button>
