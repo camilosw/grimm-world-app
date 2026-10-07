@@ -74,7 +74,9 @@ npm run deploy     # vercel build --prod && vercel deploy --prebuilt --prod
 ## 4. Commits and releases
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org) (`feat(areas): …`,
-`fix(save): …`); a hook in `.githooks/`, switched on by `npm install`, refuses others. Versions follow
+`fix(save): …`); a Husky hook, switched on by `npm install`, checks them with commitlint and refuses
+others, and one before each commit lints and formats the staged files and runs the tests (`npm test`).
+GitHub Actions runs the same checks, the type check and the build on every push. Versions follow
 [SemVer](https://semver.org) and every release is listed in [CHANGELOG.md](CHANGELOG.md). To release:
 
 ```bash

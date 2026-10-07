@@ -9,8 +9,10 @@ A tablet-first React app (Vite + TypeScript, no backend) for playing the solo pr
 ```bash
 npm run dev -- --host        # dev server on :5173, reachable from the tablet on the LAN
 npm run build                # tsc -b + vite build
-npx tsc -b                   # type-check only
+npm run typecheck            # tsc -b, type-check only
+npm test                     # vitest in watch mode (test:run: once)
 npm run lint                 # oxlint
+npm run format               # prettier --write . (format:check to only check)
 uv run scripts/split_cards.py    # PDF → public/cards/{lg,sm}/NNN-{front,back}.webp + cards.json (~1 min)
 uv run scripts/index_cards.py    # OCR card types/numbers into cards.json (~15 min; --cards 120,130 to redo a few)
 uv run scripts/split_rules.py    # rulebook → public/rules/ page images + rules.json (~15 s)
@@ -19,7 +21,7 @@ uv run scripts/split_booklets.py # rule booklets → public/booklets/ page image
 npm run release              # commit-and-tag-version: bump version, update CHANGELOG.md, commit, tag (--dry-run to preview)
 ```
 
-There is no test suite. Verify UI changes in a browser with the `playwright-cli` skill (tablet size: `resize 1180 820`; phones, landscape only: `resize 844 390` and `resize 667 375`). The table state is autosaved in `localStorage` under `grimm-world:table:v1`; clear it (`localStorage.clear()`) to start from the initial setup.
+Tests (Vitest, Testing Library, jsdom) lie next to the code they test (`src/*.test.ts(x)`); they make their own cards with `src/test/fixtures.ts`, since `cards.json` is generated and git-ignored (and missing in CI). Cover game rules in the pure functions (`actions.ts`, `decks.ts`, `areas.ts`, `cards.ts`) with tests. Verify UI changes in a browser with the `playwright-cli` skill (tablet size: `resize 1180 820`; phones, landscape only: `resize 844 390` and `resize 667 375`). The table state is autosaved in `localStorage` under `grimm-world:table:v1`; clear it (`localStorage.clear()`) to start from the initial setup.
 
 `public/cards/`, `public/rules/` and `public/booklets/` are generated and git-ignored. Python scripts use PEP 723 inline dependencies — run them with `uv run`, not pip/venv (the system Python has no pip).
 
@@ -60,9 +62,10 @@ There is no test suite. Verify UI changes in a browser with the `playwright-cli`
 
 ## Conventions
 
+- Code is formatted with Prettier (`.prettierrc`: single quotes, otherwise defaults; the version is pinned exactly, since minor releases can format differently). VS Code formats on save (`.vscode/settings.json`); the pre-commit hook formats staged files. TypeScript is `strict`; oxlint adds the `jsx-a11y` plugin and `exhaustive-deps` (warnings).
 - Put game rules in `decks.ts` / `areas.ts` / pure functions in `actions.ts`, not in components; components call `update(...)` and show feedback with `notify(...)` (refusals) or `notify(text, true)` (success).
 - Any new way of placing cards on the table or into decks must go through the same checks as drag-and-drop (`placement` for the table, `holds` / `homeDeck` for decks).
 - Style tokens are CSS variables in `styles.css`; world-space elements (areas, stacks) use world-unit sizes, screen-space UI uses ≥44 px touch targets.
-- Commit messages follow Conventional Commits: `type(scope)!: description`, lower-case imperative description, the body explaining the why as before. Types: `feat` (player-visible feature), `fix`, `perf`, `refactor`, `docs`, `style`, `test`, `build`, `ci`, `chore`, `revert`; only `feat`, `fix`, `perf` and `revert` appear in the changelog, so write their descriptions for the player. Scopes are optional, by part of the app: `areas`, `battlefield`, `browse`, `decks`, `encounter-bar`, `figures`, `rules`, `search`, `sidebar`, `storybook`, `tray`, `save` (saves/migration), `pwa`, `deploy`, `scripts`. A change that breaks old saves or removes a feature gets `!` and a `BREAKING CHANGE:` footer. `.githooks/commit-msg` (enabled by `npm install` through `prepare`) refuses other messages.
+- Commit messages follow Conventional Commits: `type(scope)!: description`, lower-case imperative description, the body explaining the why as before. Types: `feat` (player-visible feature), `fix`, `perf`, `refactor`, `docs`, `style`, `test`, `build`, `ci`, `chore`, `revert`; only `feat`, `fix`, `perf` and `revert` appear in the changelog, so write their descriptions for the player. Scopes are optional, by part of the app: `areas`, `battlefield`, `browse`, `decks`, `encounter-bar`, `figures`, `rules`, `search`, `sidebar`, `storybook`, `tray`, `save` (saves/migration), `pwa`, `deploy`, `scripts`. A change that breaks old saves or removes a feature gets `!` and a `BREAKING CHANGE:` footer. Husky hooks (`.husky/`, enabled by `npm install` through `prepare`) check every commit: `commit-msg` runs commitlint (`commitlint.config.js`: `config-conventional` — subject line at most 100 characters, not starting with a capital, no final period — plus the scope list above and `release`, so a new scope goes into both), `pre-commit` runs lint-staged (`.lintstagedrc.json`: oxlint and `prettier --write` on the staged files) and the tests. GitHub Actions (`.github/workflows/ci.yml`, Node from `.nvmrc`) runs lint, format check, typecheck, tests and build on every push to `main` and every pull request.
 - Versions follow SemVer (`package.json`, tags `vX.Y.Z`); `CHANGELOG.md` is generated by `npm run release` from the commits since the last tag (entries up to 0.5.0 were written by hand from the earlier, non-conventional commits). Don't edit released sections by hand except to fix wording.
 - The project also has an OpenSpec setup (`openspec/`, `/opsx:*` commands) for spec-driven changes; no specs exist yet.

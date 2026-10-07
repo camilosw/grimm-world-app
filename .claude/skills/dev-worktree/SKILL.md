@@ -32,11 +32,16 @@ them to the main checkout's:
 cd $ROOT/.claude/worktrees/<name>
 ln -s ../../../node_modules node_modules
 for d in cards rules booklets; do ln -s ../../../../public/$d public/$d; done
+ln -s ../../../../.husky/_ .husky/_
 ```
 
+The last link gives the worktree Husky's git hooks (`core.hooksPath` is
+`.husky/_`, git-ignored, so without it git runs no hooks there); they run the
+worktree's own `.husky/` scripts.
+
 `.gitignore`'s `public/cards/` matches directories only, not these symlinks;
-the repo's shared `.git/info/exclude` lists `/public/cards`, `/public/rules`
-and `/public/booklets` so they don't show as untracked. If `git status` shows
+the repo's shared `.git/info/exclude` lists `/public/cards`, `/public/rules`,
+`/public/booklets` and `/.husky/_` so they don't show as untracked. If `git status` shows
 them anyway, add those lines there.
 
 ## 2. Start its dev server and give the user the URL
@@ -66,15 +71,15 @@ new port (unless that port was used before).
 
 ## 3. Do the work
 
-Work and verify in the worktree as usual (CLAUDE.md: `npx tsc -b`,
-`npm run lint`, `playwright-cli` against `http://localhost:<port>/`). When done,
+Work and verify in the worktree as usual (CLAUDE.md: `npm run typecheck`,
+`npm run lint`, `npm run test:run`, `playwright-cli` against `http://localhost:<port>/`). When done,
 summarise the change, remind the user of the URL, and **leave it uncommitted**:
 never commit without the user's approval.
 
 ## 4. After the user approves the commit
 
 1. In the worktree: commit with a Conventional Commits message
-   (`.githooks/commit-msg` checks it).
+   (commitlint checks it; the pre-commit hook runs lint and the Prettier check).
 2. Stop the dev server: `TaskStop` with its task id. If the id is unknown
    (e.g. a new session), `fuser -k <port>/tcp`. Confirm the port is free with
    `ss -ltn | grep ":<port> "` (no output).
