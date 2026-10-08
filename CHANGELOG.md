@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.5.4](https://github.com/camilosw/grimm-world-app/compare/v0.5.3...v0.5.4) (2026-10-08)
+
+### Features
+
+* **areas:** turn the storybook's encounter card face up and used cards face down ([6ad7b12](https://github.com/camilosw/grimm-world-app/commit/6ad7b12c8cca8adceb08aaf0b66db6ae83d77e95))
+* **browse:** make the browse panel's Backs | Fronts switch smaller on the tablet ([28c238e](https://github.com/camilosw/grimm-world-app/commit/28c238ed23c989575e42423707fbb20988c20bac))
+* **decks:** let the enemy, quest and training decks take any y-card ([7b9e512](https://github.com/camilosw/grimm-world-app/commit/7b9e5128109407617e384825e8a5d044812aac73))
+* **sidebar:** open the browse panel when a deck is tapped ([7b103aa](https://github.com/camilosw/grimm-world-app/commit/7b103aaa0ff919d56aa946e29ce1b6771acb4469))
+
+### Bug Fixes
+
+* **browse:** pick the browse panel's cards with the keyboard too ([4bdbed4](https://github.com/camilosw/grimm-world-app/commit/4bdbed4e43c2b487d6817db4683c074007925e36))
+* **decks:** leave the fixed card out of a deck's card count ([ba01d22](https://github.com/camilosw/grimm-world-app/commit/ba01d22116f79d9d163a1a52d450ee94c92722af))
+
 ## [0.5.3](https://github.com/camilosw/grimm-world-app/compare/v0.5.2...v0.5.3) (2026-10-06)
 
 ### Features
