@@ -63,7 +63,7 @@ cd $ROOT/.claude/worktrees/<name> && npm run dev -- --host --port <port> --stric
 Once its output shows `ready`, tell the user right away, before starting on the
 code:
 
-> Dev server for `<name>`: http://localhost:<port>/ (tablet: the `Network:` URL Vite printed)
+> Dev server for `<name>`: http://localhost:<port>/ (phone or tablet: the `Network:` URL Vite printed)
 
 Vite hot-reloads as you edit, so the URL keeps showing the current state.
 Note: localStorage is per port, so the table starts from the initial setup on a

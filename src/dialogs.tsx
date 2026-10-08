@@ -716,7 +716,8 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
             </a>
           </p>
           <p className="muted small">
-            An unofficial companion app for playing the game on a tablet.
+            An unofficial companion app for playing the game on a phone, tablet
+            or computer.
             <br />
             <a
               href="https://github.com/camilosw/grimm-world-app"

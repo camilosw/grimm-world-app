@@ -1,6 +1,8 @@
-# Grimm World — tablet table
+# Grimm World — virtual table
 
-A virtual table for playing the print-and-play solo game **Grimm World** on a tablet, or on a phone held landscape.
+A virtual table for playing the print-and-play solo game **Grimm World** in the browser of a phone (held landscape), a
+tablet, a laptop or a desktop computer. Every gesture below works with a finger or with a mouse or trackpad: a tap is a
+click, a long-press is holding the button down.
 
 ## 1. Split the card sheets
 
@@ -26,10 +28,11 @@ Both scripts declare their own Python dependencies (PyMuPDF, Pillow, RapidOCR), 
 
 ```bash
 npm install
-npm run dev -- --host      # open http://<your-pc-ip>:5173 on the tablet
+npm run dev -- --host      # open http://localhost:5173, or http://<your-pc-ip>:5173 on a phone or tablet
 ```
 
-On the tablet, use _Add to Home Screen_ (or _Install_) for a full-screen app. The table saves automatically in the browser.
+On a phone or tablet, use _Add to Home Screen_ (or _Install_) for a full-screen app; on a laptop or desktop, the
+browser's _Install_ button in the address bar does the same. The table saves automatically in the browser.
 Once deployed (`npm run build` / step 3; the service worker is off in `npm run dev`), the app works offline: its files, card
 images and rules pages are cached as you use them, so open what you need once while online. When you deploy a new
 version, it shows up on the next online launch. Bump `CACHE` in `public/sw.js` to drop cached files that changed
@@ -40,7 +43,7 @@ Use **☰ → Export save** to keep a copy.
 the sides, where a landscape screen has room: the toolbar becomes a column of icons at the left edge, before the area
 buttons, and the actions for the selected pile a column at the right edge. **🂠 Decks** opens the decks sidebar over the
 table (closed at first); drag a deck's card out of it and it fades away so the card lands on the table below it, as
-long as the card is outside it. **☰ Browse** opens below the table, as on a tablet, and the column of actions makes way
+long as the card is outside it. **☰ Browse** opens below the table, as on a larger screen, and the column of actions makes way
 for it until it closes; its bar fits on one line, showing the pile's name without its number of cards, **All** for
 Select all and **⚄** without its label. Its cards lie in one row, swiped sideways, each shown whole, with its `⠿` grip
 over its bottom-left corner and 🔍 over its top-right one; the actions for the cards selected or picked at random go in
@@ -369,7 +372,7 @@ long-press reads it. When the last card leaves, the sidebar hides again. **Find 
 | Drag the `⠿ 42` handle    | Move the whole pile                                       |
 | Drag an area's `⠿` grip   | Move the area with everything in it                       |
 | Drop onto another pile    | Put it on top of that pile                                |
-| One finger on the table   | Pan                                                       |
+| Drag the table            | Pan                                                       |
 | Two fingers / mouse wheel | Zoom                                                      |
 
 Pile and deck actions: **Draw** (top card face up onto the table), **Top → bottom** (after reading a Fate Number),
@@ -404,7 +407,7 @@ area moves with it.
 
 **☰ Browse** opens a panel over the bottom half of the screen with the pile's cards, top card first. The table above
 stays in use (pan, zoom, move cards) until you close the panel with ✕ or tap **Browse** again. Drag the handle on its
-top edge to make it taller or shorter (the tablet remembers the height). Tapping a deck in the sidebar opens it on that
+top edge to make it taller or shorter (the browser remembers the height). Tapping a deck in the sidebar opens it on that
 deck; while it is open, tapping another deck there shows that deck's cards in it instead. Filter by number or
 name, switch between **Backs** and **Fronts** (it opens on the backs; cards dragged out land showing the side shown), and swipe up and down to scroll. Selected cards
 move in their numbered order, card 1 on top; the pile they come from keeps its order. The actions for the selected
