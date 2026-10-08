@@ -3,6 +3,7 @@ import {
   anchorsAfterMove,
   areaForCard,
   allGridPiles,
+  ENCOUNTER_PLACES,
   gridCells,
   onGrid,
   fanRow,
@@ -1083,11 +1084,44 @@ export function settleSpots(t: Table): Table {
 }
 
 /**
- * Bring the table in order after any change: the cards on the Enemy Card places kept on them (`settleEnemies()`), the
- * spots laid out (`settleSpots()`), then the areas (`settleLayout()`).
+ * Turn the cards just put on a place that takes them so, however they got there, and leave them free to be turned over
+ * there afterwards: face up on a spot with `putFaceUp` (the Storybook's Encounter Card), face down on the Encounter Deck
+ * area's places (like the cards going into a deck with `DeckSpec.faceUp`).
  */
-export function settle(t: Table): Table {
-  return settleLayout(settleSpots(settleEnemies(t)));
+export function faceArrivals(prev: Table, t: Table): Table {
+  let next = t;
+  const turn = (s: Stack, before: Set<string>, faceUp: boolean) => {
+    if (s.cards.some((c) => !before.has(c.id) && c.faceUp !== faceUp))
+      next = setStack(next, {
+        ...s,
+        cards: s.cards.map((c) => (before.has(c.id) ? c : { ...c, faceUp })),
+      });
+  };
+  const cardsOn = (u: Table, ids: string[]) =>
+    new Set(ids.flatMap((id) => u.stacks[id].cards.map((c) => c.id)));
+  const before = spotsOf(prev);
+  for (const spot of spotsOf(t).filter((s) => s.putFaceUp)) {
+    const was = before.find((s) => s.id === spot.id);
+    const had = cardsOn(prev, was ? stacksOnSpot(prev, was) : []);
+    for (const id of stacksOnSpot(t, spot)) turn(t.stacks[id], had, true);
+  }
+  const places = new Set<string>(ENCOUNTER_PLACES.map((p) => p.place));
+  for (const s of Object.values(t.stacks)) {
+    const was = prev.stacks[s.id];
+    if (s.place && places.has(s.place) && was)
+      turn(s, cardsOn(prev, [s.id]), false);
+  }
+  return next;
+}
+
+/**
+ * Bring the table in order after any change: the cards on the Enemy Card places kept on them (`settleEnemies()`), the
+ * spots laid out (`settleSpots()`), then the areas (`settleLayout()`), and, given the table before the change, the cards
+ * just put on a place that turns them turned (`faceArrivals()`).
+ */
+export function settle(t: Table, prev?: Table): Table {
+  const laid = settleLayout(settleSpots(settleEnemies(t)));
+  return prev ? faceArrivals(prev, laid) : laid;
 }
 
 // ---------- area layout ----------
@@ -1102,7 +1136,7 @@ export function rearrange(t: Table, fn: (t: Table) => Table): Table {
     (id) =>
       !isFixed(t.stacks[id]) && !areaForCard(t, t.stacks[id].x, t.stacks[id].y),
   );
-  const laid = settle(fn(t));
+  const laid = settle(fn(t), t);
   const areas = allAreas(laid);
   const covered = (x: number, y: number, w: number, h: number) =>
     areas.some(

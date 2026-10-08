@@ -47,7 +47,7 @@ export function resetTable(next: Table) {
 export function update(fn: (t: Table) => Table) {
   if (!table) return;
   // However cards got there or left, a row of Money Cards stays without gaps and the areas keep apart.
-  const next = settle(fn(table));
+  const next = settle(fn(table), table);
   if (next === table) return;
   past.push(table);
   if (past.length > HISTORY_LIMIT) past.shift();

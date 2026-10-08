@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { spotsOf } from './areas';
 import {
+  dropOnto,
+  flipTop,
+  moveStack,
   parseBattlefield,
+  settle,
   shuffleStack,
   sortStack,
   topToBottom,
@@ -46,6 +51,51 @@ describe('pinned cards', () => {
     );
     // Nothing goes under a pile whose top card is pinned.
     expect(topToBottom(table(deck), 'enemy').stacks.enemy).toBe(deck);
+  });
+});
+
+describe('cards turned as they are put on a place', () => {
+  const time = card('T01', 'time');
+  const deckCard = card('B01', 'encounter-b');
+  const encounter = card('B02', 'encounter-b');
+  const defs = Object.fromEntries(
+    [time, deckCard, encounter].map((d) => [d.id, d]),
+  );
+  const timePasses = stack('tp', refs(time, deckCard), {
+    deck: 'encounter',
+    place: 'time-passes',
+  });
+  const used = stack('used', [], { place: 'used' });
+  const spot = spotsOf(table()).find((s) => s.id === 'story-encounter')!;
+
+  it("turns the Storybook's Encounter Card face up, and lets it be turned over there", () => {
+    const before = table(timePasses, used, stack('e', refs(encounter)));
+    const t = settle(moveStack(before, 'e', spot.x, spot.y), before);
+    expect(t.stacks.e.cards[0].faceUp).toBe(true);
+
+    const flipped = settle(flipTop(t, 'e'), t);
+    expect(flipped.stacks.e.cards[0].faceUp).toBe(false);
+  });
+
+  it('puts cards on the Encounter Deck and the Used Cards place face down', () => {
+    const shown = stack('e', [{ id: encounter.id, faceUp: true }], {
+      x: spot.x,
+      y: spot.y,
+    });
+    const before = table(timePasses, used, shown);
+    const back = settle(dropOnto(before, 'e', 'tp', defs), before);
+    expect(back.stacks.tp.cards).toContainEqual({
+      id: encounter.id,
+      faceUp: false,
+    });
+
+    const onUsed = settle(dropOnto(before, 'e', 'used', defs), before);
+    expect(onUsed.stacks.used.cards).toEqual([
+      { id: encounter.id, faceUp: false },
+    ]);
+    // Turned over there to be read, it stays face up.
+    const read = settle(flipTop(onUsed, 'used'), onUsed);
+    expect(read.stacks.used.cards[0].faceUp).toBe(true);
   });
 });
 

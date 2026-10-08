@@ -176,8 +176,8 @@ bottom (double-tap still flips one over, to read it). A new game starts with the
 stays at the bottom). A pile on the table shuffled (with this button or **Shuffle** in the action bar) shows it: its
 top cards split to both sides and slide back together. The deck works like the other table decks: drag it to take its top card; tap it for **Draw**,
 **Shuffle** and the rest. Drag the `⠿` grip to move all its cards (but the time card) onto another place, e.g. onto
-'Next Chapter' once 'Time Passes' comes up. Used cards go on the Used Cards place (on top, as dropped); its grip moves
-the whole pile. The places' grips don't show how many cards lie on them. The places only take Encounter Cards: a card dropped anywhere in the area goes onto the place nearest
+'Next Chapter' once 'Time Passes' comes up. Used cards go on the Used Cards place (on top, as dropped, face down); its grip moves
+the whole pile. Every card put on one of the three places turns face down (double-tap still turns it over, to read it). The places' grips don't show how many cards lie on them. The places only take Encounter Cards: a card dropped anywhere in the area goes onto the place nearest
 to where it is dropped; cards dropped on the deck go under it, just above the time card. Cards going back "under the
 Encounter Deck" (a drop on the sidebar, **Return to deck**, **Put under…** on the deck) go under the deck wherever it
 lies: on whichever of the two time cards has more cards on it.
@@ -294,7 +294,9 @@ card, so drop the cards of each chapter together (e.g. select them in the Browse
 
 **Storybook Encounter Card.** Below the revealed cards is a place for one Encounter Card, lying on top of the bottom
 edge of the current chapter (about a tenth of it). An Encounter Card dropped anywhere in the Storybook area lands on
-that place; a second one, a pile, or any other card is refused there.
+that place; a second one, a pile, or any other card is refused there. A card put there turns face up (double-tap still
+turns it over). Sent back to the Encounter Deck (dragged onto it, **Return to deck**, **Put under…**) or put on the
+Used Cards place, it goes face down again.
 
 **Quest, Enemy and Training Deck, Banned Cards.** The decks built during play (cards Y003 and Y009) lie right of the
 Actions area, each in its own area on a placeholder that says which card builds it. The Quest Deck starts empty; the

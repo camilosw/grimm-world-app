@@ -302,6 +302,8 @@ export interface Spot {
   faceDown?: boolean;
   /** Its cards lie face up, turned so when put there, and can't be turned over there (Broken Items, Status Upgrades, the hand). */
   faceUp?: boolean;
+  /** A card put here turns face up, but may be turned over afterwards (the Storybook's Encounter Card; `faceArrivals()`). */
+  putFaceUp?: boolean;
   /**
    * New cards go to the front of the fanned row, on top of the others, and its free place is shown before its first
    * card, partly under it as the cards are under each other, instead of after its last (the Encounter Bar, a row
@@ -906,8 +908,8 @@ export const SPOTS: Spot[] = [
     shows: GOODS_BELOW_SHOWS,
     fan: { count: Infinity },
   },
-  // Below the revealed storybook cards, lying over the bottom edge of the top one. A single card: it takes the
-  // Storybook area's only Encounter Card.
+  // Below the revealed storybook cards, lying over the bottom edge of the top one. A single card, turned face up when put
+  // there: it takes the Storybook area's only Encounter Card.
   {
     id: 'story-encounter',
     label: 'Encounter Card',
@@ -919,6 +921,7 @@ export const SPOTS: Spot[] = [
     over: 'story-revealed',
     fillsArea: true,
     fan: { count: 1 },
+    putFaceUp: true,
   },
   // The Y-cards in the hand (Action Cards, rulebook 4.7.7), face up and upside down, so the strip printed upside down at
   // the bottom of an Action Card reads the right way up at the top. Each lies on the one before, a little lower, leaving the top
