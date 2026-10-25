@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.5.5](https://github.com/camilosw/grimm-world-app/compare/v0.5.4...v0.5.5) (2026-10-25)
+
+### Features
+
+* **areas:** show a lightning bolt for the actions area and name its column action cards ([fe20c94](https://github.com/camilosw/grimm-world-app/commit/fe20c94db46afb9e8693097b25c05e2fd0924dd6))
+* **tray:** rename the set-aside sidebar to hand and keep it always visible ([310d01b](https://github.com/camilosw/grimm-world-app/commit/310d01b962d8ec2bc24a2f76ac02657c0de64d8a))
+
 ## [0.5.4](https://github.com/camilosw/grimm-world-app/compare/v0.5.3...v0.5.4) (2026-10-08)
 
 ### Features
