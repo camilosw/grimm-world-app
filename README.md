@@ -135,7 +135,7 @@ Character, Actions, the Enemy Deck and the Battlefield. Tap it again to see the 
 | Enemy Deck    | the Enemy Deck: any Y-Card (Y013 and the Enemy Cards Y800–Y849)                                                          |
 | Training Deck | the Training Deck: any Y-Card (Y012 and the training cards Y749–Y799)                                                    |
 | Banned Cards  | the Banned Cards pile: Y011 and any banished card                                                                        |
-| Actions       | Y-Cards, upside down: the hand (a column), the discard pile and the Damage Card (see below)                              |
+| Actions       | Y-Cards, upside down: the Action Cards (your hand, a column), the discard pile and the Damage Card (see below)           |
 | Battlefield   | Terrain Cards, Hit Point Cards, Y-Cards (enemies)                                                                        |
 
 Region, Character, Alignment, Money, Storybook, Terrain and Hit Point cards only fit in their own area.
@@ -267,7 +267,7 @@ the Character area, the House Card moves right as Goods are added. A 17th Goods 
 **Actions.** Right of Character, the Actions area holds the Y-cards in your hand (Action Cards, rulebook 4.7.7),
 their discard pile (rulebook 8.2.1.1.1) and the Damage Card (rulebook 4.7.9). Every card in the hand and the discard
 pile lies turned 180°, so the strip printed upside down at the bottom of an Action Card reads the right way up at its
-top; it can't be rotated there (**Rotate** is not offered). On the left is the **Hand**: a column of cards, each lying on the one
+top; it can't be rotated there (**Rotate** is not offered). On the left are the **Action Cards**, your hand: a column of cards, each lying on the one
 before, a little lower, so that the top 22% of every card under it shows. The cards in the hand lie face up: a card put there
 face down turns face up, and they can't be turned over there; the discard pile's can. A Y-card dropped anywhere in the area goes at
 the end of the column, on top; dropped on the column itself, it goes where you drop it. Any number of them: the area
@@ -276,8 +276,8 @@ there. Below it lies the **Damage Card** (Y010), upright, for good: a new game s
 there too, taken from wherever it was), and it can't be dragged, drawn, taken out (Find, Browse), returned to its deck
 or rotated. Cards dropped on it go under it, as the Action Cards discarded as damage do, so they aren't mixed up with
 the played ones; **Shuffle**, **Sort** and **Turn pile over** leave it on top. To take the cards under it back, drag
-its `⠿` grip (all of them, e.g. onto the hand or the discard pile), drag them out of **Browse**, or use **Return to
-deck**, **Put under…**: the Damage Card always stays. A pile dropped on the hand (say the cards under the Damage Card, dragged by its grip, or the discard pile) is spread
+its `⠿` grip (all of them, e.g. onto the Action Cards or the discard pile), drag them out of **Browse**, or use **Return to
+deck**, **Put under…**: the Damage Card always stays. A pile dropped on the Action Cards (say the cards under the Damage Card, dragged by its grip, or the discard pile) is spread
 out in the column, one card per place, in its order. The area takes nothing but Y-cards. Reordering and taking cards away work as for Money Cards. Dragged out of the area, a
 card keeps lying upside down until you rotate it.
 

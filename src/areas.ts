@@ -929,7 +929,7 @@ export const SPOTS: Spot[] = [
   // it. Any number of them: the area grows down with the column.
   {
     id: 'hand',
-    label: 'Hand',
+    label: 'Action Cards',
     hint: 'Y-Cards',
     area: 'hand',
     family: 'lost-pages',

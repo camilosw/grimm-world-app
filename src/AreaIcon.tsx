@@ -58,10 +58,8 @@ const ICONS: Record<string, ReactNode> = {
       <path d="m5.6 5.6 12.8 12.8" />
     </>
   ),
-  // An open hand: the Actions area holds the player's hand.
-  hand: (
-    <path d="M7 14V6.5a1.5 1.5 0 0 1 3 0V11M10 11V4.5a1.5 1.5 0 0 1 3 0V11M13 11V5.5a1.5 1.5 0 0 1 3 0V12M16 12V8.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.5a6 6 0 0 1-4.6-2.2L4 15.2a1.6 1.6 0 0 1 2.4-2.1L7 14" />
-  ),
+  // A lightning bolt: the Action Cards.
+  hand: <path d="M13 2 3 14h9l-1 8 10-12h-9z" />,
   home: <path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5M10 20v-5.5h4V20" />,
   // Crossed swords: blades with flat tips, guards, hilts and pommels.
   battlefield: (
