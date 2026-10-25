@@ -39,9 +39,9 @@ interface Props {
 }
 
 /**
- * The right sidebar: cards set aside (the setup cards, say) to keep at hand while moving about the table. It appears
- * when a card is dragged to the right edge of the table and goes away when its last card leaves. Its width follows its
- * left edge, dragged, and the cards fill it.
+ * The Hand, the right sidebar: cards set aside (the setup cards, say) to keep at hand while moving about the table.
+ * Always there, minimized to a narrow bar while empty; cards dropped on the bar open it. Its width follows its left
+ * edge, dragged, and the cards fill it.
  */
 export function Tray({
   piles,
@@ -117,16 +117,18 @@ export function Tray({
       <aside
         className={`tray collapsed${hover ? ' drop-hint' : ''}`}
         data-tray
-        aria-label="Cards set aside"
+        aria-label="Hand"
       >
         <button
           className="tray-open"
           onClick={() => onCollapse(false)}
-          aria-label={`Show the ${count} cards set aside`}
+          aria-label={
+            count ? `Show the ${count} cards in the Hand` : 'Show the Hand'
+          }
         >
           <span aria-hidden>‹</span>
-          <span className="tray-count">{count}</span>
-          <span className="tray-title">Set aside</span>
+          {count > 0 && <span className="tray-count">{count}</span>}
+          <span className="tray-title">Hand</span>
         </button>
       </aside>
     );
@@ -138,7 +140,7 @@ export function Tray({
       ref={panelRef}
       className={`tray${hover ? ' drop-hint' : ''}`}
       data-tray
-      aria-label="Cards set aside"
+      aria-label="Hand"
       style={{ '--tray-width': `${width}px` } as React.CSSProperties}
     >
       <hr
@@ -150,17 +152,15 @@ export function Tray({
       />
       <header className="tray-bar">
         <h2>
-          Set aside <span className="muted">{count}</span>
+          Hand <span className="muted">{count}</span>
         </h2>
-        {piles.length > 0 && (
-          <button
-            className="icon"
-            onClick={() => onCollapse(true)}
-            aria-label="Minimize"
-          >
-            ›
-          </button>
-        )}
+        <button
+          className="icon"
+          onClick={() => onCollapse(true)}
+          aria-label="Minimize"
+        >
+          ›
+        </button>
       </header>
       <div className="tray-list">
         {piles.map((s) => (

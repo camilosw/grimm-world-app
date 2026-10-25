@@ -350,16 +350,17 @@ in the Browse panel, then tap the deck (in the sidebar or on the table). A deck 
 | Banned Cards   | any card (banished)                         |
 | other decks    | only their own cards                        |
 
-**Set aside (right sidebar).** A place to keep cards at hand while you move about the table, e.g. the setup cards.
-It is hidden while empty: drag a card (from the table, a sidebar deck or the Browse panel) to the right edge of the
-table and it opens; drop the card there. A whole pile dragged by its `⠿` grip goes in as one pile. The cards lie one
+**Hand (right sidebar).** A place to set cards aside and keep them at hand while you move about the table, e.g. the
+setup cards (not to be confused with the Action Cards in the Actions area, your hand in the rulebook). It is always
+there, minimized to a narrow bar while empty: drag a card (from the table, a sidebar deck or the Browse panel) onto it
+and it opens with the card in it. A whole pile dragged by its `⠿` grip goes in as one pile. The cards lie one
 below the other, upright, each as wide as the sidebar: drag its left edge to make it wider or narrower (it remembers
 the width). Dropped on a card already there, a card goes before it (on its upper half) or after it (lower half), so
-you can also reorder them. **›** minimizes it to a narrow bar showing how many cards are set aside; cards can still be
-dropped on the bar, and a tap opens it again. To take a card out, drag it onto the table (where the same area rules
+you can also reorder them. **›** minimizes it to a narrow bar showing how many cards it holds; cards can still be
+dropped on the bar, which opens it, and a tap opens it too. To take a card out, drag it onto the table (where the same area rules
 apply as for any drop), onto the left sidebar (back to its deck) or onto the storybook; or tap it and use **⤴ To
 table**. Tap selects a card (for **Flip**, **Browse**, **Put under…**, **Return to deck**…), double-tap flips it,
-long-press reads it. When the last card leaves, the sidebar hides again. **Find card** finds cards set aside too.
+long-press reads it. When the last card leaves, it is minimized again. **Find card** finds cards in the Hand too.
 
 **Table**
 

@@ -90,7 +90,10 @@ type Dialog =
   | null;
 
 /** A remembered on/off panel setting (per device). */
-function usePanel(key: string, openFirst = true): [boolean, () => void] {
+function usePanel(
+  key: string,
+  openFirst = true,
+): [boolean, () => void, (open: boolean) => void] {
   const [open, setOpen] = useState(() => {
     try {
       const saved = localStorage.getItem(key);
@@ -107,7 +110,18 @@ function usePanel(key: string, openFirst = true): [boolean, () => void] {
     }
     setOpen(!open);
   };
-  return [open, toggle];
+  const set = useCallback(
+    (open: boolean) => {
+      try {
+        localStorage.setItem(key, open ? '1' : '0');
+      } catch {
+        // Only a convenience.
+      }
+      setOpen(open);
+    },
+    [key],
+  );
+  return [open, toggle, set];
 }
 
 const sameZone = (a: Zone | null, b: Zone | null) =>
@@ -138,9 +152,6 @@ const RAIL_AREAS = [
 ];
 
 const DECKS_IN_SIDEBAR = (t: Table) => (t.dock ?? []).map((id) => t.stacks[id]);
-
-/** How close to the right edge of the table (screen pixels) a dragged card opens the hidden sidebar of cards set aside. */
-const TRAY_EDGE = 48;
 
 type FigureKind = { label: string; color: string; shape: Token['shape'] };
 
@@ -196,8 +207,18 @@ export default function App() {
   /** A phone: the actions for the selection make way for the Browse panel, which puts its own in their column. */
   const compact = useCompact();
   const [browseSlot, setBrowseSlot] = useState<HTMLElement | null>(null);
-  /** The right sidebar of cards set aside is open, not minimized to a narrow bar. */
-  const [trayOpen, toggleTray] = usePanel('grimm-world:tray-open');
+  /** The Hand, the right sidebar of cards set aside, is open, not minimized to a narrow bar. */
+  const [trayOpen, , setTrayOpen] = usePanel('grimm-world:tray-open');
+  const trayCount = table?.tray?.length ?? 0;
+  const loaded = !!table;
+  /** The Hand held cards when last looked at (null: not yet). */
+  const trayHeld = useRef<boolean | null>(null);
+  // The Hand is minimized while empty: at the start, and once its last card leaves.
+  useEffect(() => {
+    if (!loaded) return;
+    if (!trayCount && trayHeld.current !== false) setTrayOpen(false);
+    trayHeld.current = trayCount > 0;
+  }, [loaded, trayCount, setTrayOpen]);
   const [zoneHover, setZoneHover] = useState<Zone | null>(null);
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(
     null,
@@ -565,7 +586,7 @@ export default function App() {
       return setSelection({ kind: 'stack', id: stackId });
     }
     if (A.inTray(table, stackId)) {
-      if (!trayOpen) toggleTray();
+      setTrayOpen(true);
       requestAnimationFrame(() =>
         document
           .querySelector(`[data-tray-pile="${stackId}"]`)
@@ -583,7 +604,7 @@ export default function App() {
     setSelection({ kind: 'stack', id: stackId });
   };
 
-  /** Drop zone (sidebar deck, sidebar, the right sidebar of cards set aside) under a screen point. */
+  /** Drop zone (sidebar deck, sidebar, the Hand) under a screen point. */
   const zoneAt = (clientX: number, clientY: number): Zone | null => {
     const el = document.elementFromPoint(clientX, clientY);
     const pile = el?.closest<HTMLElement>('[data-tray-pile]');
@@ -599,16 +620,6 @@ export default function App() {
     const deck = el?.closest<HTMLElement>('[data-deck]');
     if (deck) return { kind: 'deck', id: deck.dataset.deck! };
     if (el?.closest('[data-dock]')) return { kind: 'dock' };
-    // Hidden while nothing is set aside: it appears when a card is dragged to the right edge of the table.
-    const r = areaRef.current?.getBoundingClientRect();
-    const edge =
-      r &&
-      clientX > r.right - TRAY_EDGE &&
-      clientX <= r.right &&
-      clientY >= r.top &&
-      clientY <= r.bottom;
-    if (edge && !document.querySelector('[data-tray]'))
-      return { kind: 'tray', before: null };
     return null;
   };
 
@@ -630,9 +641,9 @@ export default function App() {
     }
   };
 
-  /** Tell the player that cards went into the minimized sidebar, where they can't see them. */
+  /** Cards dropped on the Hand: it opens, if minimized, to show them. */
   const setAside = (fn: (t: Table) => Table) => {
-    if (!trayOpen && table?.tray?.length) notify('Set aside', true);
+    setTrayOpen(true);
     update(fn);
   };
 
@@ -1223,33 +1234,29 @@ export default function App() {
                 </div>
               )}
             </div>
-            {(trayPiles.length > 0 || zoneHover?.kind === 'tray') && (
-              <Tray
-                piles={trayPiles}
-                defs={defs}
-                collapsed={!trayOpen && trayPiles.length > 0}
-                onCollapse={(collapsed) =>
-                  collapsed === trayOpen && toggleTray()
-                }
-                selectedId={aside ? selectedStack!.id : null}
-                hover={zoneHover?.kind === 'tray' ? zoneHover : null}
-                onTap={(id) =>
-                  putUnder
-                    ? putUnderTarget(id)
-                    : setSelection({ kind: 'stack', id })
-                }
-                onDoubleTap={(id) => update((t) => A.flipTop(t, id))}
-                onInspect={(card) => setDialog({ kind: 'inspect', card })}
-                onDragHover={(d) => {
-                  const cardIds = d
-                    ? (table.stacks[d.item]?.cards.map((c) => c.id) ?? [])
-                    : [];
-                  hoverZone(d && zoneAt(d.x, d.y), cardIds);
-                  hoverTable(cardIds, d?.x, d?.y);
-                }}
-                onDrop={dropFromTray}
-              />
-            )}
+            <Tray
+              piles={trayPiles}
+              defs={defs}
+              collapsed={!trayOpen}
+              onCollapse={(collapsed) => setTrayOpen(!collapsed)}
+              selectedId={aside ? selectedStack!.id : null}
+              hover={zoneHover?.kind === 'tray' ? zoneHover : null}
+              onTap={(id) =>
+                putUnder
+                  ? putUnderTarget(id)
+                  : setSelection({ kind: 'stack', id })
+              }
+              onDoubleTap={(id) => update((t) => A.flipTop(t, id))}
+              onInspect={(card) => setDialog({ kind: 'inspect', card })}
+              onDragHover={(d) => {
+                const cardIds = d
+                  ? (table.stacks[d.item]?.cards.map((c) => c.id) ?? [])
+                  : [];
+                hoverZone(d && zoneAt(d.x, d.y), cardIds);
+                hoverTable(cardIds, d?.x, d?.y);
+              }}
+              onDrop={dropFromTray}
+            />
           </div>
         </div>
         {rulesOpen && rules && (

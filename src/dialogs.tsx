@@ -607,7 +607,7 @@ export function FindDialog({
                   {stack.slot
                     ? 'in the Storybook'
                     : aside
-                      ? 'set aside'
+                      ? 'in the Hand'
                       : inPile
                         ? `in ${stack.label ?? 'pile'}`
                         : 'on table'}
