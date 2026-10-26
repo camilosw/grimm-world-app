@@ -69,6 +69,7 @@ import {
 } from './Table';
 import { Tray } from './Tray';
 import { useDragOut } from './useDragOut';
+import { isValidTable } from './validate';
 import { isCompact, useCompact } from './compact';
 import type {
   CardDef,
@@ -164,23 +165,6 @@ const TOKENS: FigureKind[] = [
   { label: 'Enemy black', color: '#1d1d1f', shape: 'pawn' },
   { label: 'Enemy pink', color: '#e75aa6', shape: 'pawn' },
 ];
-
-/** Every playable card exactly once (older saves may still hold the title card). */
-function isValidTable(t: Table | null, manifest: CardManifest): t is Table {
-  if (!t?.stacks || !t.z || !t.tokens) return false;
-  const ids = [
-    ...Object.values(t.stacks).flatMap((s) => s.cards),
-    ...(t.hand ?? []),
-  ].map((c) => c.id);
-  const known = new Set(manifest.cards.map((c) => c.id));
-  const unique = new Set(ids);
-  return (
-    unique.size === ids.length &&
-    ids.every((id) => known.has(id)) &&
-    playableCards(manifest).every((c) => unique.has(c.id)) &&
-    (t.tray ?? []).every((id) => t.stacks[id])
-  );
-}
 
 export default function App() {
   const [manifest, setManifest] = useState<CardManifest | null>(null);
