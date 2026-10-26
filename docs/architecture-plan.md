@@ -10,24 +10,24 @@ Update this table when a step starts and when it lands on `main` (in the same co
 
 Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 
-| Step                                     | Model                                                                                               | Status                               |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| A1. Test safety net                      | Opus designs the invariants, property tests and save fixtures; Sonnet writes the bulk of unit tests | 🟡 In progress (worktree `test-net`) |
-| A2. A single path for loading and saving | Opus                                                                                                | ⬜ Not started                       |
-| A3.1 Add `at` next to `x, y`             | Opus                                                                                                | ⬜ Not started                       |
-| A3.2 Move the readers over to `at`       | Opus                                                                                                | ⬜ Not started                       |
-| A3.3 Derive `x, y`, stop saving layout   | Opus                                                                                                | ⬜ Not started                       |
-| A3.4 Remove the geometric inference      | Opus                                                                                                | ⬜ Not started                       |
-| A4. Split `App.tsx` and `TableView`      | Opus for the gesture reducer and the first hook; Sonnet for the remaining hook extractions          | ⬜ Not started                       |
-| A5. Documentation                        | Sonnet                                                                                              | 🔁 Ongoing                           |
-| B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | ⬜ Not started                       |
-| B2. Injected `GameDefinition`            | Opus                                                                                                | ⬜ Not started                       |
-| B3. Composable place behaviours          | Opus                                                                                                | ⬜ Not started                       |
-| B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ⬜ Not started                       |
-| B5. Refusals as codes                    | Sonnet, once Opus has fixed the list of codes                                                       | ⬜ Not started                       |
-| B6. Generic cards, images and content    | Opus for `CardDef`; Sonnet for the pipeline configuration and the content provider                  | ⬜ Not started                       |
-| B7. A minimal second game                | Opus                                                                                                | ⬜ Not started                       |
-| B8. Packages                             | Sonnet                                                                                              | ⬜ Not started                       |
+| Step                                     | Model                                                                                               | Status         |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------- |
+| A1. Test safety net                      | Opus designs the invariants, property tests and save fixtures; Sonnet writes the bulk of unit tests | ✅ Done        |
+| A2. A single path for loading and saving | Opus                                                                                                | ⬜ Not started |
+| A3.1 Add `at` next to `x, y`             | Opus                                                                                                | ⬜ Not started |
+| A3.2 Move the readers over to `at`       | Opus                                                                                                | ⬜ Not started |
+| A3.3 Derive `x, y`, stop saving layout   | Opus                                                                                                | ⬜ Not started |
+| A3.4 Remove the geometric inference      | Opus                                                                                                | ⬜ Not started |
+| A4. Split `App.tsx` and `TableView`      | Opus for the gesture reducer and the first hook; Sonnet for the remaining hook extractions          | ⬜ Not started |
+| A5. Documentation                        | Sonnet                                                                                              | 🔁 Ongoing     |
+| B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | ⬜ Not started |
+| B2. Injected `GameDefinition`            | Opus                                                                                                | ⬜ Not started |
+| B3. Composable place behaviours          | Opus                                                                                                | ⬜ Not started |
+| B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ⬜ Not started |
+| B5. Refusals as codes                    | Sonnet, once Opus has fixed the list of codes                                                       | ⬜ Not started |
+| B6. Generic cards, images and content    | Opus for `CardDef`; Sonnet for the pipeline configuration and the content provider                  | ⬜ Not started |
+| B7. A minimal second game                | Opus                                                                                                | ⬜ Not started |
+| B8. Packages                             | Sonnet                                                                                              | ⬜ Not started |
 
 ### Choosing the model
 
@@ -103,6 +103,21 @@ Goal: being able to refactor `areas.ts`, `actions.ts` and `setup.ts` without fea
 
 Done when: the invariants pass in CI, every fixture migrates, and the coverage of the rules modules exceeds the agreed
 threshold.
+
+Outcome (October 2026, on top of 0.5.5; `CLAUDE.md` describes how to use it):
+
+- The invariants are `tableProblems()` in `validate.ts`, next to `isValidTable`, ready for A2. The random games
+  (`properties.test.ts`) play the moves the UI offers, as `App.tsx` / `Table.tsx` apply them, with `Math.random`
+  seeded per game; a one-off run of 10,000 games of up to 150 moves found nothing.
+- The save fixtures share one file of card definitions (`src/test/saves/cards.json`), since every save holds every
+  card. Besides one save per tag, `-moved` saves (an area moved, cards set aside) and `-battle` saves (a battlefield
+  built in the old Battle dialog). A snapshot records where everything lies after migrating: the baseline for A3.
+- The `-battle` save from v0.1.0 showed a migration bug, fixed separately (`fix(save)`): the Terrain Cards of a
+  battlefield built before v0.3.0 ended up beside the Battlefield grid.
+- Coverage threshold, per file, for `areas.ts`, `actions.ts`, `decks.ts`, `setup.ts` and `validate.ts`: 85% of
+  statements, lines and functions, 75% of branches (`vite.config.ts`, checked in CI by `npm run test:coverage`). The
+  random games make coverage vary by about 1.5 points between runs, hence the margin below what is reached (lines:
+  90–100%).
 
 ### A2. A single path for loading and saving
 
@@ -249,7 +264,6 @@ With two games working: npm workspaces (`engine`, `ui`, `pipeline`, and each gam
 
 ## Open decisions
 
-- A1's coverage threshold.
 - A2's validation schema: valibot or hand-written.
 - The final shape of `At` (A3), in particular loose piles inside a growing area and the Battlefield's `alt` places.
 - Which game serves as the second game in B7.
