@@ -253,16 +253,22 @@ const OLD_ENCOUNTER: string[] = ['encounter', 'time'];
 
 /** Bring saves from older versions of the app up to date. */
 export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
+  const terrain = builtBattlefield(t, defs);
   const migrated = addHandArea(
     addEncounterArea(
-      emptyHand(migrateDecks(addBattlefieldArea(t, defs), defs), defs),
+      emptyHand(migrateDecks(addBattlefieldArea(t), defs), defs),
     ),
   );
   const laidOut = packAreas(
-    clearDeckAreas(
-      layDecks(
-        raiseAreas(fillBar(shrinkMap(lowerHome(widenStorage(migrated))), defs)),
+    layBattlefield(
+      clearDeckAreas(
+        layDecks(
+          raiseAreas(
+            fillBar(shrinkMap(lowerHome(widenStorage(migrated))), defs),
+          ),
+        ),
       ),
+      terrain,
     ),
   );
   return settle(
@@ -313,11 +319,11 @@ function addEncounterArea(t: Table): Table {
  * (`Table.battlefield`), its Terrain Cards lying portrait, edge to edge. The area lies right of everything on the table,
  * so that it takes in none of the cards lying there, until `packAreas` lays it out right of the Home area; where the
  * player moved the areas, it goes below them at the left edge. The Terrain Cards of a battlefield built go onto the
- * places of its grid, in the same columns and rows.
+ * places of its grid (`builtBattlefield`, `layBattlefield`).
  */
-function addBattlefieldArea(t: Table, defs: Record<string, CardDef>): Table {
+function addBattlefieldArea(t: Table): Table {
   if ((t.layout ?? 0) >= 9) return t;
-  const { battlefield: old, ...rest } = t;
+  const { battlefield: _, ...rest } = t;
   const own = area('battlefield');
   const areas = allAreas(rest).filter((a) => a.id !== 'battlefield');
   const right = Math.max(
@@ -340,10 +346,25 @@ function addBattlefieldArea(t: Table, defs: Record<string, CardDef>): Table {
       battlefield: { x: Math.round(x), y: Math.round(y) },
     };
   }
-  if (!old) return next;
+  return next;
+}
+
+/** A place of the battlefield grid, by column and row. */
+type Cell = { col: number; row: number };
+
+/**
+ * The piles of Terrain Cards lying on a battlefield built before the Battlefield area (`Table.battlefield`), with the
+ * column and row of the place each lay on.
+ */
+function builtBattlefield(
+  t: Table,
+  defs: Record<string, CardDef>,
+): Map<string, Cell> {
+  const cells = new Map<string, Cell>();
+  const old = (t.layout ?? 0) < 9 && t.battlefield;
+  if (!old) return cells;
   const x0 = old.x + AREA_PAD;
   const y0 = old.y + AREA_HEADER;
-  const stacks = { ...next.stacks };
   for (const id of t.z) {
     const s = t.stacks[id];
     if (!s.cards.some((c) => defs[c.id]?.type === 'terrain')) continue;
@@ -351,13 +372,25 @@ function addBattlefieldArea(t: Table, defs: Record<string, CardDef>): Table {
     const row = Math.round((s.y - y0) / CARD_H);
     const inside = col >= 0 && row >= 0 && col < old.cols && row < old.rows;
     if (
-      !inside ||
-      Math.hypot(s.x - x0 - col * CARD_W, s.y - y0 - row * CARD_H) > CARD_W / 4
+      inside &&
+      Math.hypot(s.x - x0 - col * CARD_W, s.y - y0 - row * CARD_H) <= CARD_W / 4
     )
-      continue;
-    stacks[id] = { ...s, ...terrainPlace(next, col, row) };
+      cells.set(id, { col, row });
   }
-  return { ...next, stacks };
+  return cells;
+}
+
+/**
+ * The Terrain Cards of a battlefield built before the Battlefield area onto the places of its grid, in the same columns
+ * and rows. After the migrations working in older coordinates, which would move them off these places.
+ */
+function layBattlefield(t: Table, cells: Map<string, Cell>): Table {
+  if (!cells.size) return t;
+  const stacks = { ...t.stacks };
+  for (const [id, { col, row }] of cells)
+    if (stacks[id])
+      stacks[id] = { ...stacks[id], ...terrainPlace(t, col, row) };
+  return { ...t, stacks };
 }
 
 /**
