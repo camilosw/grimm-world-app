@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DECK_SPECS, homeDeck } from './decks';
+import { DECK_SPECS, homeDeck, type DeckKind } from './decks';
 import { card, table } from './test/fixtures';
+import type { CardType } from './types';
 
 describe('what the campaign decks hold', () => {
   it('takes any Y-card into the Enemy, Quest and Training Decks', () => {
@@ -30,6 +31,18 @@ describe('homeDeck', () => {
     expect(homeDeck(table(), card('Y760', 'lost-pages'))).toBe('lost-pages');
     expect(homeDeck(table(), card('X05', 'encounter-x'))).toBe('x-encounters');
     expect(homeDeck(table(), card('B23', 'encounter-b'))).toBe('encounter');
+    const decks: [CardType, DeckKind][] = [
+      ['storybook', 'storybook'],
+      ['time', 'encounter'],
+      ['region', 'regions'],
+      ['terrain', 'terrain'],
+      ['hitpoints', 'hitpoints'],
+      ['character', 'character'],
+      ['alignment', 'alignment'],
+      ['money', 'money'],
+    ];
+    for (const [type, deck] of decks)
+      expect(homeDeck(table(), card('', type))).toBe(deck);
   });
 
   it('never sends a card back to Banned Cards, nor to a deck that refuses it', () => {

@@ -1,3 +1,5 @@
 # Written by npm and by `npm run release`
 package-lock.json
 CHANGELOG.md
+# Saves exported from released versions, kept exactly as the app wrote them
+src/test/saves/

@@ -15,5 +15,22 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     // Worktrees (.claude/worktrees) hold copies of the tests, with their own node_modules: run only this checkout's.
     exclude: [...configDefaults.exclude, '.claude/**'],
+    // npm run test:coverage (CI): the rules modules must stay covered by tests, each on its own. The random games
+    // (properties.test.ts) cover a little more or less each run: leave some room below what they reach.
+    coverage: {
+      provider: 'v8',
+      include: ['src/*.ts'],
+      exclude: ['src/*.test.ts', 'src/env.d.ts'],
+      reporter: ['text', 'html'],
+      thresholds: {
+        'src/{areas,actions,decks,setup,validate}.ts': {
+          perFile: true,
+          statements: 85,
+          lines: 85,
+          functions: 85,
+          branches: 75,
+        },
+      },
+    },
   },
 });

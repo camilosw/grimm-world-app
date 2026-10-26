@@ -19,7 +19,8 @@
     "prepare": "husky",
     "test": "vitest",
     "test:run": "vitest run",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@vercel/functions": "^3.9.11",
@@ -37,7 +38,9 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/coverage-v8": "^5.0.3",
     "commit-and-tag-version": "^13.2.1",
+    "fast-check": "^4.10.2",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "lint-staged": "^16.4.0",

@@ -1,17 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { spotsOf } from './areas';
+import { placeStack, spotsOf, stacksOnSpot } from './areas';
 import {
+  battlefieldText,
+  buildBattlefield,
+  cardsToDecks,
   dropOnto,
   flipTop,
+  fromTray,
+  liftPile,
   moveStack,
   parseBattlefield,
+  putUnderChapter,
+  putUnderPile,
+  revealStory,
   settle,
   shuffleStack,
   sortStack,
+  stackToDecks,
+  storyProgress,
+  toTray,
   topToBottom,
   unpinned,
+  unrevealStory,
 } from './actions';
+import { deckStack, storySlot } from './decks';
 import { card, refs, stack, table } from './test/fixtures';
+import * as game from './test/play';
 
 describe('pinned cards', () => {
   const time = card('T01', 'time');
@@ -118,5 +132,114 @@ describe('parseBattlefield', () => {
     const { rows, invalid } = parseBattlefield('1 2 / 3x');
     expect(rows).toHaveLength(2);
     expect(invalid).toEqual(['3x']);
+  });
+});
+
+describe('in a game', () => {
+  const t0 = game.newGame();
+  const { apply, defs, spot } = game;
+  const [y1, y2, y3] = game.cardsOf('lost-pages', 3);
+
+  it('lifts the Encounter Deck off its place by the grip, leaving the time card', () => {
+    const place = placeStack(t0, 'time-passes')!;
+    const [t, id] = liftPile(t0, place.id, -3000, -3000);
+    expect(t.stacks[place.id].cards.map((c) => defs[c.id].name)).toEqual([
+      'Time Passes',
+    ]);
+    expect(t.stacks[id!].cards).toEqual(unpinned(place));
+    // Nothing is left to lift.
+    expect(liftPile(t, place.id, 0, 0)).toEqual([t, null]);
+  });
+
+  it('sets cards aside in the Hand and puts them back on the table', () => {
+    const lost = deckStack(t0, 'lost-pages')!;
+    const t = apply(t0, (t) => toTray(t, lost.id, 'top'));
+    const [aside] = t.tray!;
+    expect(t.stacks[aside].cards.map((c) => c.id)).toEqual([
+      lost.cards.at(-1)!.id,
+    ]);
+    // Before the set-aside pile dropped on.
+    const t2 = apply(t, (t) => toTray(t, lost.id, 'top', aside));
+    expect(t2.tray).toHaveLength(2);
+    expect(t2.tray![1]).toBe(aside);
+    const t3 = apply(t2, (t) => fromTray(t, aside, -3000, -3000));
+    expect(t3.tray).toHaveLength(1);
+    expect(t3.z.at(-1)).toBe(aside);
+    expect(t3.stacks[aside]).toMatchObject({ x: -3000, y: -3000 });
+  });
+
+  it('slides cards picked out of a deck under a table pile, as they are turned', () => {
+    let t = game.dropEach(t0, [y1], -3000, -3000);
+    const pile = game.pileOf(t, y1);
+    t = apply(t, (t) =>
+      putUnderPile(t, game.pileOf(t, y2), [y2, y3], pile, false),
+    );
+    expect(t.stacks[pile].cards).toEqual([
+      { id: y2, faceUp: false },
+      { id: y3, faceUp: false },
+      { id: y1, faceUp: true },
+    ]);
+    // Back to their deck, in card order.
+    const lost = deckStack(t, 'lost-pages')!;
+    t = apply(t, (t) => stackToDecks(t, pile, 'all', defs));
+    expect(t.stacks[pile]).toBeUndefined();
+    expect(sortStack(t, lost.id, defs)).toEqual(t);
+  });
+
+  it('returns cards picked in a pile to their decks, but its pinned ones', () => {
+    const enemy = deckStack(t0, 'enemy')!;
+    let t = game.dropEach(t0, [y1], -3000, -3000);
+    t = apply(t, (t) => dropOnto(t, game.pileOf(t, y1), enemy.id, defs));
+    t = apply(t, (t) => cardsToDecks(t, enemy.id, [0, 1], defs));
+    expect(t.stacks[enemy.id].cards.map((c) => defs[c.id].code)).toEqual([
+      'Y013',
+    ]);
+    expect(game.pileOf(t, y1)).toBe(deckStack(t, 'lost-pages')!.id);
+  });
+
+  it('turns the storybook over chapter by chapter, and back', () => {
+    let t = apply(t0, (t) => revealStory(t, defs));
+    t = apply(t, (t) => revealStory(t, defs));
+    expect(storyProgress(t, defs)).toEqual({
+      revealed: new Set(['Book Cover / Prologue', 'Chapter 1']),
+      current: 'Chapter 1',
+    });
+    t = apply(t, unrevealStory);
+    expect(storyProgress(t, defs).current).toBe('Book Cover / Prologue');
+    expect(storySlot(t, 'story')!.cards.at(-1)).toEqual({
+      id: game.card('Chapter 1'),
+      faceUp: false,
+    });
+  });
+
+  it('puts Y-cards under a chapter, and sends them to the Encounter Bar as they come up', () => {
+    let t = apply(t0, (t) => revealStory(t, defs));
+    t = apply(t, (t) =>
+      putUnderChapter(t, game.pileOf(t, y1), 'Chapter 2', defs, [y1, y2]),
+    );
+    const story = storySlot(t, 'story')!;
+    const chapter = story.cards.findIndex(
+      (c) => c.id === game.card('Chapter 2'),
+    );
+    expect(
+      story.cards.slice(chapter - 2, chapter + 1).map((c) => c.id),
+    ).toEqual([y1, y2, game.card('Chapter 2')]);
+    // Chapters 1 and 2 come up, then the Y-cards under Chapter 2 go into the Encounter Bar, face down, each first in
+    // its row.
+    t = [1, 2, 3, 4].reduce((t) => apply(t, (t) => revealStory(t, defs)), t);
+    expect(storyProgress(t, defs).current).toBe('Chapter 2');
+    const bar = stacksOnSpot(t, spot(t, 'bar'));
+    expect(bar.map((id) => t.stacks[id].cards)).toEqual([
+      [{ id: y1, faceUp: false }],
+      [{ id: y2, faceUp: false }],
+    ]);
+  });
+
+  it('types out the battlefield lying on the table as it was typed in', () => {
+    const text = '01 07v 15v\n19 - 31';
+    const t = apply(t0, (t) =>
+      buildBattlefield(t, parseBattlefield(text).rows, defs),
+    );
+    expect(battlefieldText(t, defs)).toBe(text);
   });
 });
