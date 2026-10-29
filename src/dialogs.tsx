@@ -18,6 +18,7 @@ import {
   queryTerms,
 } from './cards';
 import { CardGhost } from './CardGhost';
+import { storage } from './storage';
 import { update } from './store';
 import type { CardDef, CardRef, Table } from './types';
 import { useDragOut } from './useDragOut';
@@ -177,19 +178,13 @@ interface BrowseProps {
 /** The cards a Browse panel's group grip drags: those picked at random, or the selected ones. */
 type Group = 'unseen' | 'chosen';
 
-const HEIGHT_KEY = 'grimm-world:browse-height';
+const HEIGHT_KEY = storage('browse-height');
 /** The panel keeps its bar and a row of cards. */
 const MIN_BROWSE = 200;
 /** The toolbar and the table keep at least this much room above the panel (`.workspace` in styles.css). */
 const MIN_TABLE = 180;
 // The height dragged last (null: half the screen), kept when the panel opens on another pile.
-let browseHeight: number | null = (() => {
-  try {
-    return Number(localStorage.getItem(HEIGHT_KEY)) || null;
-  } catch {
-    return null;
-  }
-})();
+let browseHeight: number | null = Number(HEIGHT_KEY.get()) || null;
 
 /**
  * Look through a pile and pull cards out. Sits in the bottom half of the
@@ -290,11 +285,7 @@ export function BrowsePanel({
     onPointerUp: () => {
       resizing.current = false;
       browseHeight = height;
-      try {
-        if (height) localStorage.setItem(HEIGHT_KEY, String(height));
-      } catch {
-        // Only a convenience.
-      }
+      if (height) HEIGHT_KEY.set(String(height));
     },
   };
 

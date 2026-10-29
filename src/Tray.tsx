@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { cardImage, cardLabel, isLandscape, landscapeClass } from './cards';
 import { CardGhost } from './CardGhost';
+import { storage } from './storage';
 import type { CardDef, CardRef, Stack } from './types';
 import { useDragOut, type DragOut } from './useDragOut';
 import { useFlip } from './useFlip';
 
-const WIDTH_KEY = 'grimm-world:tray-width';
+const WIDTH_KEY = storage('tray-width');
 const DEFAULT_WIDTH = 220;
 const MIN_WIDTH = 120;
 /** The table keeps at least this much room beside the sidebar. */
@@ -13,11 +14,7 @@ const MIN_TABLE = 200;
 const DOUBLE_TAP_MS = 300;
 
 function savedTrayWidth(): number {
-  try {
-    return Number(localStorage.getItem(WIDTH_KEY)) || DEFAULT_WIDTH;
-  } catch {
-    return DEFAULT_WIDTH;
-  }
+  return Number(WIDTH_KEY.get()) || DEFAULT_WIDTH;
 }
 
 interface Props {
@@ -104,11 +101,7 @@ export function Tray({
     },
     onPointerUp: () => {
       resizing.current = false;
-      try {
-        localStorage.setItem(WIDTH_KEY, String(width));
-      } catch {
-        // Only a convenience.
-      }
+      WIDTH_KEY.set(String(width));
     },
   };
 

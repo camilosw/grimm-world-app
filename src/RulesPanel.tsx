@@ -12,6 +12,7 @@ import {
   type RulesManifest,
   type RuleTarget,
 } from './rules';
+import { storage } from './storage';
 
 interface Props {
   rules: RulesManifest;
@@ -20,11 +21,11 @@ interface Props {
   onClose: () => void;
 }
 
-const PAGE_KEY = 'grimm-world:rules-page';
-const WIDTH_KEY = 'grimm-world:rules-width';
-const BOOK_KEY = 'grimm-world:rules-book';
-const BOOKLET_KEY = 'grimm-world:booklet';
-const LAYOUT_KEY = 'grimm-world:booklet-layout';
+const PAGE_KEY = storage('rules-page');
+const WIDTH_KEY = storage('rules-width');
+const BOOK_KEY = storage('rules-book');
+const BOOKLET_KEY = storage('booklet');
+const LAYOUT_KEY = storage('booklet-layout');
 const MIN_WIDTH = 320;
 /** Table space that always stays visible next to the panel. */
 const MIN_TABLE = 200;
@@ -34,19 +35,11 @@ const ZOOMS = [1, 1.5, 2, 2.5];
 const GAP = 12;
 
 function savedWidth(): number | null {
-  try {
-    return Number(localStorage.getItem(WIDTH_KEY)) || null;
-  } catch {
-    return null;
-  }
+  return Number(WIDTH_KEY.get()) || null;
 }
 
 function savedPage(): number {
-  try {
-    return Number(localStorage.getItem(PAGE_KEY)) || 1;
-  } catch {
-    return 1;
-  }
+  return Number(PAGE_KEY.get()) || 1;
 }
 
 type Book = 'rulebook' | 'booklets';
@@ -54,39 +47,21 @@ type Book = 'rulebook' | 'booklets';
 type Layout = 'spread' | 'scroll';
 
 function savedBook(): Book {
-  try {
-    return localStorage.getItem(BOOK_KEY) === 'booklets'
-      ? 'booklets'
-      : 'rulebook';
-  } catch {
-    return 'rulebook';
-  }
+  return BOOK_KEY.get() === 'booklets' ? 'booklets' : 'rulebook';
 }
 
 function savedLayout(): Layout {
-  try {
-    return localStorage.getItem(LAYOUT_KEY) === 'scroll' ? 'scroll' : 'spread';
-  } catch {
-    return 'spread';
-  }
+  return LAYOUT_KEY.get() === 'scroll' ? 'scroll' : 'spread';
 }
 
 function savedBooklet(): BookletPlace | null {
   try {
-    const place = JSON.parse(localStorage.getItem(BOOKLET_KEY) ?? 'null');
+    const place = JSON.parse(BOOKLET_KEY.get() ?? 'null');
     return typeof place?.id === 'number' && typeof place?.page === 'number'
       ? place
       : null;
   } catch {
     return null;
-  }
-}
-
-function remember(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Only a convenience.
   }
 }
 
@@ -139,7 +114,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
 
   const showBook = (next: Book) => {
     setBook(next);
-    remember(BOOK_KEY, next);
+    BOOK_KEY.set(next);
     // Back to the rulebook at the place the player left it.
     if (next === 'rulebook' && book !== 'rulebook')
       setJumpTo({ page: current, y: currentY });
@@ -155,7 +130,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
   /** The booklet page being read. */
   const setPlace = (id: number, page: number) => {
     setBooklet({ id, page });
-    remember(BOOKLET_KEY, JSON.stringify({ id, page }));
+    BOOKLET_KEY.set(JSON.stringify({ id, page }));
   };
 
   const openBooklet = (id: number, page: number) => {
@@ -168,7 +143,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
 
   const setReadingLayout = (next: Layout) => {
     setLayout(next);
-    remember(LAYOUT_KEY, next);
+    LAYOUT_KEY.set(next);
   };
 
   // A new help link: jump there (adjusting state while rendering, as React recommends).
@@ -217,11 +192,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
         setCurrentY((at - el.offsetTop) / el.offsetHeight);
         if (page !== current) {
           setCurrent(page);
-          try {
-            localStorage.setItem(PAGE_KEY, String(page));
-          } catch {
-            // Only a convenience.
-          }
+          PAGE_KEY.set(String(page));
         }
         break;
       }
@@ -265,11 +236,7 @@ export function RulesPanel({ rules, target, onClose }: Props) {
     },
     onPointerUp: () => {
       resizing.current = false;
-      try {
-        if (width) localStorage.setItem(WIDTH_KEY, String(width));
-      } catch {
-        // Only a convenience.
-      }
+      if (width) WIDTH_KEY.set(String(width));
     },
   };
 

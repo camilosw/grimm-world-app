@@ -13,7 +13,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | Step                                     | Model                                                                                               | Status         |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------- |
 | A1. Test safety net                      | Opus designs the invariants, property tests and save fixtures; Sonnet writes the bulk of unit tests | ✅ Done        |
-| A2. A single path for loading and saving | Opus                                                                                                | ⬜ Not started |
+| A2. A single path for loading and saving | Opus                                                                                                | ✅ Done        |
 | A3.1 Add `at` next to `x, y`             | Opus                                                                                                | ⬜ Not started |
 | A3.2 Move the readers over to `at`       | Opus                                                                                                | ⬜ Not started |
 | A3.3 Derive `x, y`, stop saving layout   | Opus                                                                                                | ⬜ Not started |
@@ -135,6 +135,24 @@ Goal: loading a save is load → migrate → validate, in one place, without eve
 
 Done when: the A1 fixtures load through `save.ts`, a corrupt save leaves a backup and a notice, and `App.tsx` no longer
 validates or migrates.
+
+Outcome (October 2026, on top of A1; `CLAUDE.md` describes it under **Saves**):
+
+- `save.ts`: `readSave` (parse → envelope or legacy → shape → card set → migrations → `tableProblems`), `saveText`,
+  and `loadGame` / `writeGame` for the device. `store.ts` saves through `writeGame`; Import save and Export save go
+  through `readSave` / `saveText`. Refusals are `SaveError`s worded for the player.
+- The envelope is written under the same key (`grimm-world:table:v1`), so a tab still running an older version writes
+  a bare table there, which loads as version 0. A save of a newer version than the app's is refused, never migrated.
+- Saves of version 1 no longer go through `migrateTable` on every load: a later `Table` change adds a migration to
+  version 2 rather than a step to `migrateTable`.
+- The schema is hand-written (about 80 lines, no dependency): the types stay in `types.ts`, and most of what matters is
+  the semantic check (`isValidTable`, `tableProblems`). Valibot can still replace it in phase B if each game brings its
+  own schema.
+- A save that can't be loaded is kept under `grimm-world:table:unreadable` before the new game is saved, with the
+  reason in the console. No notice to the player for now: while the app is in development there are no players' saves
+  to look after, so a dialog (with the old save to download) waits until there are.
+- `storage(key)` (`storage.ts`) replaces the `grimm-world:*` keys and their try/catch in `App.tsx`, `dialogs.tsx`,
+  `Tray.tsx` and `RulesPanel.tsx`. `save.ts` joined the coverage threshold.
 
 ### A3. Logical position of piles
 
@@ -264,6 +282,5 @@ With two games working: npm workspaces (`engine`, `ui`, `pipeline`, and each gam
 
 ## Open decisions
 
-- A2's validation schema: valibot or hand-written.
 - The final shape of `At` (A3), in particular loose piles inside a growing area and the Battlefield's `alt` places.
 - Which game serves as the second game in B7.

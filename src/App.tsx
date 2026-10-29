@@ -39,7 +39,8 @@ import {
   storySlot,
   type DeckKind,
 } from './decks';
-import { initialTable, migrateTable, playableCards } from './setup';
+import { loadGame, readSave, saveText } from './save';
+import { initialTable, playableCards } from './setup';
 import {
   AREA_RULES,
   cardRule,
@@ -52,7 +53,6 @@ import { RulesPanel } from './RulesPanel';
 import { Sidebar } from './Sidebar';
 import {
   getTable,
-  loadSaved,
   redo,
   resetTable,
   undo,
@@ -68,8 +68,8 @@ import {
   type Zone,
 } from './Table';
 import { Tray } from './Tray';
+import { storage } from './storage';
 import { useDragOut } from './useDragOut';
-import { isValidTable } from './validate';
 import { isCompact, useCompact } from './compact';
 import type {
   CardDef,
@@ -96,28 +96,16 @@ function usePanel(
   openFirst = true,
 ): [boolean, () => void, (open: boolean) => void] {
   const [open, setOpen] = useState(() => {
-    try {
-      const saved = localStorage.getItem(key);
-      return saved === null ? openFirst : saved !== '0';
-    } catch {
-      return openFirst;
-    }
+    const saved = storage(key).get();
+    return saved === null ? openFirst : saved !== '0';
   });
   const toggle = () => {
-    try {
-      localStorage.setItem(key, open ? '0' : '1');
-    } catch {
-      // Only a convenience.
-    }
+    storage(key).set(open ? '0' : '1');
     setOpen(!open);
   };
   const set = useCallback(
     (open: boolean) => {
-      try {
-        localStorage.setItem(key, open ? '1' : '0');
-      } catch {
-        // Only a convenience.
-      }
+      storage(key).set(open ? '1' : '0');
       setOpen(open);
     },
     [key],
@@ -184,15 +172,12 @@ export default function App() {
   const [browseId, setBrowseId] = useState<string | null>(null);
   const closeBrowse = useCallback(() => setBrowseId(null), []);
   // On a phone the decks lie over the table: closed until opened.
-  const [sidebarOpen, toggleSidebar] = usePanel(
-    'grimm-world:sidebar-open',
-    !isCompact(),
-  );
+  const [sidebarOpen, toggleSidebar] = usePanel('sidebar-open', !isCompact());
   /** A phone: the actions for the selection make way for the Browse panel, which puts its own in their column. */
   const compact = useCompact();
   const [browseSlot, setBrowseSlot] = useState<HTMLElement | null>(null);
   /** The Hand, the right sidebar of cards set aside, is open, not minimized to a narrow bar. */
-  const [trayOpen, , setTrayOpen] = usePanel('grimm-world:tray-open');
+  const [trayOpen, , setTrayOpen] = usePanel('tray-open');
   const trayCount = table?.tray?.length ?? 0;
   const loaded = !!table;
   /** The Hand held cards when last looked at (null: not yet). */
@@ -350,11 +335,7 @@ export default function App() {
   useEffect(() => {
     loadManifest()
       .then((m) => {
-        const saved = loadSaved();
-        const cardDefs = Object.fromEntries(m.cards.map((c) => [c.id, c]));
-        const t = isValidTable(saved, m)
-          ? migrateTable(saved, cardDefs)
-          : initialTable(m);
+        const t = loadGame(m);
         setManifest(m);
         resetTable(t);
         requestAnimationFrame(() => fit(t));
@@ -947,9 +928,7 @@ export default function App() {
   };
 
   const exportSave = () => {
-    const blob = new Blob([JSON.stringify(table)], {
-      type: 'application/json',
-    });
+    const blob = new Blob([saveText(table!)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `grimm-world-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
@@ -960,13 +939,8 @@ export default function App() {
   const importSave = (file: File) => {
     file.text().then((text) => {
       try {
-        const parsed = JSON.parse(text) as Table;
-        if (!manifest || !isValidTable(parsed, manifest))
-          throw new Error('not a Grimm World save');
-        const t = migrateTable(
-          parsed,
-          Object.fromEntries(manifest.cards.map((c) => [c.id, c])),
-        );
+        if (!manifest) return;
+        const t = readSave(text, manifest);
         resetTable(t);
         setSelection(null);
         fit(t);

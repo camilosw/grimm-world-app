@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { battlefieldText, settle } from './actions';
+import { readSave, saveText } from './save';
 import { migrateTable } from './setup';
 import { deepFreeze, realManifest, SAVES } from './test/fixtures';
 import type { Table } from './types';
@@ -37,12 +38,18 @@ function looseCards(t: Table): string[] {
 }
 
 describe.each(Object.keys(SAVES).sort())('the save from %s', (name) => {
-  const saved = deepFreeze(JSON.parse(SAVES[name]) as Table);
-  // Frozen: migrating changes nothing in the save it is given.
-  const migrated = migrateTable(saved, defs);
+  // From 0.5.6 on, a save holds its table with the game and the version of the save format.
+  const file = JSON.parse(SAVES[name]);
+  const saved = deepFreeze((file.game ? file.table : file) as Table);
+  const migrated = readSave(SAVES[name], manifest);
 
   it('is taken for a save of this card set', () => {
     expect(isValidTable(saved, manifest)).toBe(true);
+  });
+
+  it('migrates without changing the save it is given', () => {
+    // Frozen: changing anything in it throws.
+    expect(migrateTable(saved, defs)).toEqual(migrated);
   });
 
   it('migrates to a sound table', () => {
@@ -53,7 +60,8 @@ describe.each(Object.keys(SAVES).sort())('the save from %s', (name) => {
     expect(settle(migrated)).toEqual(migrated);
   });
 
-  it('loads unchanged once migrated', () => {
+  it('loads unchanged once migrated and saved again', () => {
+    expect(readSave(saveText(migrated), manifest)).toEqual(migrated);
     expect(migrateTable(migrated, defs)).toEqual(migrated);
   });
 

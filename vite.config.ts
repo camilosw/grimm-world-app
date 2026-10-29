@@ -23,7 +23,7 @@ export default defineConfig({
       exclude: ['src/*.test.ts', 'src/env.d.ts'],
       reporter: ['text', 'html'],
       thresholds: {
-        'src/{areas,actions,decks,setup,validate}.ts': {
+        'src/{areas,actions,decks,save,setup,validate}.ts': {
           perFile: true,
           statements: 85,
           lines: 85,

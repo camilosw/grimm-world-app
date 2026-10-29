@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
 import { settle } from './actions';
+import { writeGame } from './save';
 import type { Table } from './types';
 
-const STORAGE_KEY = 'grimm-world:table:v1';
 const HISTORY_LIMIT = 200;
 
 let table: Table | null = null;
@@ -18,21 +18,7 @@ function emit() {
 }
 
 function save() {
-  if (!table) return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(table));
-  } catch {
-    // Storage full or blocked: the game keeps running, just without autosave.
-  }
-}
-
-export function loadSaved(): Table | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Table) : null;
-  } catch {
-    return null;
-  }
+  if (table) writeGame(table);
 }
 
 /** Replace the whole table (new game / import). Clears undo history. */
