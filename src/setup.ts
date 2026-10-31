@@ -21,10 +21,11 @@ import {
   ENCOUNTER_PLACES,
   encounterPlace,
   GAP,
+  inferredOnSpot,
+  settleAt,
   SPOTS,
   spotPlace,
   spotsOf,
-  stacksOnSpot,
   STORY_SLOTS,
   terrainPlace,
 } from './areas';
@@ -626,11 +627,12 @@ function fillBar(t: Table, defs: Record<string, CardDef>): Table {
     s.cards.filter((c) => family(defs[c.id]) === 'lost-pages').reverse(),
   );
   let next = cards.reduce((n, c) => takeCard(n, c.id)[0], t);
-  // Each goes first in the row, so the last one first.
+  // Each goes first in the row, so the last one first. Where the cards in it lie is read off their coordinates
+  // (`settleAt()`): the save has no `Stack.at` yet.
   for (const card of [...cards].reverse()) {
     const settled = settleSpots(next);
     const spot = spotsOf(settled).find((s) => s.id === 'bar')!;
-    const p = spotPlace(settled, spot, null, -Infinity, -Infinity)!;
+    const p = spotPlace(settleAt(settled), spot, null, -Infinity, -Infinity)!;
     next = addStack(settled, p.x, p.y, [card])[0];
   }
   return next;
@@ -740,7 +742,8 @@ function placeOnSpots(t: Table, defs: Record<string, CardDef>): Table {
   let next = t;
   const spots = spotsOf(t);
   for (const spot of spots.filter((s) => s.attracts)) {
-    const placed = new Set(stacksOnSpot(next, spot));
+    // Read off their coordinates: the save has no `Stack.at` yet.
+    const placed = new Set(inferredOnSpot(next, spot));
     for (const id of t.z) {
       const s = next.stacks[id];
       if (!s || s.slot) continue;
@@ -756,7 +759,13 @@ function placeOnSpots(t: Table, defs: Record<string, CardDef>): Table {
       for (const card of own) {
         const [t2] = takeCard(next, card.id);
         // Appended to a fanned spot; a card that doesn't fit any more stays where it is.
-        const p = spotPlace(settleSpots(t2), spot, null, -Infinity, -Infinity);
+        const p = spotPlace(
+          settleAt(settleSpots(t2)),
+          spot,
+          null,
+          -Infinity,
+          -Infinity,
+        );
         if (!p) continue;
         const [t3, newId] = addStack(settleSpots(t2), p.x, p.y, [card]);
         next = p.onto ? mergeStacks(t3, newId, p.onto, 'top') : t3;

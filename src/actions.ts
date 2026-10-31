@@ -2,11 +2,12 @@ import {
   allAreas,
   anchorsAfterMove,
   areaForCard,
-  allGridPiles,
   ENCOUNTER_PLACES,
   gridCells,
+  inferredGridPiles,
+  inferredOnSpot,
+  inferredRow,
   onGrid,
-  fanRow,
   refusal,
   settleAt,
   settleEnemies,
@@ -15,7 +16,6 @@ import {
   spotPlace,
   spotPlaces,
   spotsOf,
-  stacksOnSpot,
   terrainPlace,
   facedSpot,
   turnedSpot,
@@ -1022,7 +1022,7 @@ export function settleSpots(t: Table): Table {
     const [a, b] = spotPlaces(spot, 2);
     const dx = Math.sign(b.x - a.x);
     const dy = Math.sign(b.y - a.y);
-    for (const id of fanRow(next, spot)) {
+    for (const id of inferredRow(next, spot)) {
       const s = next.stacks[id];
       if (s.cards.length < 2) continue;
       const cards = spot.overlaps ? s.cards : [...s.cards].reverse();
@@ -1036,7 +1036,7 @@ export function settleSpots(t: Table): Table {
     }
   }
   for (const spot of spots.filter((s) => s.fan)) {
-    const row = fanRow(next, spot);
+    const row = inferredRow(next, spot);
     const places = spotPlaces(spot, row.length);
     row.forEach((id, i) => {
       const s = next.stacks[id];
@@ -1047,7 +1047,7 @@ export function settleSpots(t: Table): Table {
   }
   for (const spot of spots.filter((s) => s.turn)) {
     const faceUp = !spot.faceDown;
-    for (const id of stacksOnSpot(next, spot)) {
+    for (const id of inferredOnSpot(next, spot)) {
       const s = next.stacks[id];
       if (s.rot || s.cards.some((c) => c.faceUp !== faceUp))
         next = setStack(next, {
@@ -1058,7 +1058,7 @@ export function settleSpots(t: Table): Table {
     }
   }
   for (const spot of spots.filter((s) => s.faceUp)) {
-    for (const id of stacksOnSpot(next, spot)) {
+    for (const id of inferredOnSpot(next, spot)) {
       const s = next.stacks[id];
       if (s.cards.some((c) => !c.faceUp))
         next = setStack(next, {
@@ -1067,7 +1067,7 @@ export function settleSpots(t: Table): Table {
         });
     }
   }
-  for (const id of allGridPiles(next)) {
+  for (const id of inferredGridPiles(next)) {
     const s = next.stacks[id];
     if (s.cards.some((c) => !c.faceUp))
       next = setStack(next, {
@@ -1076,7 +1076,7 @@ export function settleSpots(t: Table): Table {
       });
   }
   for (const spot of spots.filter((s) => s.upsideDown)) {
-    for (const id of stacksOnSpot(next, spot)) {
+    for (const id of inferredOnSpot(next, spot)) {
       const s = next.stacks[id];
       if (s.rot !== 180) next = setStack(next, { ...s, rot: 180 });
     }
@@ -1103,8 +1103,8 @@ export function faceArrivals(prev: Table, t: Table): Table {
   const before = spotsOf(prev);
   for (const spot of spotsOf(t).filter((s) => s.putFaceUp)) {
     const was = before.find((s) => s.id === spot.id);
-    const had = cardsOn(prev, was ? stacksOnSpot(prev, was) : []);
-    for (const id of stacksOnSpot(t, spot)) turn(t.stacks[id], had, true);
+    const had = cardsOn(prev, was ? inferredOnSpot(prev, was) : []);
+    for (const id of inferredOnSpot(t, spot)) turn(t.stacks[id], had, true);
   }
   const places = new Set<string>(ENCOUNTER_PLACES.map((p) => p.place));
   for (const s of Object.values(t.stacks)) {
@@ -1130,10 +1130,13 @@ export function settle(t: Table, prev?: Table): Table {
 
 /**
  * Apply a change that moves the areas, and lay the table out (`settle()`). The piles that lay outside the areas and now
- * lie under one move right, past the areas, keeping their places to each other: they don't belong in it. Figures belong
- * to no area and may lie on any, so they stay.
+ * lie under one move right, past the areas, keeping their places to each other: they don't belong in it, and they now
+ * lie loose outside the areas (`settleAt()` again: the area drag draws this table as it is). Figures belong to no area
+ * and may lie on any, so they stay.
  */
 export function rearrange(t: Table, fn: (t: Table) => Table): Table {
+  // Read off the coordinates (`areaForCard()`), not `Stack.at`: the migration of older saves lays their areas out with
+  // this too (`packAreas`), before their piles know where they lie.
   const piles = t.z.filter(
     (id) =>
       !isFixed(t.stacks[id]) && !areaForCard(t, t.stacks[id].x, t.stacks[id].y),
@@ -1158,7 +1161,7 @@ export function rearrange(t: Table, fn: (t: Table) => Table): Table {
       moved.has(id) ? { ...s, x: s.x + dx } : s,
     ]),
   );
-  return { ...laid, stacks };
+  return settleAt({ ...laid, stacks });
 }
 
 /** Put an area (and everything in it) with its top-left corner at (x, y); the areas in its way are pushed aside. */

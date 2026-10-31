@@ -3,7 +3,7 @@ import { battlefieldText, settle } from './actions';
 import { readSave, saveText } from './save';
 import { migrateTable } from './setup';
 import { deepFreeze, realManifest, SAVES } from './test/fixtures';
-import { misplaced } from './test/play';
+import { misplaced, misread } from './test/play';
 import type { At, Table } from './types';
 import { isValidTable, tableProblems } from './validate';
 
@@ -78,6 +78,7 @@ describe.each(Object.keys(SAVES).sort())('the save from %s', (name) => {
 
   it('migrates to a table knowing where each pile lies', () => {
     expect(misplaced(migrated)).toEqual([]);
+    expect(misread(migrated)).toEqual([]);
   });
 
   it('keeps the cards the player laid out on the table', () => {

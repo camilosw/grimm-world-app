@@ -15,7 +15,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | A1. Test safety net                      | Opus designs the invariants, property tests and save fixtures; Sonnet writes the bulk of unit tests | ✅ Done        |
 | A2. A single path for loading and saving | Opus                                                                                                | ✅ Done        |
 | A3.1 Add `at` next to `x, y`             | Opus                                                                                                | ✅ Done        |
-| A3.2 Move the readers over to `at`       | Opus                                                                                                | ⬜ Not started |
+| A3.2 Move the readers over to `at`       | Opus                                                                                                | ✅ Done        |
 | A3.3 Derive `x, y`, stop saving layout   | Opus                                                                                                | ⬜ Not started |
 | A3.4 Remove the geometric inference      | Opus                                                                                                | ⬜ Not started |
 | A4. Split `App.tsx` and `TableView`      | Opus for the gesture reducer and the first hook; Sonnet for the remaining hook extractions          | ⬜ Not started |
@@ -206,6 +206,41 @@ Outcome of A3.1 (October 2026, on top of A2; `CLAUDE.md` describes it under **Ta
 - Tests: `misplaced()` (`src/test/play.ts`) works each pile's coordinates back out of its `at`, and is checked after
   every move of the random games and on every save fixture; that inverse is the starting point for A3.2. The fixtures'
   snapshot now shows each pile's `at`, with every coordinate unchanged.
+
+Outcome of A3.2 (October 2026, on top of A3.1; `CLAUDE.md` describes it under **Table model**):
+
+- The readers moved, in the planned order. Fanned rows and spots: `stacksOnSpot()` and `fanRow()` gather the piles by
+  `at.spot`, in `index` order, and `spotOf()` gives the spot of one pile from its own `at`, behind `facedSpot()`,
+  `turnedSpot()`, `slidesUnder()` and `upsideDownSpot()`; `spotPlace()` and `placement()` take the pile on a spot of a
+  single place from there (`pileOn()`). Grids: `gridCells()`, `gridOf()`, `onGrid()`, `battlefieldInUse()` and the
+  cards `gridPlaces()` lays strips beside read `at.grid`. Fixed places: `placeStack()` finds any of them by `at.place`
+  (the Encounter Deck's, a table deck's for `intoDeck()`, the storybook's for `drawOrder()`). Loose piles: `areaOf()`
+  gives a pile's area from its `at` (a place's area, a spot's or grid's, `at.area`), which `gridPlaces()` asks instead
+  of `measure()`.
+- Refined: `{ place }` wins over `{ spot }`, so the Damage Card's place, which lies on the damage spot, would drop out
+  of that spot's piles. `PLACE_SPOTS` says which spot a place lies on (only `damage`), and `placeArea()` which area
+  each place lies in. The shape of `At` didn't need to change.
+- What still reads the coordinates, renamed `inferred*` (`inferredOnSpot()`, `inferredRow()`, `inferredGridCells()`,
+  `inferredGridPiles()`, `inferredArea()`) so that A3.4 finds it: everything `settle()` runs before `settleAt()`
+  (`settleSpots()`, `faceArrivals()`, `settleEnemies()`, `settleLayout()` with `measure()`), since the piles have just
+  moved and their `at` is stale there; and what they share with the drawing: where the spots lie (`spotsOf()`: the rows
+  after another row, the Market Prices places), the placeholders and frames (`freePlace()`, `freePlaces()`,
+  `fanHasPlace()`, `splitBox()`, `framedPlaces()`, `gridBox()`). Those are the layout that A3.3 derives from `at`.
+  `rearrange()` keeps `areaForCard()` too, as the migration of version-0 saves lays their areas out with it before
+  their piles have an `at`; point queries for a drop (`areaForCard()`, `stackTargetAt()`, `intoStory()`) are not
+  readers of where a pile lies, and `deckStack()` and `isFixed()` read the pile's identity, in the sidebar too.
+- The readers are called on settled tables (the store's, the Battlefield preview, an area dragged), or within an action
+  only on a pile it hasn't moved (`dropOnto()` asks `slidesUnder()` about its target beside the new pile of dropped
+  cards: `spotOf()` reads only that pile's `at`). Where an unsettled table met a reader, `at` is first read off its
+  coordinates with `settleAt()`, which moves nothing: the preview of a card dragged along a row (`Table.tsx`), the
+  version-0 migrations `fillBar` and `placeOnSpots` (`setup.ts`), and `rearrange()` once it has moved the loose piles an
+  area now covers off to the right (the area drag draws its result as it is).
+- Tests: `misread()` (`src/test/play.ts`) compares each reader with the inference on every move of the random games and
+  every save fixture. A temporary tripwire comparing both on every call, over 3000 random games, found no other
+  disagreement than `dropOnto()`'s; the code review found the area drag's (tested now). Snapshots unchanged.
+- Left for A3.3: a save of version 2 is trusted to hold an `at` matching its `x, y` (the app only writes such saves);
+  `placement()` still works out the area of the pile dropped onto with `areaForCard()`; and once actions set `at` and
+  `x, y` follow from it, the `inferred*` functions remain only for the migration (A3.4).
 
 Done when: no data derived from the layout is saved, changing the size or order of the areas no longer needs a
 migration, and the fixtures look the same as before.

@@ -13,7 +13,7 @@ import {
 import { CARD_H, CARD_W } from './cards';
 import { DECK_SPECS, storySlot, TABLE_DECKS, returnsCards } from './decks';
 import { deckPlace } from './areas';
-import { defs, manifest, misplaced, newGame } from './test/play';
+import { defs, manifest, misplaced, misread, newGame } from './test/play';
 import type { Table } from './types';
 import { tableProblems } from './validate';
 
@@ -313,6 +313,7 @@ describe('random games', () => {
             const where = `after move ${step} (${JSON.stringify(m)})`;
             expect(tableProblems(t, manifest), where).toEqual([]);
             expect(misplaced(t), where).toEqual([]);
+            expect(misread(t), where).toEqual([]);
             // Fixed piles (decks, places) never go away.
             for (const [id, s] of Object.entries(prev.stacks))
               if (A.isFixed(s))

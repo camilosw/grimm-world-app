@@ -9,16 +9,22 @@ import {
 } from './actions';
 import {
   allAreas,
+  areaOf,
+  AREAS,
   cellPlace,
   drawOrder,
   encounterPlace,
+  fanRow,
   freePlace,
   GAP,
+  gridOf,
   gridPlaces,
   placement,
   placeStack,
   settleAt,
   settleLayout,
+  slidesUnder,
+  spotOf,
   spotPlaces,
   stacksOnSpot,
 } from './areas';
@@ -31,6 +37,7 @@ import {
   drop,
   dropEach,
   misplaced,
+  misread,
   newGame,
   pileOf,
   spot,
@@ -452,5 +459,68 @@ describe('settleAt', () => {
     const id = pileOf(t, y1);
     const aside = apply(t, (t) => toTray(t, id, 'all'));
     expect(aside.stacks[pileOf(aside, y1)].at).toBeUndefined();
+  });
+});
+
+describe('reading where piles lie', () => {
+  it('asks each pile its `at`, not its coordinates', () => {
+    let t = dropEach(t0, money.slice(0, 2), FAR.x, FAR.y);
+    const map = inArea(t, 'map');
+    [t] = drop(t, [r1], map.x, map.y);
+    const [first, second] = money.slice(0, 2).map((id) => pileOf(t, id));
+    const region = pileOf(t, r1);
+    expect(fanRow(t, spot(t, 'money'))).toEqual([first, second]);
+    expect(spotOf(t, second)?.id).toBe('money');
+    expect(gridOf(t, region)).toBe('map');
+    expect(areaOf(t, region)).toBe('map');
+    expect(misread(t)).toEqual([]);
+    // Told otherwise, without moving anything: the readers follow `at` (in its order, for a row).
+    const told: Table = {
+      ...t,
+      stacks: {
+        ...t.stacks,
+        [first]: { ...t.stacks[first], at: { spot: 'money', index: 1 } },
+        [second]: { ...t.stacks[second], at: { spot: 'money', index: 0 } },
+        [region]: { ...t.stacks[region], at: { x: 0, y: 0 } },
+      },
+    };
+    expect(fanRow(told, spot(told, 'money'))).toEqual([second, first]);
+    expect(gridOf(told, region)).toBeUndefined();
+    expect(areaOf(told, region)).toBeUndefined();
+  });
+
+  it('knows where the piles an area moved onto lie, as the area drag previews it', () => {
+    const [t] = drop(t0, [y1], FAR.x, FAR.y);
+    const frame = allAreas(t).find((a) => a.id === 'home')!;
+    // Dropped right onto the loose card: it moves off to the right, past the areas.
+    const moved = moveArea(t, 'home', FAR.x, FAR.y);
+    expect(at(moved, pileOf(moved, y1))).not.toEqual(at(t, pileOf(t, y1)));
+    expect(frame).not.toEqual(allAreas(moved).find((a) => a.id === 'home'));
+    expect(misplaced(moved)).toEqual([]);
+    expect(misread(moved)).toEqual([]);
+  });
+
+  it("puts the Damage Card's place on its spot, in the Actions area", () => {
+    const damage = spot(t0, 'damage');
+    const [pile] = stacksOnSpot(t0, damage);
+    expect(t0.stacks[pile].at).toEqual({ place: 'damage' });
+    expect(spotOf(t0, pile)).toBe(damage);
+    expect(slidesUnder(t0, pile)).toBe(true);
+    expect(areaOf(t0, pile)).toBe('hand');
+  });
+
+  it('gives each fixed place its area', () => {
+    const quest = deckStack(t0, 'quest')!;
+    expect(placeStack(t0, 'quest')).toBe(quest);
+    expect(areaOf(t0, quest.id)).toBe(
+      AREAS.find((a) => a.deck === 'quest')!.id,
+    );
+    expect(areaOf(t0, placeStack(t0, 'story')!.id)).toBe('storybook');
+    expect(areaOf(t0, placeStack(t0, 'used')!.id)).toBe('encounter');
+    // The sidebar decks lie nowhere on the table.
+    expect(t0.dock!.map((id) => areaOf(t0, id))).toEqual(
+      t0.dock!.map(() => undefined),
+    );
+    expect(misread(t0)).toEqual([]);
   });
 });

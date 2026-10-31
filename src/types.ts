@@ -57,7 +57,9 @@ export interface Stack {
   place?: Place;
   /**
    * Where it lies on the table in the game's terms (table piles only, `z`), as `settleAt()` reads it off `x, y` after
-   * every change. Nothing reads it yet: it is the first step of saving where piles lie instead of inferring it.
+   * every change. The rules and the drawing ask it which spot, grid place, fixed place or area a pile lies on
+   * (`stacksOnSpot()`, `spotOf()`, `gridOf()`, `placeStack()`, `areaOf()` in areas.ts); only the layout, within
+   * `settle()`, still works that out from `x, y`.
    */
   at?: At;
 }

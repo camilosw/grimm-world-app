@@ -1,14 +1,24 @@
 import { addStack, dropOnto, settle, takeCard } from '../actions';
 import {
+  areaOf,
   AREAS,
   cellPlace,
   deckPlace,
   ENCOUNTER_PLACES,
   encounterPlace,
+  gridCells,
+  gridOf,
+  inferredArea,
+  inferredGridCells,
+  inferredOnSpot,
   placement,
+  placeStack,
+  spotOf,
   spotPlaces,
   spotsOf,
+  stacksOnSpot,
   STORY_SLOTS,
+  type GridId,
   type Placement,
   type Spot,
 } from '../areas';
@@ -154,4 +164,48 @@ export function misplaced(t: Table): string[] {
           `${s.id} lies at ${s.x},${s.y}, not ${JSON.stringify(s.at)}: ${p.x},${p.y}`,
         ];
   });
+}
+
+/**
+ * Where the readers of `Stack.at` (`stacksOnSpot()`, `spotOf()`, `gridCells()`, `gridOf()`, `placeStack()`,
+ * `areaOf()`) say piles lie on a settled table and the coordinates don't (none: on a settled table they agree).
+ */
+export function misread(t: Table): string[] {
+  const out: string[] = [];
+  const differ = (what: string, read: unknown, inferred: unknown) => {
+    const [a, b] = [JSON.stringify(read), JSON.stringify(inferred)];
+    if (a !== b) out.push(`${what}: ${a} by at, ${b} by x, y`);
+  };
+  const spots = spotsOf(t);
+  for (const s of spots)
+    differ(`spot ${s.id}`, stacksOnSpot(t, s), inferredOnSpot(t, s));
+  const byCell = (c: { col: number; row: number }[]) =>
+    c.map((c) => JSON.stringify(c)).sort();
+  for (const g of ['map', 'battlefield'] as GridId[])
+    differ(
+      `grid ${g}`,
+      byCell(gridCells(t, g)),
+      byCell(inferredGridCells(t, g)),
+    );
+  for (const id of t.z) {
+    const s = t.stacks[id];
+    differ(
+      `spot of ${id}`,
+      spotOf(t, id)?.id,
+      spots.find((sp) => inferredOnSpot(t, sp).includes(id))?.id,
+    );
+    differ(
+      `grid of ${id}`,
+      gridOf(t, id),
+      inferredGridCells(t, 'map').some((c) => c.id === id)
+        ? 'map'
+        : inferredGridCells(t, 'battlefield').some((c) => c.id === id)
+          ? 'battlefield'
+          : undefined,
+    );
+    differ(`area of ${id}`, areaOf(t, id), inferredArea(t, id));
+    const place = s.place ?? s.slot ?? s.deck;
+    if (place) differ(`place ${place}`, placeStack(t, place)?.id, id);
+  }
+  return out;
 }

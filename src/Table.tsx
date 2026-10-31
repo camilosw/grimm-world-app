@@ -37,6 +37,7 @@ import {
   placement,
   placeStack,
   PLACE_BUTTON,
+  settleAt,
   snapArea,
   splitHalves,
   spotsOf,
@@ -639,7 +640,8 @@ export function TableView(props: Props) {
     props.preview ??
     areaPreview ??
     (fanTo && dragStack
-      ? settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y))
+      ? // Where its piles lie read off the row laid out (`settleAt()`), as the drawing asks `Stack.at`.
+        settleAt(settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y)))
       : table);
   const spots = spotsOf(shownTable);
   // What a drag lights up: a drag on the table, else cards dragged in from outside it.
