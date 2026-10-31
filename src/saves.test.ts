@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { battlefieldText, inferredSettle, settle } from './actions';
-import { migrateTable } from './setup';
+import { battlefieldText, settle } from './actions';
+import { migrateTable, recordAt } from './legacy/migrate';
+import type { OldTable } from './legacy/table';
 import { migrate, readSave, saveText } from './save';
 import { deepFreeze, realManifest, SAVES } from './test/fixtures';
-import { misplaced, misread } from './test/play';
+import { misplaced } from './test/play';
 import type { At, Table } from './types';
 import { isValidTable, tableProblems } from './validate';
 
@@ -40,8 +41,8 @@ function layout(t: Table) {
 }
 
 /** A save of `version` brought up to version `to` only, as the migrations leave it (no layout of its own after 2). */
-function migrateTo(saved: Table, version: number, to: number): Table {
-  return [migrateTable, (t: Table) => inferredSettle(t)]
+function migrateTo(saved: OldTable, version: number, to: number): OldTable {
+  return [migrateTable, recordAt]
     .slice(version, to)
     .reduce((t, up) => up(t, defs), saved);
 }
@@ -65,7 +66,7 @@ function looseCards(t: Table): string[] {
 describe.each(Object.keys(SAVES).sort())('the save from %s', (name) => {
   // From 0.5.6 on, a save holds its table with the game and the version of the save format.
   const file = JSON.parse(SAVES[name]);
-  const saved = deepFreeze((file.game ? file.table : file) as Table);
+  const saved = deepFreeze((file.game ? file.table : file) as OldTable);
   const version: number = file.game ? file.version : 0;
   const migrated = readSave(SAVES[name], manifest);
 
@@ -78,7 +79,9 @@ describe.each(Object.keys(SAVES).sort())('the save from %s', (name) => {
     expect(migrate(saved, version, defs)).toEqual(migrated);
   });
 
-  // The saves before version 3 held where each pile was drawn; now that is worked out from where it lies (`Stack.at`).
+  // The saves before version 3 held where each pile was drawn, and their migrations still lay the table out by the
+  // coordinates, on the layout of then (legacy/): the app, laying each pile out from where it lies (`Stack.at`), draws
+  // it in the same place. (Only while the app's layout is that one: once it changes, only `at` and anchors compare.)
   it('lays every pile out where the save from before version 3 drew it', () => {
     const drawn = migrateTo(saved, version, 2);
     expect(migrated.z).toEqual(drawn.z);
@@ -110,7 +113,6 @@ describe.each(Object.keys(SAVES).sort())('the save from %s', (name) => {
 
   it('migrates to a table knowing where each pile lies', () => {
     expect(misplaced(migrated)).toEqual([]);
-    expect(misread(migrated)).toEqual([]);
   });
 
   it('keeps the cards the player laid out on the table', () => {

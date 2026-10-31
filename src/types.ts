@@ -64,7 +64,7 @@ export interface Stack {
    * Where it lies on the table in the game's terms (table piles only, `z`): what the actions set (`placement()` says
    * where cards go) and the save holds, and what everything asks which spot, grid place, fixed place or area a pile lies
    * on (`stacksOnSpot()`, `spotOf()`, `gridOf()`, `placeStack()`, `areaOf()` in areas.ts); its `x, y` follow from it.
-   * Only the migrations of saves from before version 3 read it off `x, y` (`settleAt()`).
+   * Only the migrations of saves from before version 3 read it off `x, y` (`settleAt()` in legacy/layout.ts).
    */
   at?: At;
 }
@@ -102,14 +102,6 @@ export interface Token {
   shape: 'pawn' | 'cube';
 }
 
-/** Where a battlefield was built, in older saves (`Table.battlefield`): now the Battlefield is an area like the others. */
-export interface Battlefield {
-  x: number;
-  y: number;
-  cols: number;
-  rows: number;
-}
-
 export interface Table {
   stacks: Record<string, Stack>;
   /** Ids of the stacks lying on the table, from back to front. */
@@ -118,13 +110,9 @@ export interface Table {
   dock?: string[];
   /** Ids of the piles set aside in the right sidebar (e.g. the setup cards), top to bottom. */
   tray?: string[];
-  /** The battlefield built, only in older saves: `migrateTable` lays its Terrain Cards out in the Battlefield area. */
-  battlefield?: Battlefield | null;
   /** The sidebar deck each card last came out of, so it can go back there. */
   origin?: Record<string, DeckKind>;
   tokens: Token[];
-  /** Cards in the hand, which the app no longer has: only in older saves, `migrateTable` sends them back to their decks. */
-  hand?: CardRef[];
   /** Version of the area layout the cards lie in (missing: before the Storybook area grew for its Encounter Card). */
   layout?: number;
   /**
@@ -138,17 +126,6 @@ export interface Table {
    * lie there, pushed aside only by an area growing into them (`settleLayout()`). Missing: the areas lie packed together.
    */
   anchors?: Record<string, { x: number; y: number }>;
-  /**
-   * Frames of the growing areas as last laid out, only in saves from before version 3 (and while migrating them, a card
-   * lying on one belongs to that area, `inferredSettleLayout()`): now `allAreas()` frames them around what lies in them.
-   */
-  frames?: Record<string, { x: number; y: number; w: number; h: number }>;
-  /**
-   * Where the battlefield's Enemy Card places lay, from its grid's first place, as last laid out, only in saves from
-   * before version 3 (and while migrating them, the cards lying on them move with them, `inferredSettleEnemies()`): now
-   * the cards on them lie there by their `Stack.at`.
-   */
-  enemies?: { x: number; y: number };
   nextId: number;
 }
 

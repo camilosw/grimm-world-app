@@ -17,7 +17,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | A3.1 Add `at` next to `x, y`             | Opus                                                                                                | ✅ Done        |
 | A3.2 Move the readers over to `at`       | Opus                                                                                                | ✅ Done        |
 | A3.3 Derive `x, y`, stop saving layout   | Opus                                                                                                | ✅ Done        |
-| A3.4 Remove the geometric inference      | Opus                                                                                                | ⬜ Not started |
+| A3.4 Remove the geometric inference      | Opus                                                                                                | ✅ Done        |
 | A4. Split `App.tsx` and `TableView`      | Opus for the gesture reducer and the first hook; Sonnet for the remaining hook extractions          | ⬜ Not started |
 | A5. Documentation                        | Sonnet                                                                                              | 🔁 Ongoing     |
 | B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | ⬜ Not started |
@@ -291,6 +291,40 @@ Outcome of A3.3 (October 2026, on top of A3.2; `CLAUDE.md` describes it under **
 Done when: no data derived from the layout is saved, changing the size or order of the areas no longer needs a
 migration, and the fixtures look the same as before.
 
+Outcome of A3.4 (October 2026, on top of A3.3; `CLAUDE.md` describes it under **Table model**, **Setup & migration**
+and **Saves**):
+
+- The geometric inference is gone from the app: `measure()`, `settleAt()`, `placesOf()`, the `inferred*` functions and
+  the reader parameter (`By`, `'xy'`) left `areas.ts` and `actions.ts`, and the layout helpers (`freePlace()`,
+  `splitBox()`, `gridBox()`, `spotsOf()`, `allAreas()`, …) read `Stack.at` only. `areaForCard()` and `looseAt()` stay,
+  as point queries for a drop. `Table` lost `frames`, `enemies`, `battlefield` and `hand`, which only older saves hold.
+- The migrations of saves from before version 3 were frozen in `src/legacy/`, rather than dropping those saves: a
+  self-contained copy of the layout of then cut down to what they use (`layout.ts`: its own areas and spots, the
+  coordinate inference, `settle()` and `rearrange()` by coordinates), the pile operations they use (`piles.ts`, with its
+  own list of the cards pinned on top) and the steps (`migrate.ts`: `migrateTable`, version 0 → 1, moved out of
+  `setup.ts`; `recordAt`, version 1 → 2). They import only `cards.ts`, `decks.ts` (the decks' rules; the lists of the
+  sidebar and table decks are frozen too) and the types, which a test checks, so a change to the app's layout or
+  actions can no longer change how an old save migrates. `OldTable` is the shape of those saves. `setup.ts` keeps only
+  the new game, its helpers cut down to it.
+- Checked before removing anything: on every fixture, and on 750 random tables, 600 of them at every older `Table.layout` (with
+  and without anchors and an old battlefield), the frozen migrations gave the same table as the code they were copied
+  from, to the byte of its JSON; a new game and random play (drops, area moves, layout reset) gave the same tables as
+  before. Snapshots unchanged; the save format stays at version 3 (nothing saved changes).
+- Tests: `misread()` and the property test comparing the app's layout with the coordinate layout went, as they compared
+  against the inference removed (the one bug that comparison found, Goods taken for a House Extension, has a test of
+  its own). The safety net is `misplaced()`, `tableProblems()`, the settle fixed point in the random games, and the
+  save fixtures, whose key test still compares the frozen layout's coordinates with the app's while the app's layout is
+  the one of then. `src/legacy/migrate.test.ts` covers what the fixtures don't hold (the removed hand, a home-made deck,
+  the storybook in the sidebar, attracted cards merged on their spot); `src/legacy/*.ts` has its coverage threshold.
+
+Whether A3 is done: no data derived from the layout is saved (`withoutLayout()`: no pile coordinates, `shifts`,
+`frames` or `enemies`; only `at`, `anchors`, figures' `x, y`). Changing the size or order of the areas needs no
+migration: piles lie by `at` (a spot, grid place, fixed place, or loose from an area's own corner), and the frozen
+migrations no longer follow the app's layout. Two caveats, left under the open decisions: the area-relative
+coordinates of a loose pile are measured from the area's own place in `AREAS`, so moving an area's _own_ place (not its
+laid-out place) or renaming a spot or area still needs a migration; and figures (`tokens`) still lie by plain
+coordinates. The fixtures look the same as before (snapshots unchanged since A3.1, but for the 3·10⁻¹⁴ of A3.3).
+
 ### A4. Split `App.tsx` and `TableView`
 
 Goal: small components and hooks, with the view already prepared to be separated from the game in phase B.
@@ -382,4 +416,8 @@ With two games working: npm workspaces (`engine`, `ui`, `pipeline`, and each gam
 ## Open decisions
 
 - The final shape of `At` (A3), in particular loose piles inside a growing area and the Battlefield's `alt` places.
+- After A3: a loose pile in an area lies from the area's own place in `AREAS` (and `SPOTS` ids name the spots), so
+  changing an own place or an id still needs a migration of the saves; figures still lie by table coordinates, and
+  move with an area only by lying over it. The 1-unit offsets between rows on one line (`Spot.after`) only matter to
+  the frozen migrations now and could go with a layout change.
 - Which game serves as the second game in B7.

@@ -3,7 +3,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as A from './actions';
 import {
   allAreas,
-  battlefieldBoxes,
   ENCOUNTER_PLACES,
   encounterPlace,
   freePlaces,
@@ -11,7 +10,6 @@ import {
   looseAt,
   placement,
   spotsOf,
-  terrainPlace,
 } from './areas';
 import { CARD_H, CARD_W } from './cards';
 import { DECK_SPECS, storySlot, TABLE_DECKS, returnsCards } from './decks';
@@ -77,11 +75,8 @@ function indices(s: { cards: unknown[] }, n: number, m: number): number[] {
   return Array.from({ length: count }, (_, i) => (m + i * 7) % s.cards.length);
 }
 
-/**
- * Apply a move to a settled table as the app would: the same table when the app refuses it or offers nothing. `settle`
- * settles the change, as `store.update` does.
- */
-function play(t: Table, m: Move, settle = A.settle): Table {
+/** Apply a move to a settled table as the app would: the same table when the app refuses it or offers nothing. */
+function play(t: Table, m: Move): Table {
   const point = pick(targets(t), m.c)!;
   const x = point.x + m.dx;
   const y = point.y + m.dy;
@@ -89,7 +84,7 @@ function play(t: Table, m: Move, settle = A.settle): Table {
   // Mostly the piles the player laid out, while there are any.
   const loose = onTable.filter((s) => !A.isFixed(s));
   const pile = pick(loose.length && m.b % 4 ? loose : onTable, m.a);
-  const update = (fn: (t: Table) => Table) => settle(fn(t), t);
+  const update = (fn: (t: Table) => Table) => A.settle(fn(t), t);
   const aside = Object.keys(t.stacks).length ? (t.tray ?? []) : [];
   const docked = t.dock ?? [];
   switch (m.kind) {
@@ -287,51 +282,6 @@ function play(t: Table, m: Move, settle = A.settle): Table {
   return t;
 }
 
-/** A change with the frames and Enemy Card places of the table before it, as the layout before version 3 kept them. */
-function asLaidOut(t: Table, prev: Table): Table {
-  const o = terrainPlace(prev, 0, 0);
-  const { enemies } = battlefieldBoxes(prev);
-  const frames = Object.fromEntries(
-    allAreas(prev).map(({ id, x, y, w, h }) => [id, { x, y, w, h }]),
-  );
-  return { ...t, frames, enemies: { x: enemies.x - o.x, y: enemies.y - o.y } };
-}
-
-/**
- * Where everything lies, to compare layouts: to a millionth of a unit, the piles set aside nowhere, without what only
- * the layout before version 3 kept (frames, Enemy Card places, the shifts of areas back on their own place).
- */
-function laidOut(t: Table) {
-  const r = (v: number) => Math.round(v * 1e6) / 1e6;
-  const stacks = Object.fromEntries(
-    Object.entries(t.stacks).map(([id, s]) => {
-      const off = !t.z.includes(id);
-      const at =
-        s.at && ('x' in s.at ? { ...s.at, x: r(s.at.x), y: r(s.at.y) } : s.at);
-      return [id, { ...s, x: off ? 0 : r(s.x), y: off ? 0 : r(s.y), at }];
-    }),
-  );
-  const shifts = Object.fromEntries(
-    Object.entries(t.shifts ?? {}).filter(([, d]) => d.x || d.y),
-  );
-  return { ...t, stacks, shifts, frames: undefined, enemies: undefined };
-}
-
-/** Whether the coordinates took a Goods or Equipment card in the Home area for a House Extension. */
-function homeRows(now: Table, was: Table): boolean {
-  return Object.keys(now.stacks).some((id) => {
-    const [a, b] = [now.stacks[id].at, was.stacks[id]?.at];
-    return (
-      !!a &&
-      !!b &&
-      'spot' in a &&
-      'spot' in b &&
-      /^home-(goods|equipment)$/.test(a.spot) &&
-      /^house-(left|right)$/.test(b.spot)
-    );
-  });
-}
-
 /** A pseudo-random number generator (mulberry32), so that a failing game replays exactly. */
 function seeded(seed: number) {
   let a = seed >>> 0;
@@ -377,38 +327,6 @@ describe('random games', () => {
         },
       ),
       { numRuns: 100 },
-    );
-  });
-
-  // Before version 3 the table was laid out from the piles' coordinates, which the migrations of older saves still do
-  // (`inferredSettle()`): every change lays the table out as that did, given the frames and Enemy Card places it kept.
-  // But for one thing it got wrong: rows on one line, the Home area's Goods (or Equipment) and House Extensions, were
-  // taken for one, so a Goods card went to a free House Extension place; there a game stops being compared.
-  it('lay the table out as the coordinates did', () => {
-    fc.assert(
-      fc.property(
-        fc.nat(),
-        fc.array(move, { maxLength: 50 }),
-        (seed, moves) => {
-          vi.mocked(Math.random).mockImplementation(seeded(seed));
-          let t = newGame();
-          for (const [step, m] of moves.entries()) {
-            let inferred: Table | undefined;
-            const next = play(t, m, (u, prev) => {
-              inferred = A.inferredSettle(asLaidOut(u, prev!), prev);
-              return A.settle(u, prev);
-            });
-            if (next === t) continue;
-            const [now, was] = [laidOut(next), laidOut(inferred!)];
-            if (homeRows(now, was)) return;
-            expect(now, `after move ${step} (${JSON.stringify(m)})`).toEqual(
-              was,
-            );
-            t = next;
-          }
-        },
-      ),
-      { numRuns: 60 },
     );
   });
 

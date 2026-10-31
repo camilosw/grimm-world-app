@@ -6,13 +6,6 @@ import {
   ENCOUNTER_PLACES,
   fanRow,
   gridCells,
-  inferredAreas,
-  inferredGridPiles,
-  inferredOnSpot,
-  inferredRow,
-  inferredSettleEnemies,
-  inferredSettleLayout,
-  inferredSpots,
   looseAt,
   onGrid,
   outsideAreas,
@@ -20,11 +13,9 @@ import {
   pointOf,
   refusal,
   sameAt,
-  settleAt,
   settleLayout,
   slidesUnder,
   spotPlace,
-  spotPlaces,
   spotsOf,
   stacksOnSpot,
   facedSpot,
@@ -108,7 +99,7 @@ export function pinned(s: Stack): number {
  * Card's grip moves them all.
  */
 export function pinnedOnTop(s: Stack): number {
-  // Older saves have decks no longer made (the 'time' sidebar deck, until `migrateTable` lays its cards out).
+  // A save names its decks as text: one no longer made has no rules.
   return (s.place === 'damage' || (!!s.deck && !!DECK_SPECS[s.deck]?.keeps)) &&
     s.cards.length
     ? 1
@@ -149,8 +140,8 @@ function allStacks(t: Table): Stack[] {
 }
 
 /**
- * Where a pile lying `at` is drawn until the table is settled (`placePiles()` then lays it out), as the migrations of
- * older saves, which read where piles lie off their coordinates, need it (`inferredSettle()`).
+ * Where a pile lying `at` is drawn until the table is settled (`placePiles()` then lays it out), so that an action finds
+ * it there meanwhile (`drawTop()`).
  */
 function drawnAt(t: Table, at: At): { x: number; y: number } {
   return pointOf(t, at) ?? { x: 0, y: 0 };
@@ -1119,85 +1110,11 @@ export function settleSpots(t: Table): Table {
 }
 
 /**
- * `settleSpots()` for the migrations of saves from before version 3, which move piles by their coordinates: where piles
- * lie on the spots is read off their coordinates, and the piles laid onto their places.
- */
-export function inferredSettleSpots(t: Table): Table {
-  let next = t;
-  const spots = inferredSpots(t);
-  for (const spot of spots.filter((s) => s.takesPiles)) {
-    const [a, b] = spotPlaces(spot, 2);
-    const dx = Math.sign(b.x - a.x);
-    const dy = Math.sign(b.y - a.y);
-    for (const id of inferredRow(next, spot)) {
-      const s = next.stacks[id];
-      if (s.cards.length < 2) continue;
-      const cards = spot.overlaps ? s.cards : [...s.cards].reverse();
-      next = setStack(next, { ...s, cards: cards.slice(0, 1) });
-      cards.slice(1).forEach((card, i) => {
-        const d = ((i + 1) / s.cards.length) * 0.4;
-        next = addStack(next, { x: s.x + dx * d, y: s.y + dy * d }, [card], {
-          rot: s.rot,
-        })[0];
-      });
-    }
-  }
-  for (const spot of spots.filter((s) => s.fan)) {
-    const row = inferredRow(next, spot);
-    const places = spotPlaces(spot, row.length);
-    row.forEach((id, i) => {
-      const s = next.stacks[id];
-      const p = places[Math.min(i, places.length - 1)];
-      if (s.x !== p.x || s.y !== p.y)
-        next = setStack(next, { ...s, x: p.x, y: p.y });
-    });
-  }
-  for (const spot of spots.filter((s) => s.turn)) {
-    const faceUp = !spot.faceDown;
-    for (const id of inferredOnSpot(next, spot)) {
-      const s = next.stacks[id];
-      if (s.rot || s.cards.some((c) => c.faceUp !== faceUp))
-        next = setStack(next, {
-          ...s,
-          rot: 0,
-          cards: s.cards.map((c) => ({ ...c, faceUp })),
-        });
-    }
-  }
-  for (const spot of spots.filter((s) => s.faceUp)) {
-    for (const id of inferredOnSpot(next, spot)) {
-      const s = next.stacks[id];
-      if (s.cards.some((c) => !c.faceUp))
-        next = setStack(next, {
-          ...s,
-          cards: s.cards.map((c) => ({ ...c, faceUp: true })),
-        });
-    }
-  }
-  for (const id of inferredGridPiles(next)) {
-    const s = next.stacks[id];
-    if (s.cards.some((c) => !c.faceUp))
-      next = setStack(next, {
-        ...s,
-        cards: s.cards.map((c) => ({ ...c, faceUp: true })),
-      });
-  }
-  for (const spot of spots.filter((s) => s.upsideDown)) {
-    for (const id of inferredOnSpot(next, spot)) {
-      const s = next.stacks[id];
-      if (s.rot !== 180) next = setStack(next, { ...s, rot: 180 });
-    }
-  }
-  return next;
-}
-
-/**
  * Turn the cards just put on a place that takes them so, however they got there, and leave them free to be turned over
  * there afterwards: face up on a spot with `putFaceUp` (the Storybook's Encounter Card), face down on the Encounter Deck
- * area's places (like the cards going into a deck with `DeckSpec.faceUp`). `inferred`: where piles lie on the spots is
- * read off their coordinates (migrations of saves from before version 3).
+ * area's places (like the cards going into a deck with `DeckSpec.faceUp`).
  */
-export function faceArrivals(prev: Table, t: Table, inferred = false): Table {
+export function faceArrivals(prev: Table, t: Table): Table {
   let next = t;
   const turn = (s: Stack, before: Set<string>, faceUp: boolean) => {
     if (s.cards.some((c) => !before.has(c.id) && c.faceUp !== faceUp))
@@ -1208,13 +1125,11 @@ export function faceArrivals(prev: Table, t: Table, inferred = false): Table {
   };
   const cardsOn = (u: Table, ids: string[]) =>
     new Set(ids.flatMap((id) => u.stacks[id].cards.map((c) => c.id)));
-  const spotsIn = inferred ? inferredSpots : spotsOf;
-  const on = inferred ? inferredOnSpot : stacksOnSpot;
-  const before = spotsIn(prev);
-  for (const spot of spotsIn(t).filter((s) => s.putFaceUp)) {
+  const before = spotsOf(prev);
+  for (const spot of spotsOf(t).filter((s) => s.putFaceUp)) {
     const was = before.find((s) => s.id === spot.id);
-    const had = cardsOn(prev, was ? on(prev, was) : []);
-    for (const id of on(t, spot)) turn(t.stacks[id], had, true);
+    const had = cardsOn(prev, was ? stacksOnSpot(prev, was) : []);
+    for (const id of stacksOnSpot(t, spot)) turn(t.stacks[id], had, true);
   }
   const places = new Set<string>(ENCOUNTER_PLACES.map((p) => p.place));
   for (const s of Object.values(t.stacks)) {
@@ -1233,19 +1148,6 @@ export function faceArrivals(prev: Table, t: Table, inferred = false): Table {
 export function settle(t: Table, prev?: Table): Table {
   const laid = settleLayout(settleSpots(t));
   return placePiles(prev ? faceArrivals(prev, laid) : laid);
-}
-
-/**
- * `settle()` for the migrations of saves from before version 3, which move piles by their coordinates: the cards on the
- * Enemy Card places kept on them (`inferredSettleEnemies()`), the spots and the areas laid out by the coordinates
- * (`inferredSettleSpots()`, `inferredSettleLayout()`), the cards put on a place turned, and last, where each pile now
- * lies recorded (`settleAt()`).
- */
-export function inferredSettle(t: Table, prev?: Table): Table {
-  const laid = inferredSettleLayout(
-    inferredSettleSpots(inferredSettleEnemies(t)),
-  );
-  return settleAt(prev ? faceArrivals(prev, laid, true) : laid);
 }
 
 // ---------- area layout ----------
@@ -1273,8 +1175,8 @@ export function rearrange(t: Table, fn: (t: Table) => Table): Table {
 }
 
 /** Of these piles, those an area lies over on this table. */
-function covered(t: Table, piles: string[], inferred = false): Set<string> {
-  const areas = inferred ? inferredAreas(t) : allAreas(t);
+function covered(t: Table, piles: string[]): Set<string> {
+  const areas = allAreas(t);
   const under = (x: number, y: number) =>
     areas.some(
       (a) =>
@@ -1286,33 +1188,10 @@ function covered(t: Table, piles: string[], inferred = false): Set<string> {
 }
 
 /** How far right piles move to lie past the areas, half a card from them, keeping their places to each other. */
-function pastAreas(t: Table, piles: Set<string>, inferred = false): number {
-  const areas = inferred ? inferredAreas(t) : allAreas(t);
+function pastAreas(t: Table, piles: Set<string>): number {
+  const areas = allAreas(t);
   const left = Math.min(...[...piles].map((id) => t.stacks[id].x));
   return Math.max(...areas.map((a) => a.x + a.w)) + CARD_W / 2 - left;
-}
-
-/**
- * `rearrange()` for the migrations of saves from before version 3, which lay their areas out before their piles know
- * where they lie: the piles outside the areas are read off their coordinates (`areaForCard()`).
- */
-export function inferredRearrange(t: Table, fn: (t: Table) => Table): Table {
-  const piles = t.z.filter(
-    (id) =>
-      !isFixed(t.stacks[id]) &&
-      !areaForCard(t, t.stacks[id].x, t.stacks[id].y, 'xy'),
-  );
-  const laid = inferredSettle(fn(t), t);
-  const moved = covered(laid, piles, true);
-  if (!moved.size) return laid;
-  const dx = pastAreas(laid, moved, true);
-  const stacks = Object.fromEntries(
-    Object.entries(laid.stacks).map(([id, s]) => [
-      id,
-      moved.has(id) ? { ...s, x: s.x + dx } : s,
-    ]),
-  );
-  return settleAt({ ...laid, stacks });
 }
 
 /** Put an area (and everything in it) with its top-left corner at (x, y); the areas in its way are pushed aside. */

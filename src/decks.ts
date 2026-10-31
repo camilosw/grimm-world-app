@@ -32,7 +32,7 @@ export interface DeckSpec {
   holds: (def: CardDef) => boolean;
   /**
    * Number of the card lying on top of this deck for good, the other cards under it: it never leaves the deck
-   * (`pinnedOnTop()` in actions.ts; put there by `addDeckCards()` in setup.ts).
+   * (`pinnedOnTop()` in actions.ts; put there by `addDeckCards()` in setup.ts, and in older saves by legacy/migrate.ts).
    */
   keeps?: string;
 }

@@ -19,11 +19,19 @@ export default defineConfig({
     // (properties.test.ts) cover a little more or less each run: leave some room below what they reach.
     coverage: {
       provider: 'v8',
-      include: ['src/*.ts'],
-      exclude: ['src/*.test.ts', 'src/env.d.ts'],
+      include: ['src/*.ts', 'src/legacy/*.ts'],
+      exclude: ['src/**/*.test.ts', 'src/env.d.ts'],
       reporter: ['text', 'html'],
       thresholds: {
         'src/{areas,actions,decks,save,setup,validate}.ts': {
+          perFile: true,
+          statements: 85,
+          lines: 85,
+          functions: 85,
+          branches: 75,
+        },
+        // The frozen migrations of saves from before version 3: the saves of each release, and what those don't hold.
+        'src/legacy/*.ts': {
           perFile: true,
           statements: 85,
           lines: 85,

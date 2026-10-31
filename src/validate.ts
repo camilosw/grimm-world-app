@@ -1,6 +1,7 @@
 import { pinned, pinnedOnTop } from './actions';
 import { AREAS, spotsOf } from './areas';
 import { DECK_SPECS } from './decks';
+import type { OldTable } from './legacy/table';
 import { playableCards } from './setup';
 import type { CardManifest, Table } from './types';
 
@@ -10,9 +11,9 @@ import type { CardManifest, Table } from './types';
  * set aside there.
  */
 export function isValidTable(
-  t: Table | null,
+  t: OldTable | null,
   manifest: CardManifest,
-): t is Table {
+): t is OldTable {
   if (!t?.stacks || !t.z || !t.tokens) return false;
   const ids = [
     ...Object.values(t.stacks).flatMap((s) => s.cards),
@@ -70,7 +71,7 @@ export function tableProblems(t: Table, manifest: CardManifest): string[] {
   }
   for (const d of playableCards(manifest))
     if (!holder.has(d.id)) problems.push(`card ${d.id} is missing`);
-  if (t.hand) problems.push('the removed hand is still there');
+  if ((t as OldTable).hand) problems.push('the removed hand is still there');
 
   const onTable = new Set(t.z);
   const spots = new Set(spotsOf(t).map((s) => s.id));

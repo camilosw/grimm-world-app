@@ -26,7 +26,6 @@ import {
   placement,
   pointOf,
   placeStack,
-  settleAt,
   settleLayout,
   slidesUnder,
   spotOf,
@@ -42,7 +41,6 @@ import {
   drop,
   dropEach,
   misplaced,
-  misread,
   newGame,
   pileOf,
   spot,
@@ -414,7 +412,7 @@ describe('gridPlaces', () => {
   });
 });
 
-describe('settleAt', () => {
+describe('recording where piles lie', () => {
   it('records where each table pile lies, and nothing for the piles off the table', () => {
     expect(misplaced(t0)).toEqual([]);
     expect(t0.dock!.filter((id) => t0.stacks[id].at)).toEqual([]);
@@ -424,7 +422,6 @@ describe('settleAt', () => {
     expect(t0.stacks[deckStack(t0, 'encounter')!.id].at).toEqual({
       place: 'time-passes',
     });
-    expect(settleAt(t0)).toBe(t0);
   });
 
   it("records a pile's place in a row, on a grid or on the table", () => {
@@ -481,7 +478,6 @@ describe('reading where piles lie', () => {
     expect(spotOf(t, second)?.id).toBe('money');
     expect(gridOf(t, region)).toBe('map');
     expect(areaOf(t, region)).toBe('map');
-    expect(misread(t)).toEqual([]);
     // Told otherwise, without moving anything: the readers follow `at` (in its order, for a row).
     const told: Table = {
       ...t,
@@ -505,7 +501,6 @@ describe('reading where piles lie', () => {
     expect(at(moved, pileOf(moved, y1))).not.toEqual(at(t, pileOf(t, y1)));
     expect(frame).not.toEqual(allAreas(moved).find((a) => a.id === 'home'));
     expect(misplaced(moved)).toEqual([]);
-    expect(misread(moved)).toEqual([]);
   });
 
   it("puts the Damage Card's place on its spot, in the Actions area", () => {
@@ -529,7 +524,6 @@ describe('reading where piles lie', () => {
     expect(t0.dock!.map((id) => areaOf(t0, id))).toEqual(
       t0.dock!.map(() => undefined),
     );
-    expect(misread(t0)).toEqual([]);
   });
 });
 

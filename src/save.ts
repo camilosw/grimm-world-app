@@ -1,6 +1,7 @@
-import { inferredSettle } from './actions';
 import { layOut } from './areas';
-import { initialTable, migrateTable } from './setup';
+import { migrateTable, recordAt } from './legacy/migrate';
+import type { OldTable } from './legacy/table';
+import { initialTable } from './setup';
 import { storage } from './storage';
 import type { CardDef, CardManifest, Stack, Table } from './types';
 import { isValidTable, tableProblems } from './validate';
@@ -19,7 +20,7 @@ interface Migration {
   /** The version of the save format it brings a save to. */
   to: number;
   /** The table brought up to date, as a save of that version holds it. */
-  up(t: Table, defs: Record<string, CardDef>): Table;
+  up(t: OldTable, defs: Record<string, CardDef>): OldTable;
 }
 
 /**
@@ -28,11 +29,13 @@ interface Migration {
  * next version, rather than a step to `migrateTable`.
  */
 const MIGRATIONS: Migration[] = [
+  // The saves before version 3 held where each pile was drawn: their migrations move piles by their coordinates, on the
+  // layout of then, frozen in legacy/ so that changes to the app's layout leave them as they were.
   // The saves before the version was saved (version 0, a bare `Table`), which `migrateTable` brings up to date from
   // any earlier layout (`Table.layout`).
   { to: 1, up: migrateTable },
-  // Where each table pile lies in the game's terms (`Stack.at`), read off where it lies by `inferredSettle()`.
-  { to: 2, up: (t) => inferredSettle(t) },
+  // Where each table pile lies in the game's terms (`Stack.at`), read off where it lies by `recordAt()`.
+  { to: 2, up: recordAt },
   // The layout is no longer saved, only where each pile lies (`Stack.at`) and where the player put the areas
   // (`Table.anchors`): loading lays the table out from them (`layOut()`).
   { to: 3, up: withoutLayout },
@@ -58,9 +61,9 @@ export function saveText(t: Table): string {
  * A table without what the layout works out from where its piles lie (`Stack.at`) and where the player put the areas
  * (`Table.anchors`): where each pile is drawn (`Stack.x`, `y`), how far each area lies from its own place
  * (`Table.shifts`), and, in saves from before version 3, the frames and the Enemy Card places last laid out
- * (`Table.frames`, `enemies`).
+ * (`OldTable.frames`, `enemies`).
  */
-export function withoutLayout(t: Table): Table {
+export function withoutLayout(t: OldTable): Table {
   const rest = { ...t };
   delete rest.shifts;
   delete rest.frames;
@@ -80,7 +83,7 @@ export function withoutLayout(t: Table): Table {
  * when a migration fails.
  */
 export function migrate(
-  table: Table,
+  table: OldTable,
   version: number,
   defs: Record<string, CardDef>,
 ): Table {
@@ -103,13 +106,13 @@ export function readSave(text: string, manifest: CardManifest): Table {
   const { version, table } = unwrap(data);
   const wrong = TABLE(table, 'table');
   if (wrong) throw new SaveError(`it is damaged (${wrong})`);
-  if (!isValidTable(table as Table, manifest))
+  if (!isValidTable(table as OldTable, manifest))
     throw new SaveError('its cards are not those of this game');
 
   const defs = Object.fromEntries(manifest.cards.map((c) => [c.id, c]));
   let t: Table;
   try {
-    t = migrate(table as Table, version, defs);
+    t = migrate(table as OldTable, version, defs);
   } catch (e) {
     throw new SaveError(
       `it could not be brought up to date (${(e as Error).message})`,
