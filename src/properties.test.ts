@@ -88,38 +88,46 @@ function play(t: Table, m: Move): Table {
   const aside = Object.keys(t.stacks).length ? (t.tray ?? []) : [];
   const docked = t.dock ?? [];
   switch (m.kind) {
-    // A pile on the table dragged by its top card, or whole by its grip (`commitDrag` in Table.tsx).
+    // A pile on the table dragged by its top card, or whole by its grip, as `TableView` drags it and `useTableEvents`
+    // drops it.
     case 0:
     case 1: {
       if (!pile) return t;
-      // Only a revealed Y-card leaves the storybook; a deck gives its top card, a place its cards by its grip, any other
-      // pile its top card unless it is dragged by its grip or is a single card (`onPointerDown` in Table.tsx).
-      const top = defs[pile.cards.at(-1)?.id ?? ''];
-      if (pile.slot === 'story' || (pile.slot && top?.type === 'storybook'))
+      // A deck gives its top card, a place its cards by its grip, any other pile its top card unless it is dragged by
+      // its grip or is a single card (`dragsWhole`); only a revealed Y-card leaves the storybook (`dragged`).
+      const whole = A.dragsWhole(pile, m.kind === 1);
+      const target = A.dragged(t, defs, { id: pile.id, whole });
+      if (!target) return t;
+      let over = pileAt(t, x, y, target.whole ? pile.id : null);
+      if (over === pile.id) over = null;
+      // Where it would go while held there, then where it goes when dropped, over the pile it would go onto.
+      const held = A.dropDestination(
+        t,
+        defs,
+        pile.id,
+        target.whole,
+        x,
+        y,
+        over,
+      );
+      // Held over the face-down storybook, it goes in there (the chapter picker).
+      if (
+        'story' in held ||
+        (held.onto && t.stacks[held.onto]?.slot === 'story')
+      )
         return t;
-      const grip = m.kind === 1;
-      const whole = pile.place
-        ? grip
-        : !pile.deck && !pile.slot && (grip || pile.cards.length <= 1);
-      const free = A.unpinned(pile);
-      const cards = whole ? free : A.pinnedOnTop(pile) ? [] : free.slice(-1);
-      let onto = pileAt(t, x, y, whole ? pile.id : null);
-      if (onto === pile.id) onto = null;
-      const ids = cards.map((c) => c.id);
-      if (!ids.length || A.intoStory(t, ids, defs, x, y)) return t;
-      const moving = whole && !A.isFixed(pile) ? pile.id : null;
-      const dest = placement(t, ids, defs, x, y, onto, moving);
-      if (dest.refused || dest.onto === pile.id) return t;
-      return update((t) => {
-        if (whole && !A.isFixed(t.stacks[pile.id]))
-          return dest.onto
-            ? A.dropOnto(t, pile.id, dest.onto, defs)
-            : A.moveStack(t, pile.id, dest.at);
-        const [t2, newId] = whole
-          ? A.liftPile(t, pile.id, dest.at)
-          : A.takeTop(t, pile.id, dest.at);
-        return dest.onto && newId ? A.dropOnto(t2, newId, dest.onto, defs) : t2;
-      });
+      const onto = held.onto;
+      const dest = A.dropDestination(
+        t,
+        defs,
+        pile.id,
+        target.whole,
+        x,
+        y,
+        onto,
+      );
+      if ('story' in dest || dest.refused || dest.onto === pile.id) return t;
+      return update((t) => A.dropOnTable(t, pile.id, target.whole, dest, defs));
     }
     // The top card of a sidebar deck dragged onto the table (`dropFromDeck`), or a set-aside pile (`dropFromTray`).
     case 2:

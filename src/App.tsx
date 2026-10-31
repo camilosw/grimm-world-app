@@ -43,7 +43,6 @@ import {
 import { loadGame, readSave, saveText } from './save';
 import { initialTable, playableCards } from './setup';
 import {
-  AREA_RULES,
   cardRule,
   DECK_RULES,
   loadRules,
@@ -69,6 +68,7 @@ import {
   type Zone,
 } from './Table';
 import { Tray } from './Tray';
+import { useTableEvents } from './useTableEvents';
 import { storage } from './storage';
 import { useDragOut } from './useDragOut';
 import { isCompact, useCompact } from './compact';
@@ -120,7 +120,7 @@ const sameZone = (a: Zone | null, b: Zone | null) =>
 
 /** How long a pile on the table shows being shuffled (see `.shuffle-card` in styles.css). */
 const SHUFFLE_MS = 900;
-/** How long a card dealt by an action shows travelling to its place (see `DEAL_TRAVEL_MS` in Table.tsx). */
+/** How long a card dealt by an action shows travelling to its place (see `DEAL_TRAVEL_MS` in TablePieces.tsx). */
 const DEAL_MS = 430;
 /** How long the view glides to an area or a pile it is sent to (see `.world.gliding` in styles.css). */
 const GLIDE_MS = 500;
@@ -952,6 +952,41 @@ export default function App() {
     });
   };
 
+  /** Select a pile or a figure (null: nothing), leaving "Put under…". */
+  const select = (s: Selection) => {
+    setSelection(s);
+    setPutUnder(null);
+  };
+
+  /** Show a card just dealt by an action travelling to its place from `from`. */
+  const deal = (cardId: string, from: { x: number; y: number }) => {
+    setDealt((prev) => ({ cardId, from, n: (prev?.n ?? 0) + 1 }));
+    window.clearTimeout(dealTimer.current);
+    dealTimer.current = window.setTimeout(() => setDealt(null), DEAL_MS);
+  };
+
+  // What the game makes of what is done on the table.
+  const tableEvents = useTableEvents({
+    table,
+    defs,
+    picking: !!putUnder,
+    browseId,
+    battlePreview,
+    select,
+    browse: setBrowseId,
+    inspect: (card) => setDialog({ kind: 'inspect', card }),
+    pickChapter: (stackId, cardIds) =>
+      setDialog({ kind: 'chapter', stackId, cardIds }),
+    putUnderTarget,
+    notify,
+    shuffle,
+    deal,
+    typeBattlefield,
+    openRules,
+    hoverZone,
+    dropOnZone,
+  });
+
   if (error) return <div className="splash">{error}</div>;
   if (!manifest || !table) return <div className="splash">Loading cards…</div>;
 
@@ -1089,76 +1124,9 @@ export default function App() {
                 view={view}
                 onView={moveView}
                 selection={selection}
-                onSelect={(s) => {
-                  setSelection(s);
-                  setPutUnder(null);
-                }}
-                onPickTarget={putUnder ? putUnderTarget : null}
-                onInspect={(card) => setDialog({ kind: 'inspect', card })}
                 zoneAt={zoneAt}
-                onZoneHover={hoverZone}
-                onZoneDrop={dropOnZone}
-                onClearBattlefield={() =>
-                  update((t) => A.clearBattlefield(t, defs))
-                }
-                onTypeBattlefield={typeBattlefield}
-                preview={battlePreview}
-                onRefuse={notify}
-                onSlotTap={(slot) => {
-                  const story = storySlot(table, 'story');
-                  const top = story?.cards.at(-1);
-                  if (
-                    slot === 'story' &&
-                    story &&
-                    top &&
-                    A.storyToBar(table, defs)
-                  ) {
-                    notify(
-                      'Sub-chapter card placed in the Encounter Bar',
-                      true,
-                    );
-                    setDealt((prev) => ({
-                      cardId: top.id,
-                      from: { x: story.x, y: story.y },
-                      n: (prev?.n ?? 0) + 1,
-                    }));
-                    window.clearTimeout(dealTimer.current);
-                    dealTimer.current = window.setTimeout(
-                      () => setDealt(null),
-                      DEAL_MS,
-                    );
-                  }
-                  update((t) =>
-                    slot === 'story'
-                      ? A.revealStory(t, defs)
-                      : A.unrevealStory(t),
-                  );
-                }}
-                onStoryDrop={(stackId, whole) => {
-                  const top = table.stacks[stackId]?.cards.at(-1);
-                  setDialog({
-                    kind: 'chapter',
-                    stackId,
-                    cardIds: whole ? undefined : top && [top.id],
-                  });
-                }}
-                onAreaRules={(areaId) => openRules(AREA_RULES[areaId])}
+                {...tableEvents}
                 shuffled={shuffled}
-                onShufflePlace={(stackId) => {
-                  shuffle(stackId);
-                  notify('Encounter Deck shuffled', true);
-                }}
-                onBrowseDeck={(stackId) => {
-                  // The storybook is only turned over, never picked up: browsing it doesn't select it.
-                  setSelection(
-                    table.stacks[stackId]?.slot
-                      ? null
-                      : { kind: 'stack', id: stackId },
-                  );
-                  setPutUnder(null);
-                  setBrowseId(browseId === stackId ? null : stackId);
-                }}
-                browsing={browseId}
                 incoming={incoming}
                 dealt={dealt}
                 gliding={gliding}

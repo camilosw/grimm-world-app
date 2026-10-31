@@ -1,14 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { placeStack, spotsOf, stacksOnSpot } from './areas';
+import {
+  gridOf,
+  gridPlaces,
+  placement,
+  placeStack,
+  spotsOf,
+  stacksOnSpot,
+} from './areas';
 import {
   battlefieldText,
   buildBattlefield,
   cardsToDecks,
+  dragged,
+  dragsWhole,
+  dropDestination,
+  dropOnTable,
   dropOnto,
   flipTop,
   fromTray,
   liftPile,
+  movedCards,
   moveStack,
+  movingPile,
   parseBattlefield,
   putUnderChapter,
   putUnderPile,
@@ -244,5 +257,126 @@ describe('in a game', () => {
       buildBattlefield(t, parseBattlefield(text).rows, defs),
     );
     expect(battlefieldText(t, defs)).toBe(text);
+  });
+});
+
+describe('dragging a table pile', () => {
+  const t0 = game.newGame();
+  const { apply, defs } = game;
+  const [y1, y2] = game.cardsOf('lost-pages', 2);
+  const place = placeStack(t0, 'time-passes')!;
+  const enemy = deckStack(t0, 'enemy')!;
+  const story = storySlot(t0, 'story')!;
+  // Two Y-cards in a pile, far from the areas.
+  const [t1] = game.drop(t0, [y1, y2], -3000, -3000);
+  const pile = game.pileOf(t1, y1);
+
+  it('moves a pile whole by its grip, or a single card; a deck or the storybook never, a place by its grip', () => {
+    expect(dragsWhole(t1.stacks[pile], false)).toBe(false);
+    expect(dragsWhole(t1.stacks[pile], true)).toBe(true);
+    const single = game.dropEach(t0, [y1], -3000, -3000);
+    expect(dragsWhole(single.stacks[game.pileOf(single, y1)], false)).toBe(
+      true,
+    );
+    expect(dragsWhole(enemy, true)).toBe(false);
+    expect(dragsWhole(story, true)).toBe(false);
+    expect(dragsWhole(storySlot(t0, 'story-revealed'), true)).toBe(false);
+    expect(dragsWhole(place, false)).toBe(false);
+    expect(dragsWhole(place, true)).toBe(true);
+  });
+
+  it('moves the cards that may leave the pile: all but its pinned ones, or the top one', () => {
+    expect(movedCards(t1, pile, true)).toEqual([y1, y2]);
+    expect(movedCards(t1, pile, false)).toEqual([y2]);
+    expect(movedCards(t0, place.id, true)).toEqual(
+      unpinned(place).map((c) => c.id),
+    );
+    // The Enemy Card lies on top of its deck for good.
+    expect(movedCards(t0, enemy.id, false)).toEqual([]);
+    expect(movedCards(t0, 'gone', true)).toEqual([]);
+  });
+
+  it('moves a pile itself when dragged whole, or a card alone on a grid place, but never a fixed pile', () => {
+    expect(movingPile(t1, pile, true)).toBe(pile);
+    expect(movingPile(t1, pile, false)).toBeNull();
+    expect(movingPile(t0, place.id, true)).toBeNull();
+    const [region] = game.cardsOf('region', 1);
+    const first = gridPlaces(t0, 'map')[0];
+    const [t2] = game.drop(t0, [region], first.x, first.y);
+    const id = game.pileOf(t2, region);
+    expect(gridOf(t2, id)).toBe('map');
+    expect(movingPile(t2, id, false)).toBe(id);
+  });
+
+  it('drags only a revealed card that is no storybook card off the storybook, and no time card alone on its place', () => {
+    expect(dragged(t1, defs, { id: pile, whole: true })).toEqual({
+      id: pile,
+      whole: true,
+    });
+    expect(dragged(t0, defs, { id: story.id, whole: false })).toBeNull();
+    const revealed = apply(t0, (t) => revealStory(t, defs));
+    const shown = storySlot(revealed, 'story-revealed')!;
+    expect(dragged(revealed, defs, { id: shown.id, whole: true })).toBeNull();
+    // A Y-card lying on the revealed cards leaves them as their top card.
+    const withY = {
+      ...revealed,
+      stacks: {
+        ...revealed.stacks,
+        [shown.id]: {
+          ...shown,
+          cards: [...shown.cards, { id: y1, faceUp: true }],
+        },
+      },
+    };
+    expect(dragged(withY, defs, { id: shown.id, whole: true })).toEqual({
+      id: shown.id,
+      whole: false,
+    });
+    const [lifted] = liftPile(t0, place.id, { x: -3000, y: -3000 });
+    expect(dragged(lifted, defs, { id: place.id, whole: true })).toBeNull();
+    expect(dragged(lifted, defs, { id: place.id, whole: false })).toBeNull();
+  });
+
+  it('sends Y-cards dropped on the storybook under one of its chapters, other drops where placement() says', () => {
+    expect(
+      dropDestination(t1, defs, pile, true, story.x, story.y, null),
+    ).toEqual({ story: story.id });
+    // Over the storybook's pile alone doesn't decide: `intoStory` does, as for cards it can't take.
+    expect(
+      dropDestination(t1, defs, pile, true, -2000, -3000, story.id),
+    ).toEqual(placement(t1, [y1, y2], defs, -2000, -3000, story.id, pile));
+    expect(dropDestination(t1, defs, pile, false, -2000, -3000, null)).toEqual(
+      placement(t1, [y2], defs, -2000, -3000, null, null),
+    );
+    expect(dropDestination(t1, defs, pile, true, -2000, -3000, null)).toEqual(
+      placement(t1, [y1, y2], defs, -2000, -3000, null, pile),
+    );
+  });
+
+  it('drops a pile whole or its top card, onto a pile or lying where it goes; a place keeps its time card', () => {
+    const at = { x: -2000, y: -3000 };
+    const moved = apply(t1, (t) =>
+      dropOnTable(t, pile, true, { at, onto: null }, defs),
+    );
+    expect(moved.stacks[pile]).toMatchObject({ ...at, at });
+
+    const taken = apply(t1, (t) =>
+      dropOnTable(t, pile, false, { at, onto: null }, defs),
+    );
+    expect(taken.stacks[pile].cards.map((c) => c.id)).toEqual([y1]);
+    expect(taken.stacks[game.pileOf(taken, y2)]).toMatchObject(at);
+
+    const onto = apply(t1, (t) =>
+      dropOnTable(t, pile, false, { at, onto: enemy.id }, defs),
+    );
+    expect(onto.stacks[enemy.id].cards.map((c) => c.id)).toContain(y2);
+
+    const lifted = apply(t0, (t) =>
+      dropOnTable(t, place.id, true, { at, onto: null }, defs),
+    );
+    expect(lifted.stacks[place.id].cards).toHaveLength(1);
+    expect(lifted.stacks[game.pileOf(lifted, place.cards[1].id)].cards).toEqual(
+      unpinned(place),
+    );
   });
 });

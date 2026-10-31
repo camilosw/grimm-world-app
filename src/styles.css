@@ -2232,7 +2232,7 @@ button.on {
   display: none;
 }
 
-/* A small control's touch target on the table (`Hit` in Table.tsx), only needed on a phone. */
+/* A small control's touch target on the table (`Hit` in TablePieces.tsx), only needed on a phone. */
 .hit {
   display: none;
 }

@@ -6,9 +6,11 @@ import {
   ENCOUNTER_PLACES,
   fanRow,
   gridCells,
+  gridOf,
   looseAt,
   onGrid,
   outsideAreas,
+  placement,
   placePiles,
   pointOf,
   refusal,
@@ -21,6 +23,7 @@ import {
   facedSpot,
   turnedSpot,
   upsideDownSpot,
+  type Placement,
 } from './areas';
 import { CARD_H, CARD_W, compareCards, family, isLandscape } from './cards';
 import {
@@ -496,6 +499,128 @@ export function stackTargetAt(
       return s;
   }
   return null;
+}
+
+// ---------- dragging ----------
+
+/** A table pile being dragged: its id, and whether it moves whole or only its top card does. */
+export interface DraggedPile {
+  id: string;
+  whole: boolean;
+}
+
+/**
+ * Whether a drag taking pile `s` (by its grip or not) moves it whole: by its grip, or a card alone. A deck lying on the
+ * table stays: dragging it takes its top card. A storybook place too: only its top card ever leaves it. An Encounter
+ * Deck place stays too: its grip moves its cards but the time card; so does the Damage Card's, its grip moving the
+ * cards under the Damage Card.
+ */
+export function dragsWhole(s: Stack | undefined, grip: boolean): boolean {
+  if (s?.place) return grip;
+  return !s?.deck && !s?.slot && (grip || (s?.cards.length ?? 0) <= 1);
+}
+
+/** The cards a drag moves: the whole pile (but its pinned cards), or its top card (none, when that is pinned). */
+export function movedCards(
+  t: Table,
+  stackId: string,
+  whole: boolean,
+): string[] {
+  const s = t.stacks[stackId];
+  if (!s) return [];
+  const free = unpinned(s);
+  const cards = whole ? free : pinnedOnTop(s) ? [] : free.slice(-1);
+  return cards.map((c) => c.id);
+}
+
+/**
+ * The pile a drag moves whole: dragged by its grip, or a card alone on its place of a grid (Map, battlefield). Null
+ * when its cards leave it as a new pile: its top card, or the cards of a fixed pile (an Encounter Deck place), which
+ * stays.
+ */
+export function movingPile(
+  t: Table,
+  stackId: string,
+  whole: boolean,
+): string | null {
+  const moves = whole || !!gridOf(t, stackId);
+  return moves && !isFixed(t.stacks[stackId]) ? stackId : null;
+}
+
+/**
+ * What a drag starting on a table pile moves, or null when nothing leaves it (the table is panned instead). Only a
+ * revealed card that isn't a storybook card leaves the storybook (a Y-card, for the Encounter Bar), as its top card; a
+ * time card alone on its place stays there.
+ */
+export function dragged(
+  t: Table,
+  defs: Record<string, CardDef>,
+  pile: DraggedPile,
+): DraggedPile | null {
+  const s = t.stacks[pile.id];
+  let moved = pile;
+  if (s?.slot) {
+    const top = s.cards.at(-1);
+    if (
+      s.slot !== 'story-revealed' ||
+      !top ||
+      defs[top.id]?.type === 'storybook'
+    )
+      return null;
+    moved = { id: pile.id, whole: false };
+  }
+  return movedCards(t, moved.id, moved.whole).length ? moved : null;
+}
+
+/**
+ * Where a dragged pile (or its top card) goes: under one of the face-down storybook's cards, `story` (the player then
+ * picks the chapter), or where `placement()` puts it.
+ */
+export type Destination = { story: string } | Placement;
+
+/**
+ * Where a table pile (or its top card, `whole` false) dragged with its top-left corner to (x, y), over pile `dropOn`
+ * if any, goes: into the face-down storybook when it takes them there (`intoStory`), else where `placement()` says. Other cards (an Encounter Card for its place below the storybook) land as usual. `pointer` is
+ * where the dragged card is held.
+ */
+export function dropDestination(
+  t: Table,
+  defs: Record<string, CardDef>,
+  stackId: string,
+  whole: boolean,
+  x: number,
+  y: number,
+  dropOn: string | null,
+  pointer?: { x: number; y: number },
+): Destination {
+  const cards = movedCards(t, stackId, whole);
+  const story = storySlot(t, 'story');
+  if (story && intoStory(t, cards, defs, x, y)) return { story: story.id };
+  // A fixed pile (an Encounter Deck place) stays: its cards leave it as a new pile.
+  const moving = movingPile(t, stackId, whole);
+  return placement(t, cards, defs, x, y, dropOn, moving, pointer);
+}
+
+/**
+ * Drop a table pile (or its top card) where `dropDestination()` puts it on the table: lying `dest.at`, or onto pile
+ * `dest.onto`. A fixed pile stays: its cards leave it as a new pile.
+ */
+export function dropOnTable(
+  t: Table,
+  stackId: string,
+  whole: boolean,
+  dest: Pick<Placement, 'at' | 'onto'>,
+  defs: Record<string, CardDef>,
+): Table {
+  const { onto } = dest;
+  if (whole && !isFixed(t.stacks[stackId]))
+    return onto
+      ? dropOnto(t, stackId, onto, defs)
+      : moveStack(t, stackId, dest.at);
+  const [t2, newId] = whole
+    ? liftPile(t, stackId, dest.at)
+    : takeTop(t, stackId, dest.at);
+  return onto && newId ? dropOnto(t2, newId, onto, defs) : t2;
 }
 
 // ---------- set aside ----------
