@@ -46,6 +46,17 @@ describe('readSave', () => {
     expect(readSave(saveText(t), manifest)).toEqual(t);
   });
 
+  it('records where each pile lies in a save from before it was saved (version 1)', () => {
+    const stacks = Object.fromEntries(
+      Object.entries(t0.stacks).map(([id, s]) => {
+        const old = { ...s };
+        delete old.at;
+        return [id, old];
+      }),
+    );
+    expect(readSave(envelope({ ...t0, stacks }, 1), manifest)).toEqual(t0);
+  });
+
   it('refuses what is no save of this game and version', () => {
     expect(refusal('{"stacks":')).toBe('it is not a save file');
     expect(refusal('null')).toBe('it is damaged (table is not an object)');
@@ -83,6 +94,12 @@ describe('readSave', () => {
     ).toBe(
       `it is damaged (table.stacks.${id}.cards[0].faceUp is not true or false)`,
     );
+    expect(
+      damaged({
+        ...t0,
+        stacks: { ...t0.stacks, [id]: { ...pile, at: { spot: 'money' } } },
+      }),
+    ).toBe(`it is damaged (table.stacks.${id}.at.index is not a number)`);
     expect(damaged({ ...t0, tokens: [{ id: 'k' }] })).toBe(
       'it is damaged (table.tokens[0].x is not a number)',
     );

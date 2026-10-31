@@ -1,3 +1,4 @@
+import { settle } from './actions';
 import { initialTable, migrateTable } from './setup';
 import { storage } from './storage';
 import type { CardDef, CardManifest, Table } from './types';
@@ -29,6 +30,8 @@ const MIGRATIONS: Migration[] = [
   // The saves before the version was saved (version 0, a bare `Table`), which `migrateTable` brings up to date from
   // any earlier layout (`Table.layout`).
   { to: 1, up: migrateTable },
+  // Where each table pile lies in the game's terms (`Stack.at`), read off where it lies by `settle()`.
+  { to: 2, up: (t) => settle(t) },
 ];
 
 /** The version of the save format written now. */
@@ -136,6 +139,14 @@ const object =
   };
 
 const POINT = object({ x: num, y: num });
+/** Where a table pile lies (`At`): on a fixed place, a grid's place, a spot, or loose in an area or on the table. */
+const AT: Shape = (v, p) => {
+  if (!isObject(v)) return `${p} is not an object`;
+  if ('place' in v) return object({ place: str })(v, p);
+  if ('grid' in v) return object({ grid: str, col: num, row: num })(v, p);
+  if ('spot' in v) return object({ spot: str, index: num })(v, p);
+  return object({ area: optional(str), x: num, y: num })(v, p);
+};
 const CARD = object({ id: str, faceUp: bool });
 const STACK = object({
   id: str,
@@ -147,6 +158,7 @@ const STACK = object({
   deck: optional(str),
   slot: optional(str),
   place: optional(str),
+  at: optional(AT),
 });
 const TABLE = object({
   stacks: recordOf(STACK),

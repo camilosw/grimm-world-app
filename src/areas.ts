@@ -8,7 +8,14 @@ import {
   type Turn,
 } from './cards';
 import { DECK_SPECS, TABLE_DECKS, type DeckKind } from './decks';
-import type { CardDef, EncounterPlace, Stack, StorySlot, Table } from './types';
+import type {
+  At,
+  CardDef,
+  EncounterPlace,
+  Stack,
+  StorySlot,
+  Table,
+} from './types';
 
 /** A framed part of the table reserved for certain cards (rulebook chapters 4 and 10). */
 export interface Area {
@@ -1747,6 +1754,66 @@ function measure(t: Table): Measured {
 /** The areas as they lie on the table. Use these, not `AREAS`. */
 export function allAreas(t: Table): Area[] {
   return measure(t).areas;
+}
+
+/**
+ * Where each table pile lies in the game's terms (`Stack.at`), read off where it lies: its fixed place, the grid place
+ * or spot it lies on (the grid first, as in `measure()`), else loose in the area `measure()` gives it to, from that
+ * area's own corner, else loose on the table.
+ */
+function placesOf(t: Table): Map<string, At> {
+  const { owner } = measure(t);
+  const at = new Map<string, At>();
+  for (const g of GRIDS)
+    for (const { col, row, id } of gridCells(t, g))
+      at.set(id, { grid: g, col, row });
+  for (const spot of spotsOf(t))
+    stacksOnSpot(t, spot).forEach((id, index) => {
+      if (!at.has(id)) at.set(id, { spot: spot.id, index });
+    });
+  for (const id of t.z) {
+    const s = t.stacks[id];
+    const place = s.place ?? s.slot ?? s.deck;
+    if (place) at.set(id, { place });
+    if (at.has(id)) continue;
+    const area = AREAS.find((a) => a.id === owner.get(id));
+    if (!area) {
+      at.set(id, { x: s.x, y: s.y });
+      continue;
+    }
+    const d = shiftOf(t, area.id);
+    at.set(id, { area: area.id, x: s.x - area.x - d.x, y: s.y - area.y - d.y });
+  }
+  return at;
+}
+
+function sameAt(a: At | undefined, b: At): boolean {
+  if (!a) return false;
+  const was: Record<string, unknown> = a;
+  return (
+    Object.keys(a).length === Object.keys(b).length &&
+    Object.entries(b).every(([k, v]) => was[k] === v)
+  );
+}
+
+/**
+ * Record where each table pile lies in the game's terms (`Stack.at`, `placesOf()`), and forget it for the piles in the
+ * sidebar or set aside. Run last by `settle()`, once everything lies where it stays. Returns the same table when
+ * nothing changes.
+ */
+export function settleAt(t: Table): Table {
+  const at = placesOf(t);
+  let stacks: Record<string, Stack> | undefined;
+  for (const [id, s] of Object.entries(t.stacks)) {
+    const now = at.get(id);
+    if (now ? sameAt(s.at, now) : !s.at) continue;
+    stacks ??= { ...t.stacks };
+    const next = { ...s };
+    if (now) next.at = now;
+    else delete next.at;
+    stacks[id] = next;
+  }
+  return stacks ? { ...t, stacks } : t;
 }
 
 const bottomOf = (r: Rect) => r.y + r.h;

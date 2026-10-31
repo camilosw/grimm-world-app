@@ -5,6 +5,7 @@ import {
   resetLayout,
   settleSpots,
   takeCard,
+  toTray,
 } from './actions';
 import {
   allAreas,
@@ -16,6 +17,7 @@ import {
   gridPlaces,
   placement,
   placeStack,
+  settleAt,
   settleLayout,
   spotPlaces,
   stacksOnSpot,
@@ -28,6 +30,7 @@ import {
   defs,
   drop,
   dropEach,
+  misplaced,
   newGame,
   pileOf,
   spot,
@@ -393,5 +396,61 @@ describe('gridPlaces', () => {
         .map((g) => g.side)
         .sort(),
     ).toEqual(['bottom', 'left', 'right', 'top']);
+  });
+});
+
+describe('settleAt', () => {
+  it('records where each table pile lies, and nothing for the piles off the table', () => {
+    expect(misplaced(t0)).toEqual([]);
+    expect(t0.dock!.filter((id) => t0.stacks[id].at)).toEqual([]);
+    expect(t0.stacks[deckStack(t0, 'quest')!.id].at).toEqual({
+      place: 'quest',
+    });
+    expect(t0.stacks[deckStack(t0, 'encounter')!.id].at).toEqual({
+      place: 'time-passes',
+    });
+    expect(settleAt(t0)).toBe(t0);
+  });
+
+  it("records a pile's place in a row, on a grid or on the table", () => {
+    let t = dropEach(t0, money.slice(0, 2), FAR.x, FAR.y);
+    const map = inArea(t, 'map');
+    [t] = drop(t, [r1], map.x, map.y);
+    [t] = drop(t, [y1], FAR.x, FAR.y);
+    expect(money.slice(0, 2).map((id) => t.stacks[pileOf(t, id)].at)).toEqual([
+      { spot: 'money', index: 0 },
+      { spot: 'money', index: 1 },
+    ]);
+    expect(t.stacks[pileOf(t, r1)].at).toEqual({ grid: 'map', col: 0, row: 0 });
+    expect(t.stacks[pileOf(t, y1)].at).toEqual(FAR);
+    expect(misplaced(t)).toEqual([]);
+  });
+
+  it('keeps the place of a pile loose in an area as the area moves', () => {
+    const field = allAreas(t0).find((a) => a.id === 'battlefield')!;
+    const t = apply(t0, (t) => {
+      const [taken, c] = takeCard(t, y1);
+      return addStack(taken, field.x + 7, field.y + 3, [c!])[0];
+    });
+    const loose = pileOf(t, y1);
+    const was = t.stacks[loose].at;
+    expect(was).toMatchObject({ area: 'battlefield' });
+    const frame = allAreas(t).find((a) => a.id === 'battlefield')!;
+    const moved = apply(t, (t) =>
+      moveArea(t, 'battlefield', frame.x + 600, frame.y + 300),
+    );
+    expect(at(moved, loose)).toEqual({
+      x: t.stacks[loose].x + 600,
+      y: t.stacks[loose].y + 300,
+    });
+    expect(moved.stacks[loose].at).toEqual(was);
+    expect(misplaced(moved)).toEqual([]);
+  });
+
+  it('forgets where a pile set aside lay', () => {
+    const [t] = drop(t0, [y1], FAR.x, FAR.y);
+    const id = pileOf(t, y1);
+    const aside = apply(t, (t) => toTray(t, id, 'all'));
+    expect(aside.stacks[pileOf(aside, y1)].at).toBeUndefined();
   });
 });

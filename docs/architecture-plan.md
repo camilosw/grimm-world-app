@@ -14,7 +14,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------- |
 | A1. Test safety net                      | Opus designs the invariants, property tests and save fixtures; Sonnet writes the bulk of unit tests | ✅ Done        |
 | A2. A single path for loading and saving | Opus                                                                                                | ✅ Done        |
-| A3.1 Add `at` next to `x, y`             | Opus                                                                                                | ⬜ Not started |
+| A3.1 Add `at` next to `x, y`             | Opus                                                                                                | ✅ Done        |
 | A3.2 Move the readers over to `at`       | Opus                                                                                                | ⬜ Not started |
 | A3.3 Derive `x, y`, stop saving layout   | Opus                                                                                                | ⬜ Not started |
 | A3.4 Remove the geometric inference      | Opus                                                                                                | ⬜ Not started |
@@ -188,6 +188,24 @@ Order:
 
 The migration uses the current code: it applies `measure()` once to the old save to get `at`. Key test: for each
 fixture, the coordinates computed after the migration equal those from before.
+
+Outcome of A3.1 (October 2026, on top of A2; `CLAUDE.md` describes it under **Table model**):
+
+- `Stack.at` (`At` in `types.ts`), for table piles only: `{ place }` (the pile's `place`, `slot` or `deck`, in that
+  order: the three fixed-place mechanisms already share one namespace), `{ grid, col, row }`, `{ spot, index }` (the
+  index in the row, as `stacksOnSpot()` orders it), `{ area, x, y }` and `{ x, y }`. A grid place wins over a spot, as
+  in `measure()`.
+- A loose pile in an area lies relative to the area's _own_ corner in `AREAS` (moved by `Table.shifts`), not to its
+  frame: a growing area's frame changes as cards come and go, its own place only moves with the layout, so `at` stays
+  the same when an area is moved or pushed (tested). This settles that part of the open decision on `At`; A3.3 has to
+  keep an equivalent origin once `shifts` is no longer saved.
+- `settleAt()` in `areas.ts`, the last step of `settle()`, reads `at` off `x, y` with `measure()`, `stacksOnSpot()` and
+  `gridCells()`, and returns the same table when nothing changed. It costs about 0.4 ms per change.
+- Save format version 2: its migration is `settle`, which records `at` in a version-1 save. The schema checks `at`'s
+  shape.
+- Tests: `misplaced()` (`src/test/play.ts`) works each pile's coordinates back out of its `at`, and is checked after
+  every move of the random games and on every save fixture; that inverse is the starting point for A3.2. The fixtures'
+  snapshot now shows each pile's `at`, with every coordinate unchanged.
 
 Done when: no data derived from the layout is saved, changing the size or order of the areas no longer needs a
 migration, and the fixtures look the same as before.

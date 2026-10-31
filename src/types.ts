@@ -1,3 +1,4 @@
+import type { GridId } from './areas';
 import type { DeckKind } from './decks';
 
 export type CardType =
@@ -54,7 +55,25 @@ export interface Stack {
   slot?: StorySlot;
   /** Fixed places: the Encounter Deck area's (the time card under the deck, and the used cards) and the Damage Card's. */
   place?: Place;
+  /**
+   * Where it lies on the table in the game's terms (table piles only, `z`), as `settleAt()` reads it off `x, y` after
+   * every change. Nothing reads it yet: it is the first step of saving where piles lie instead of inferring it.
+   */
+  at?: At;
 }
+
+/**
+ * Where a table pile lies in the game's terms: on its fixed place (`Stack.place`, `slot` or `deck`, in that order), on a
+ * grid's place, on a spot (`index`: its place in the spot's row, from the first; 0 for a spot of one place), loose in
+ * an area (`x, y` from the area's own corner in `AREAS`, which moves with it, `Table.shifts`), or loose outside the
+ * areas (`x, y` on the table).
+ */
+export type At =
+  | { place: Place | StorySlot | DeckKind }
+  | { grid: GridId; col: number; row: number }
+  | { spot: string; index: number }
+  | { area: string; x: number; y: number }
+  | { x: number; y: number };
 
 export type StorySlot = 'story' | 'story-revealed';
 

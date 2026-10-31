@@ -8,6 +8,7 @@ import {
   onGrid,
   fanRow,
   refusal,
+  settleAt,
   settleEnemies,
   settleLayout,
   slidesUnder,
@@ -1117,11 +1118,12 @@ export function faceArrivals(prev: Table, t: Table): Table {
 /**
  * Bring the table in order after any change: the cards on the Enemy Card places kept on them (`settleEnemies()`), the
  * spots laid out (`settleSpots()`), then the areas (`settleLayout()`), and, given the table before the change, the cards
- * just put on a place that turns them turned (`faceArrivals()`).
+ * just put on a place that turns them turned (`faceArrivals()`); last, where each pile now lies recorded
+ * (`settleAt()`).
  */
 export function settle(t: Table, prev?: Table): Table {
   const laid = settleLayout(settleSpots(settleEnemies(t)));
-  return prev ? faceArrivals(prev, laid) : laid;
+  return settleAt(prev ? faceArrivals(prev, laid) : laid);
 }
 
 // ---------- area layout ----------

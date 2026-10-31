@@ -1,7 +1,20 @@
 import { addStack, dropOnto, settle, takeCard } from '../actions';
-import { placement, spotsOf, type Placement, type Spot } from '../areas';
+import {
+  AREAS,
+  cellPlace,
+  deckPlace,
+  ENCOUNTER_PLACES,
+  encounterPlace,
+  placement,
+  spotPlaces,
+  spotsOf,
+  STORY_SLOTS,
+  type Placement,
+  type Spot,
+} from '../areas';
+import type { DeckKind } from '../decks';
 import { initialTable } from '../setup';
-import type { CardDef, Table } from '../types';
+import type { At, CardDef, EncounterPlace, Table } from '../types';
 import { realManifest } from './fixtures';
 
 // Playing on a table of the real card set, as the player does: cards are put where `placement()` says, and every
@@ -93,4 +106,52 @@ export function dropEach(t: Table, cardIds: string[], x: number, y: number) {
     if (p.refused) throw new Error(p.refused);
     return next;
   }, t);
+}
+
+/** Where a table pile lying `at` lies on this table, worked out from the layout as the app works out a spot's place. */
+function pointOf(t: Table, at: At): { x: number; y: number } {
+  if ('place' in at) {
+    const p = at.place;
+    if (p === 'story' || p === 'story-revealed') {
+      const d = t.shifts?.storybook ?? { x: 0, y: 0 };
+      return { x: STORY_SLOTS[p].x + d.x, y: STORY_SLOTS[p].y + d.y };
+    }
+    if (p === 'damage') return spot(t, 'damage');
+    if (ENCOUNTER_PLACES.some((e) => e.place === p))
+      return encounterPlace(t, p as EncounterPlace);
+    return deckPlace(t, p as DeckKind);
+  }
+  if ('grid' in at) return cellPlace(t, at.grid, at.col, at.row);
+  if ('spot' in at) {
+    const s = spot(t, at.spot);
+    return s.fan ? spotPlaces(s, at.index + 1)[at.index] : s;
+  }
+  if ('area' in at) {
+    const a = AREAS.find((a) => a.id === at.area)!;
+    const d = t.shifts?.[a.id] ?? { x: 0, y: 0 };
+    return { x: a.x + d.x + at.x, y: a.y + d.y + at.y };
+  }
+  return at;
+}
+
+/**
+ * The piles whose `Stack.at` doesn't say where they lie (none: every table pile's leads back to its `x, y`, and no other
+ * pile has one).
+ */
+export function misplaced(t: Table): string[] {
+  const onTable = new Set(t.z);
+  return Object.values(t.stacks).flatMap((s) => {
+    if (!onTable.has(s.id))
+      return s.at
+        ? [`${s.id} lies off the table, at ${JSON.stringify(s.at)}`]
+        : [];
+    if (!s.at) return [`${s.id} lies nowhere`];
+    const p = pointOf(t, s.at);
+    const close = Math.abs(p.x - s.x) < 1e-6 && Math.abs(p.y - s.y) < 1e-6;
+    return close
+      ? []
+      : [
+          `${s.id} lies at ${s.x},${s.y}, not ${JSON.stringify(s.at)}: ${p.x},${p.y}`,
+        ];
+  });
 }
