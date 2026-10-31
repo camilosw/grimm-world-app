@@ -560,12 +560,12 @@ function lying(t: Table): Lying {
 }
 
 /** Table piles lying on a spot's places (`Stack.at`), in place order. */
-export function stacksOnSpot(t: Table, spot: Spot): string[] {
+export function stacksOnSpot(t: Table, spot: Spot): readonly string[] {
   return lying(t).spots.get(spot.id) ?? [];
 }
 
 /** Piles lying in a fanned spot's row (`Stack.at`), from its first place on. */
-export function fanRow(t: Table, spot: Spot): string[] {
+export function fanRow(t: Table, spot: Spot): readonly string[] {
   return spot.fan ? stacksOnSpot(t, spot) : [];
 }
 
@@ -2346,7 +2346,7 @@ export function drawOrder(t: Table): string[] {
     if (!spot.under && !spot.underPile && !spot.fan) continue;
     // Later places lie under earlier ones, unless each card lies on the one before (the hand).
     const row = stacksOnSpot(t, spot);
-    const below = spot.overlaps ? row : row.reverse();
+    const below = spot.overlaps ? row : [...row].reverse();
     if (!below.length) continue;
     // Under the lowest card of the covering spot (the last of a fanned row, e.g. the outer house extension); while that
     // has none, of the spot covering it (the Skills under the Character Card while there are no Titles).

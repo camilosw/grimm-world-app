@@ -364,6 +364,18 @@ describe('drawOrder', () => {
     expect(g1).toBeLessThan(s);
   });
 
+  it('draws a row the same way each time, leaving its order alone', () => {
+    const goods = spot(t0, 'home-goods');
+    const t = dropEach(t0, [b1, b2, b3], goods.x, goods.y);
+    const row = [...stacksOnSpot(t, spot(t, 'home-goods'))];
+    const z = drawOrder(t);
+    expect(drawOrder(t)).toEqual(z);
+    expect(stacksOnSpot(t, spot(t, 'home-goods'))).toEqual(row);
+    // Each card further out lies under the one before it.
+    const order = row.map((id) => z.indexOf(id));
+    expect(order).toEqual([...order].sort((a, b) => b - a));
+  });
+
   it('draws each card of the hand on the one before', () => {
     const hand = inArea(t0, 'hand');
     const [t] = drop(t0, [y1, y2, y3], hand.x, hand.y);

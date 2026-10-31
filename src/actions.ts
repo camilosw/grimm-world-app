@@ -1123,7 +1123,7 @@ export function faceArrivals(prev: Table, t: Table): Table {
         cards: s.cards.map((c) => (before.has(c.id) ? c : { ...c, faceUp })),
       });
   };
-  const cardsOn = (u: Table, ids: string[]) =>
+  const cardsOn = (u: Table, ids: readonly string[]) =>
     new Set(ids.flatMap((id) => u.stacks[id].cards.map((c) => c.id)));
   const before = spotsOf(prev);
   for (const spot of spotsOf(t).filter((s) => s.putFaceUp)) {
