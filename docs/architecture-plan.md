@@ -19,7 +19,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | A3.3 Derive `x, y`, stop saving layout   | Opus                                                                                                | ✅ Done        |
 | A3.4 Remove the geometric inference      | Opus                                                                                                | ✅ Done        |
 | A4.1 Gesture reducer, generic TableView  | Opus                                                                                                | ✅ Done        |
-| A4.2 Hooks out of App.tsx                | Sonnet                                                                                              | 🟡 In progress |
+| A4.2 Hooks out of App.tsx                | Sonnet                                                                                              | ✅ Done        |
 | A5. Documentation                        | Sonnet                                                                                              | 🔁 Ongoing     |
 | B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | ⬜ Not started |
 | B2. Injected `GameDefinition`            | Opus                                                                                                | ⬜ Not started |
