@@ -20,7 +20,7 @@ import {
 import { CardGhost } from './CardGhost';
 import { storage } from './storage';
 import { update } from './store';
-import type { CardDef, CardRef, Table } from './types';
+import type { At, CardDef, CardRef, Table } from './types';
 import { useDragOut } from './useDragOut';
 import { useFlip } from './useFlip';
 
@@ -157,7 +157,7 @@ interface BrowseProps {
   stackId: string;
   defs: Record<string, CardDef>;
   /** World position for cards taken out of the pile. */
-  dropAt: (cardIds: string[]) => { x: number; y: number } | null;
+  dropAt: (cardIds: string[]) => At | null;
   onInspect: (card: CardRef) => void;
   /** Cards were dragged out of the panel and released at this screen point (face down: picked at random, unseen). */
   onDrop: (
@@ -261,9 +261,7 @@ export function BrowsePanel({
     const indices = cardIds.map((id) =>
       stack.cards.findIndex((c) => c.id === id),
     );
-    update((t) =>
-      playCards(t, stackId, indices, at.x, at.y, null, defs, faceUp),
-    );
+    update((t) => playCards(t, stackId, indices, at, null, defs, faceUp));
   };
 
   /** Dragging the top edge: the panel's height follows the finger, leaving the table room. */
@@ -541,7 +539,7 @@ export function BrowsePanel({
 interface FindProps {
   table: Table;
   defs: Record<string, CardDef>;
-  dropAt: (cardIds: string[]) => { x: number; y: number } | null;
+  dropAt: (cardIds: string[]) => At | null;
   onShow: (stackId: string) => void;
   onInspect: (card: CardRef) => void;
   onClose: () => void;
@@ -612,9 +610,7 @@ export function FindDialog({
                     onClick={() => {
                       const at = dropAt([def.id]);
                       if (!at) return;
-                      update((t) =>
-                        extractCard(t, stack.id, index, at.x, at.y),
-                      );
+                      update((t) => extractCard(t, stack.id, index, at));
                       onClose();
                     }}
                   >

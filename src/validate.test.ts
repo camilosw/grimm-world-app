@@ -75,13 +75,21 @@ describe('tableProblems', () => {
 
   it('finds piles misfiled, empty or in two places', () => {
     const lost = deckStack(t0, 'lost-pages')!;
-    const empty: Stack = { id: 'e', x: 0, y: 0, rot: 0, cards: [] };
+    const empty: Stack = {
+      id: 'e',
+      x: 0,
+      y: 0,
+      at: { x: 0, y: 0 },
+      rot: 0,
+      cards: [],
+    };
     expect(
       tableProblems({ ...withPile(t0, empty), z: [...t0.z, 'e'] }, manifest),
     ).toEqual(['pile e is empty']);
     expect(tableProblems(withPile(t0, empty), manifest)).toEqual([
       'pile e is in none of z, dock, tray',
       'pile e is empty',
+      'pile e lies off the table but has a place on it',
     ]);
     expect(tableProblems({ ...t0, tray: [lost.id] }, manifest)).toEqual([
       `pile ${lost.id} is in both dock and tray`,
@@ -89,6 +97,38 @@ describe('tableProblems', () => {
     expect(tableProblems({ ...t0, z: [...t0.z, 'x'] }, manifest)).toEqual([
       'z names missing pile x',
     ]);
+  });
+
+  it('finds table piles not saying where they lie, or wrongly', () => {
+    const [y1] = t0.stacks[deckStack(t0, 'lost-pages')!.id].cards;
+    const pile = (at?: Stack['at']): Table => {
+      const lost = deckStack(t0, 'lost-pages')!;
+      const s: Stack = { id: 'p', x: 0, y: 0, rot: 0, cards: [y1], at };
+      return {
+        ...withPile(withPile(t0, { ...lost, cards: lost.cards.slice(1) }), s),
+        z: [...t0.z, 'p'],
+      };
+    };
+    expect(tableProblems(pile({ x: 0, y: 0 }), manifest)).toEqual([]);
+    expect(tableProblems(pile(), manifest)).toEqual([
+      'pile p lies nowhere on the table',
+    ]);
+    expect(
+      tableProblems(pile({ spot: 'market-0,0', index: 0 }), manifest),
+    ).toEqual(['pile p lies on a place no longer there']);
+    expect(
+      tableProblems(pile({ area: 'nowhere', x: 0, y: 0 }), manifest),
+    ).toEqual(['pile p lies in no area']);
+    expect(tableProblems(pile({ place: 'quest' }), manifest)).toEqual([
+      'pile p lies off its place',
+    ]);
+    const quest = deckStack(t0, 'quest')!;
+    expect(
+      tableProblems(
+        withPile(t0, { ...quest, at: { place: 'enemy' } }),
+        manifest,
+      ),
+    ).toEqual([`pile ${quest.id} lies off its place`]);
   });
 
   it('finds pinned cards off their places', () => {

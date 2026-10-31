@@ -16,7 +16,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | A2. A single path for loading and saving | Opus                                                                                                | ✅ Done        |
 | A3.1 Add `at` next to `x, y`             | Opus                                                                                                | ✅ Done        |
 | A3.2 Move the readers over to `at`       | Opus                                                                                                | ✅ Done        |
-| A3.3 Derive `x, y`, stop saving layout   | Opus                                                                                                | ⬜ Not started |
+| A3.3 Derive `x, y`, stop saving layout   | Opus                                                                                                | ✅ Done        |
 | A3.4 Remove the geometric inference      | Opus                                                                                                | ⬜ Not started |
 | A4. Split `App.tsx` and `TableView`      | Opus for the gesture reducer and the first hook; Sonnet for the remaining hook extractions          | ⬜ Not started |
 | A5. Documentation                        | Sonnet                                                                                              | 🔁 Ongoing     |
@@ -241,6 +241,52 @@ Outcome of A3.2 (October 2026, on top of A3.1; `CLAUDE.md` describes it under **
 - Left for A3.3: a save of version 2 is trusted to hold an `at` matching its `x, y` (the app only writes such saves);
   `placement()` still works out the area of the pile dropped onto with `areaForCard()`; and once actions set `at` and
   `x, y` follow from it, the `inferred*` functions remain only for the migration (A3.4).
+
+Outcome of A3.3 (October 2026, on top of A3.2; `CLAUDE.md` describes it under **Table model**, **Area layout** and
+**Saves**):
+
+- `at` is what the actions set and what the save holds. `placement()` returns it (`Placement.at`, beside the `x, y`
+  where the dragged card is drawn meanwhile); `addStack`, `moveStack`, `takeTop`, `liftPile`, `drawTop`,
+  `extractCard`, `playCards` and `fromTray` take an `At` instead of `x, y`; App's `dropAt` gives one. A pile put loose
+  lies where `looseAt()` says: in the area `areaForCard()` gives the point (from its own corner), else on the table. A
+  card put into a row gets an index half way between two (`spotPlace()`), which `settleSpots()` numbers again, as it
+  closed the gaps of the half-unit positions before.
+- `x, y` stay on `Stack`, but as a cache of the layout: `settle()` ends with `placePiles()`, which lays each table pile
+  where `pointOf()` says (and the piles off the table at 0, without `at`). Removing them from `Stack` would have meant
+  passing the layout to every reader (the drawing, hit-testing, `gridPlaces()`, the drag previews) for no gain: they read
+  a settled table, where the cache is up to date. Actions never read the cache of a pile they have moved.
+- The layout reads `at` throughout: `spotsOf()`, the placeholders, `gridBox()` and `allAreas()` (now framed around the
+  spots, grids and the piles lying loose in each area by their `at`, no longer `measure()`), and `settleSpots()` and
+  `settleLayout()`. What `measure()` did beyond that is `takeIn()`: a pile loose outside the areas that an area comes to
+  lie over joins it, before and after the areas move, as `measure()` did in `settleLayout()` and `settleAt()`. The
+  battlefield's Enemy Card places need no `settleEnemies()`: the cards on them lie there by their `at`.
+- Loose piles in an area keep the origin of A3.1, the area's own corner moved by its shift. `Table.shifts` stays in
+  memory, as the layout last laid out (figures move by the difference, and the drag previews keep the areas where they
+  lie), but it is a function of where the piles lie and of `anchors`: `layOut()` works it out from scratch on loading.
+  An area back on its own place now has no shift rather than `{ x: 0, y: 0 }`, so that a table saved and loaded again
+  is the same table.
+- Save format version 3: `saveText` writes the table `withoutLayout()` (no `x, y`, `shifts`, `frames` or `enemies`), so
+  only the player's intent is saved besides where the piles lie (`anchors`); the migration to version 3 drops them from
+  older saves, and `migrate()` (all of `readSave` but parsing and checking) lays every save out with `layOut()`. The
+  schema takes `x, y` as optional; `tableProblems()` also finds table piles without an `at`, fixed piles off their place,
+  piles on a spot or area there is not, and piles off the table with one.
+- The migrations of version-0 and version-1 saves move piles by their coordinates, so they keep the layout of A3.2
+  under `inferred*` names (`inferredSettle()`: `inferredSettleEnemies()`, `inferredSettleSpots()`,
+  `inferredSettleLayout()`, `settleAt()`; `inferredRearrange()`, `inferredSpots()`, `inferredAreas()`), the layout
+  helpers taking a reader (`By`: `'at'` or `'xy'`) where the two share code. Nothing else uses them.
+- Tests. Key test (`saves.test.ts`): for each fixture, every pile laid out from its `at` lies where the save, as of
+  version 2, drew it, with the same `at`, figures and anchors; to within float rounding, as a loose pile's place in its
+  area added back to the area's corner can differ in the last digit (3·10⁻¹⁴ for one pile of `v0.3.0-moved`, whose
+  snapshot line changed by that much; nothing else in the snapshots did). A new property test plays every random move
+  through both layouts (the old one given the frames and Enemy Card places it kept) and finds them equal; in a one-off
+  run of 3,000 games of up to 50 moves the only difference was a bug of the coordinates: the Home area's Goods (or
+  Equipment) and the House Extensions beside them lie on one line, so the inference took a Goods card for a House
+  Extension while that row had room. Now it stays among the Goods, as the README says; the test stops a game there. `misread()` still checks the
+  fixtures, but no longer the random games, where that case makes it disagree.
+- Left for A3.4: the geometric inference is used only by the migrations of saves from before version 3 (`measure()`,
+  `settleAt()`, the `inferred*` functions, the `'xy'` reader, `Table.frames` and `enemies`). Removing it means either
+  freezing it into a migrations module or no longer loading those saves; `misread()` and the comparison property test
+  go with it. `areaForCard()` and `looseAt()`, the point queries for a drop, stay.
 
 Done when: no data derived from the layout is saved, changing the size or order of the areas no longer needs a
 migration, and the fixtures look the same as before.

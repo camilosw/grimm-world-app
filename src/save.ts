@@ -1,7 +1,8 @@
-import { settle } from './actions';
+import { inferredSettle } from './actions';
+import { layOut } from './areas';
 import { initialTable, migrateTable } from './setup';
 import { storage } from './storage';
-import type { CardDef, CardManifest, Table } from './types';
+import type { CardDef, CardManifest, Stack, Table } from './types';
 import { isValidTable, tableProblems } from './validate';
 
 /** Which game a save file is of. */
@@ -17,7 +18,7 @@ export interface SaveFile {
 interface Migration {
   /** The version of the save format it brings a save to. */
   to: number;
-  /** The table brought up to date, settled. */
+  /** The table brought up to date, as a save of that version holds it. */
   up(t: Table, defs: Record<string, CardDef>): Table;
 }
 
@@ -30,8 +31,11 @@ const MIGRATIONS: Migration[] = [
   // The saves before the version was saved (version 0, a bare `Table`), which `migrateTable` brings up to date from
   // any earlier layout (`Table.layout`).
   { to: 1, up: migrateTable },
-  // Where each table pile lies in the game's terms (`Stack.at`), read off where it lies by `settle()`.
-  { to: 2, up: (t) => settle(t) },
+  // Where each table pile lies in the game's terms (`Stack.at`), read off where it lies by `inferredSettle()`.
+  { to: 2, up: (t) => inferredSettle(t) },
+  // The layout is no longer saved, only where each pile lies (`Stack.at`) and where the player put the areas
+  // (`Table.anchors`): loading lays the table out from them (`layOut()`).
+  { to: 3, up: withoutLayout },
 ];
 
 /** The version of the save format written now. */
@@ -40,10 +44,49 @@ export const SAVE_VERSION = MIGRATIONS.at(-1)!.to;
 /** Why a save can't be loaded, worded to follow "could not be loaded: ". */
 export class SaveError extends Error {}
 
-/** A save of the table, as it is written to the device or exported. */
+/** A save of the table, as it is written to the device or exported: without its layout (`withoutLayout()`). */
 export function saveText(t: Table): string {
-  const file: SaveFile = { game: GAME, version: SAVE_VERSION, table: t };
+  const file: SaveFile = {
+    game: GAME,
+    version: SAVE_VERSION,
+    table: withoutLayout(t),
+  };
   return JSON.stringify(file);
+}
+
+/**
+ * A table without what the layout works out from where its piles lie (`Stack.at`) and where the player put the areas
+ * (`Table.anchors`): where each pile is drawn (`Stack.x`, `y`), how far each area lies from its own place
+ * (`Table.shifts`), and, in saves from before version 3, the frames and the Enemy Card places last laid out
+ * (`Table.frames`, `enemies`).
+ */
+export function withoutLayout(t: Table): Table {
+  const rest = { ...t };
+  delete rest.shifts;
+  delete rest.frames;
+  delete rest.enemies;
+  const stacks: Record<string, Stack> = {};
+  for (const [id, s] of Object.entries(t.stacks)) {
+    const pile: Partial<Stack> = { ...s };
+    delete pile.x;
+    delete pile.y;
+    stacks[id] = pile as Stack;
+  }
+  return { ...rest, stacks };
+}
+
+/**
+ * A saved table of `version` brought up to date (`MIGRATIONS`) and laid out (`layOut()`), as loading it gives it. Throws
+ * when a migration fails.
+ */
+export function migrate(
+  table: Table,
+  version: number,
+  defs: Record<string, CardDef>,
+): Table {
+  let t = table;
+  for (const m of MIGRATIONS) if (m.to > version) t = m.up(t, defs);
+  return layOut(t);
 }
 
 /**
@@ -64,9 +107,9 @@ export function readSave(text: string, manifest: CardManifest): Table {
     throw new SaveError('its cards are not those of this game');
 
   const defs = Object.fromEntries(manifest.cards.map((c) => [c.id, c]));
-  let t = table as Table;
+  let t: Table;
   try {
-    for (const m of MIGRATIONS) if (m.to > version) t = m.up(t, defs);
+    t = migrate(table as Table, version, defs);
   } catch (e) {
     throw new SaveError(
       `it could not be brought up to date (${(e as Error).message})`,
@@ -139,19 +182,23 @@ const object =
   };
 
 const POINT = object({ x: num, y: num });
+/** One of the grids (`GridId`). */
+const GRID: Shape = (v, p) =>
+  v === 'map' || v === 'battlefield' ? null : `${p} is no grid`;
 /** Where a table pile lies (`At`): on a fixed place, a grid's place, a spot, or loose in an area or on the table. */
 const AT: Shape = (v, p) => {
   if (!isObject(v)) return `${p} is not an object`;
   if ('place' in v) return object({ place: str })(v, p);
-  if ('grid' in v) return object({ grid: str, col: num, row: num })(v, p);
+  if ('grid' in v) return object({ grid: GRID, col: num, row: num })(v, p);
   if ('spot' in v) return object({ spot: str, index: num })(v, p);
   return object({ area: optional(str), x: num, y: num })(v, p);
 };
 const CARD = object({ id: str, faceUp: bool });
+// Before version 3 a save also held where each pile was drawn (`x`, `y`), the areas' shifts, frames and Enemy Card places.
 const STACK = object({
   id: str,
-  x: num,
-  y: num,
+  x: optional(num),
+  y: optional(num),
   rot: num,
   cards: listOf(CARD),
   label: optional(str),

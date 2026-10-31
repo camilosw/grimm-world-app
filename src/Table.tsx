@@ -37,7 +37,7 @@ import {
   placement,
   placeStack,
   PLACE_BUTTON,
-  settleAt,
+  placePiles,
   snapArea,
   splitHalves,
   spotsOf,
@@ -71,6 +71,7 @@ import {
 } from './decks';
 import { update } from './store';
 import type {
+  At,
   CardDef,
   CardRef,
   Stack,
@@ -184,8 +185,8 @@ interface Drag {
   area: { id: string; ok: boolean } | null;
   /** Spot the card goes to (or is refused from). */
   spot: string | null;
-  /** Where the card would really land. */
-  to: { x: number; y: number } | null;
+  /** Where the card would really land (drawn at x, y). */
+  to: { x: number; y: number; at: At } | null;
   /** The pointer, in table coordinates (the dragged card lies offset from it, as it was taken). */
   pointer?: { x: number; y: number };
 }
@@ -458,7 +459,7 @@ export function TableView(props: Props) {
         dropOn = dest.onto;
         if (dest.area) area = { id: dest.area.id, ok: !dest.refused };
         spot = dest.spot?.id ?? null;
-        to = { x: dest.x, y: dest.y };
+        to = { x: dest.x, y: dest.y, at: dest.at };
       }
       setDrag({
         target: g2.target,
@@ -574,10 +575,10 @@ export function TableView(props: Props) {
       if (target.whole && !isFixed(t.stacks[target.id]))
         return onto
           ? dropOnto(t, target.id, onto, defs)
-          : moveStack(t, target.id, dest.x, dest.y);
+          : moveStack(t, target.id, dest.at);
       const [t2, newId] = target.whole
-        ? liftPile(t, target.id, dest.x, dest.y)
-        : takeTop(t, target.id, dest.x, dest.y);
+        ? liftPile(t, target.id, dest.at)
+        : takeTop(t, target.id, dest.at);
       return onto && newId ? dropOnto(t2, newId, onto, defs) : t2;
     });
     const source = table.stacks[target.id];
@@ -640,8 +641,8 @@ export function TableView(props: Props) {
     props.preview ??
     areaPreview ??
     (fanTo && dragStack
-      ? // Where its piles lie read off the row laid out (`settleAt()`), as the drawing asks `Stack.at`.
-        settleAt(settleSpots(moveStack(table, dragStack.id, fanTo.x, fanTo.y)))
+      ? // The row numbered again and its piles laid out on it, the areas left where they lie.
+        placePiles(settleSpots(moveStack(table, dragStack.id, fanTo.at)))
       : table);
   const spots = spotsOf(shownTable);
   // What a drag lights up: a drag on the table, else cards dragged in from outside it.

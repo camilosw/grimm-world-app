@@ -44,6 +44,11 @@ export type Rotation = 0 | 90 | 180 | 270;
 /** A pile of one or more cards lying on the table. `cards` is bottom → top. */
 export interface Stack {
   id: string;
+  /**
+   * Where a table pile is drawn (its top-left corner, as a portrait card's): worked out from its `at` and the layout by
+   * `settle()` (`placePiles()` in areas.ts), so up to date on a settled table only; 0 for the piles off the table. Not
+   * saved (from save format version 3): loading lays the piles out (`layOut()`).
+   */
   x: number;
   y: number;
   rot: Rotation;
@@ -56,19 +61,20 @@ export interface Stack {
   /** Fixed places: the Encounter Deck area's (the time card under the deck, and the used cards) and the Damage Card's. */
   place?: Place;
   /**
-   * Where it lies on the table in the game's terms (table piles only, `z`), as `settleAt()` reads it off `x, y` after
-   * every change. The rules and the drawing ask it which spot, grid place, fixed place or area a pile lies on
-   * (`stacksOnSpot()`, `spotOf()`, `gridOf()`, `placeStack()`, `areaOf()` in areas.ts); only the layout, within
-   * `settle()`, still works that out from `x, y`.
+   * Where it lies on the table in the game's terms (table piles only, `z`): what the actions set (`placement()` says
+   * where cards go) and the save holds, and what everything asks which spot, grid place, fixed place or area a pile lies
+   * on (`stacksOnSpot()`, `spotOf()`, `gridOf()`, `placeStack()`, `areaOf()` in areas.ts); its `x, y` follow from it.
+   * Only the migrations of saves from before version 3 read it off `x, y` (`settleAt()`).
    */
   at?: At;
 }
 
 /**
  * Where a table pile lies in the game's terms: on its fixed place (`Stack.place`, `slot` or `deck`, in that order), on a
- * grid's place, on a spot (`index`: its place in the spot's row, from the first; 0 for a spot of one place), loose in
- * an area (`x, y` from the area's own corner in `AREAS`, which moves with it, `Table.shifts`), or loose outside the
- * areas (`x, y` on the table).
+ * grid's place, on a spot (`index`: its place in the spot's row, from the first; 0 for a spot of one place; half way
+ * between two places' to go between them, until `settle()` numbers the row again), loose in an area (`x, y` from the
+ * area's own corner in `AREAS`, which the layout moves with it, `Table.shifts`), or loose outside the areas (`x, y` on
+ * the table).
  */
 export type At =
   | { place: Place | StorySlot | DeckKind }
@@ -121,18 +127,26 @@ export interface Table {
   hand?: CardRef[];
   /** Version of the area layout the cards lie in (missing: before the Storybook area grew for its Encounter Card). */
   layout?: number;
-  /** How far each area lies from its place in `AREAS`, with its spots, as `settleLayout()` laid it out (missing: not moved). */
+  /**
+   * How far each area lies from its place in `AREAS`, with its spots, as `settleLayout()` laid it out (missing: not
+   * moved). Worked out from where the piles lie and `anchors`, so not saved (from save format version 3): loading lays
+   * the areas out again (`layOut()`).
+   */
   shifts?: Record<string, { x: number; y: number }>;
   /**
    * Where the player put each area (the top-left corner of its frame, by area id) once they dragged one: the areas then
    * lie there, pushed aside only by an area growing into them (`settleLayout()`). Missing: the areas lie packed together.
    */
   anchors?: Record<string, { x: number; y: number }>;
-  /** Frames of the growing areas as last laid out: a card dropped on one belongs to that area (`settleLayout()`). */
+  /**
+   * Frames of the growing areas as last laid out, only in saves from before version 3 (and while migrating them, a card
+   * lying on one belongs to that area, `inferredSettleLayout()`): now `allAreas()` frames them around what lies in them.
+   */
   frames?: Record<string, { x: number; y: number; w: number; h: number }>;
   /**
-   * Where the battlefield's Enemy Card places lay, from its grid's first place, as last laid out: they move as the grid
-   * grows or shrinks, and the cards on them with them (`settleEnemies()`). Missing: not laid out yet.
+   * Where the battlefield's Enemy Card places lay, from its grid's first place, as last laid out, only in saves from
+   * before version 3 (and while migrating them, the cards lying on them move with them, `inferredSettleEnemies()`): now
+   * the cards on them lie there by their `Stack.at`.
    */
   enemies?: { x: number; y: number };
   nextId: number;

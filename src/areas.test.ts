@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addStack,
   moveArea,
+  moveStack,
   resetLayout,
   settleSpots,
   takeCard,
@@ -19,7 +20,11 @@ import {
   GAP,
   gridOf,
   gridPlaces,
+  layOut,
+  looseAt,
+  placePiles,
   placement,
+  pointOf,
   placeStack,
   settleAt,
   settleLayout,
@@ -276,13 +281,16 @@ describe('settleSpots', () => {
   it('lays cards upside down where they lie so, and straight and face up on Market Prices', () => {
     const map = inArea(t0, 'map');
     const [t] = drop(t0, [r1], map.x, map.y);
-    const market = spot(t, 'market-0,0');
-    const discard = spot(t, 'discard');
     let t2 = takeCard(takeCard(t, b1)[0], y1)[0];
-    t2 = addStack(t2, market.x, market.y, [{ id: b1, faceUp: false }], {
-      rot: 90,
-    })[0];
-    t2 = addStack(t2, discard.x, discard.y, [{ id: y1, faceUp: true }])[0];
+    t2 = addStack(
+      t2,
+      { spot: 'market-0,0', index: 0 },
+      [{ id: b1, faceUp: false }],
+      { rot: 90 },
+    )[0];
+    t2 = addStack(t2, { spot: 'discard', index: 0 }, [
+      { id: y1, faceUp: true },
+    ])[0];
     const laid = settleSpots(t2);
     expect(laid.stacks[pileOf(laid, b1)]).toMatchObject({
       rot: 0,
@@ -437,7 +445,7 @@ describe('settleAt', () => {
     const field = allAreas(t0).find((a) => a.id === 'battlefield')!;
     const t = apply(t0, (t) => {
       const [taken, c] = takeCard(t, y1);
-      return addStack(taken, field.x + 7, field.y + 3, [c!])[0];
+      return addStack(taken, looseAt(t, field.x + 7, field.y + 3), [c!])[0];
     });
     const loose = pileOf(t, y1);
     const was = t.stacks[loose].at;
@@ -522,5 +530,107 @@ describe('reading where piles lie', () => {
       t0.dock!.map(() => undefined),
     );
     expect(misread(t0)).toEqual([]);
+  });
+});
+
+describe('laying piles out from where they lie', () => {
+  it("says where dropped cards go in the game's terms", () => {
+    expect(placement(t0, [y1], defs, FAR.x, FAR.y, null).at).toEqual(FAR);
+    const map = inArea(t0, 'map');
+    expect(placement(t0, [r1], defs, map.x, map.y, null).at).toEqual({
+      grid: 'map',
+      col: 0,
+      row: 0,
+    });
+    const goods = spot(t0, 'goods');
+    expect(placement(t0, [b1], defs, goods.x, goods.y, null).at).toEqual({
+      spot: 'goods',
+      index: 0,
+    });
+    const field = allAreas(t0).find((a) => a.id === 'battlefield')!;
+    const p = placement(t0, [y1], defs, field.x + 7, field.y + 3, null);
+    expect(p.at).toEqual(looseAt(t0, field.x + 7, field.y + 3));
+    expect(p.at).toMatchObject({ area: 'battlefield' });
+    expect(pointOf(t0, p.at)).toEqual({ x: field.x + 7, y: field.y + 3 });
+  });
+
+  it('puts a card between two in a row, and numbers the row again', () => {
+    const goods = spot(t0, 'goods');
+    const t = dropEach(t0, [b1, b2, b3], goods.x, goods.y);
+    const [first, second, third] = [b1, b2, b3].map((id) => pileOf(t, id));
+    // Half way before the second: drawn half a unit before its place until settled.
+    const before = { spot: 'goods', index: 0.5 };
+    const second0 = at(t, second);
+    expect(pointOf(t, before)).toEqual({
+      x: second0.x + 0.5,
+      y: second0.y,
+    });
+    const t2 = apply(t, (t) => moveStack(t, third, before));
+    expect(stacksOnSpot(t2, spot(t2, 'goods'))).toEqual([first, third, second]);
+    expect([first, third, second].map((id) => t2.stacks[id].at)).toEqual(
+      [0, 1, 2].map((index) => ({ spot: 'goods', index })),
+    );
+    expect(misplaced(t2)).toEqual([]);
+  });
+
+  it("keeps Goods in the Home area's row, though no House Extension lies beside them", () => {
+    const goods = spot(t0, 'home-goods');
+    const [t] = drop(t0, [b1], goods.x, goods.y);
+    const pile = pileOf(t, b1);
+    expect(t.stacks[pile].at).toEqual({ spot: 'home-goods', index: 0 });
+    expect(at(t, pile)).toEqual(spotPlaces(spot(t, 'home-goods'))[0]);
+    expect(stacksOnSpot(t, spot(t, 'house-left'))).toEqual([]);
+  });
+
+  it('leaves a Market Prices card loose where it lay once its Region Card is gone', () => {
+    const map = inArea(t0, 'map');
+    let [t] = drop(t0, [r1], map.x, map.y);
+    const market = spot(t, 'market-0,0');
+    [t] = drop(t, [b1], market.x, market.y);
+    const pile = pileOf(t, b1);
+    const was = at(t, pile);
+    expect(t.stacks[pile].at).toEqual({ spot: 'market-0,0', index: 0 });
+    const gone = apply(t, (t) => takeCard(t, r1)[0]);
+    // Where it lay in the Map area, which then shrinks and moves, with it.
+    expect(gone.stacks[pile].at).toEqual(looseAt(t, was.x, was.y));
+    expect(gone.stacks[pile].at).toMatchObject({ area: 'map' });
+    expect(misplaced(gone)).toEqual([]);
+  });
+
+  it('gives a pile lying loose outside the areas to an area that comes to lie over it', () => {
+    const map = inArea(t0, 'map');
+    const [t] = drop(t0, [y1], FAR.x, FAR.y);
+    const pile = pileOf(t, y1);
+    const over: Table = {
+      ...t,
+      stacks: { ...t.stacks, [pile]: { ...t.stacks[pile], at: map } },
+    };
+    const laid = settleLayout(over);
+    expect(laid.stacks[pile].at).toEqual(looseAt(t, map.x, map.y));
+    expect(laid.stacks[pile].at).toMatchObject({ area: 'map' });
+  });
+
+  it('lays a table saved without its layout out as it lay', () => {
+    let t = dropEach(t0, money.slice(0, 2), FAR.x, FAR.y);
+    const map = inArea(t, 'map');
+    [t] = drop(t, [r1], map.x, map.y);
+    [t] = drop(t, [y1], FAR.x, FAR.y);
+    const frame = allAreas(t).find((a) => a.id === 'storage')!;
+    t = apply(t, (t) => moveArea(t, 'storage', frame.x + 600, frame.y + 300));
+    t = apply(t, (t) => toTray(t, pileOf(t, y1), 'all'));
+    const bare: Table = {
+      ...t,
+      shifts: undefined,
+      stacks: Object.fromEntries(
+        Object.entries(t.stacks).map(([id, s]) => [
+          id,
+          { ...s, x: NaN, y: NaN },
+        ]),
+      ),
+    };
+    expect(layOut(bare)).toEqual(t);
+    // The piles set aside lie nowhere.
+    expect(t.stacks[pileOf(t, y1)]).toMatchObject({ x: 0, y: 0 });
+    expect(placePiles(t)).toBe(t);
   });
 });

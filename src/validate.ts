@@ -1,4 +1,5 @@
 import { pinned, pinnedOnTop } from './actions';
+import { AREAS, spotsOf } from './areas';
 import { DECK_SPECS } from './decks';
 import { playableCards } from './setup';
 import type { CardManifest, Table } from './types';
@@ -30,7 +31,9 @@ export function isValidTable(
 /**
  * What is wrong with a table as the app keeps it, migrated and settled (none: it is sound). Every playable card lies
  * exactly once in a pile, and no other card does; every pile lies on the table (`z`), in the sidebar (`dock`) or set
- * aside (`tray`), in exactly one of them; only fixed piles may be empty; and the cards pinned to their piles lie there:
+ * aside (`tray`), in exactly one of them; only fixed piles may be empty; each table pile says where it lies
+ * (`Stack.at`: a fixed pile on its place, any other on a spot or in an area there is), and no other pile does; and the
+ * cards pinned to their piles lie there:
  * the time cards at the bottom of their places, the Damage Card on top of its place and each deck's own card
  * (`DeckSpec.keeps`) on top of it — as far as the card set has these cards.
  */
@@ -68,6 +71,27 @@ export function tableProblems(t: Table, manifest: CardManifest): string[] {
   for (const d of playableCards(manifest))
     if (!holder.has(d.id)) problems.push(`card ${d.id} is missing`);
   if (t.hand) problems.push('the removed hand is still there');
+
+  const onTable = new Set(t.z);
+  const spots = new Set(spotsOf(t).map((s) => s.id));
+  const areas = new Set(AREAS.map((a) => a.id));
+  for (const [id, s] of Object.entries(t.stacks)) {
+    const at = s.at;
+    if (!onTable.has(id)) {
+      if (at)
+        problems.push(`pile ${id} lies off the table but has a place on it`);
+      continue;
+    }
+    const place = s.place ?? s.slot ?? s.deck;
+    if (!at) problems.push(`pile ${id} lies nowhere on the table`);
+    else if (place || 'place' in at) {
+      if (!('place' in at) || at.place !== place)
+        problems.push(`pile ${id} lies off its place`);
+    } else if ('spot' in at && !spots.has(at.spot))
+      problems.push(`pile ${id} lies on a place no longer there`);
+    else if ('area' in at && !areas.has(at.area))
+      problems.push(`pile ${id} lies in no area`);
+  }
 
   for (const [id, s] of Object.entries(t.stacks)) {
     const top = defs[s.cards.at(-1)?.id ?? ''];

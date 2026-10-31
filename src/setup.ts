@@ -1,27 +1,28 @@
 import {
   addStack,
+  inferredRearrange,
+  inferredSettle,
+  inferredSettleSpots,
   isFixed,
   mergeStacks,
-  rearrange,
   returnToDecks,
   settle,
-  settleSpots,
   shuffled,
   sortStack,
   takeCard,
 } from './actions';
 import { CARD_H, CARD_W, compareCards, family, tokenSize } from './cards';
 import {
-  allAreas,
   AREA_HEADER,
   AREA_PAD,
   AREAS,
   BATTLEFIELD_ORIGIN,
   deckPlace,
   ENCOUNTER_PLACES,
-  encounterPlace,
   GAP,
+  inferredAreas,
   inferredOnSpot,
+  inferredSpots,
   settleAt,
   SPOTS,
   spotPlace,
@@ -119,7 +120,7 @@ export function initialTable(manifest: CardManifest): Table {
       id: c.id,
       faceUp: spec.faceUp ?? true,
     }));
-    table = addStack(table, 0, 0, cards, {
+    table = addStack(table, { x: 0, y: 0 }, cards, {
       label: spec.label,
       deck: spec.kind,
     })[0];
@@ -194,7 +195,7 @@ function addDamagePlace(t: Table, defs: Record<string, CardDef>): Table {
   const under = there?.cards ?? [];
   for (const c of under) next = takeCard(next, c.id)[0];
   const cards = [...under, ...(card ? [{ ...card, faceUp: true }] : [])];
-  return addStack(next, spot.x, spot.y, cards, {
+  return addStack(next, { place: 'damage' }, cards, {
     label: 'Damage Card',
     place: 'damage',
   })[0];
@@ -209,12 +210,11 @@ function addEncounterPlaces(
   piles: Record<EncounterPlace, CardRef[]>,
 ): Table {
   return ENCOUNTER_PLACES.reduce((next, { place }) => {
-    const p = encounterPlace(next, place);
     const kind =
       place === 'used'
         ? { label: 'Used Cards' }
         : { label: DECK_SPECS.encounter.label, deck: 'encounter' as const };
-    return addStack(next, p.x, p.y, piles[place], { ...kind, place })[0];
+    return addStack(next, { place }, piles[place], { ...kind, place })[0];
   }, t);
 }
 
@@ -224,18 +224,14 @@ function addStorySlots(
   story: CardRef[],
   revealed: CardRef[] = [],
 ): Table {
-  const [t2] = addStack(t, STORY_SLOTS.story.x, STORY_SLOTS.story.y, story, {
+  const [t2] = addStack(t, { place: 'story' }, story, {
     label: 'Storybook',
     deck: 'storybook',
     slot: 'story',
   });
-  const [t3] = addStack(
-    t2,
-    STORY_SLOTS['story-revealed'].x,
-    STORY_SLOTS['story-revealed'].y,
-    revealed,
-    { slot: 'story-revealed' },
-  );
+  const [t3] = addStack(t2, { place: 'story-revealed' }, revealed, {
+    slot: 'story-revealed',
+  });
   return t3;
 }
 
@@ -272,7 +268,7 @@ export function migrateTable(t: Table, defs: Record<string, CardDef>): Table {
       terrain,
     ),
   );
-  return settle(
+  return inferredSettle(
     addDeckCards(
       placeOnSpots(addDamagePlace(layEncounterDeck(laidOut, defs), defs), defs),
       defs,
@@ -295,7 +291,7 @@ function addEncounterArea(t: Table): Table {
   if (hasPlaces(t)) return t;
   const own = area('encounter');
   const right = Math.max(
-    ...allAreas(t).map((a) => a.x + a.w),
+    ...inferredAreas(t).map((a) => a.x + a.w),
     ...t.z.map((id) => t.stacks[id].x + CARD_H),
     ...t.tokens.map((k) => k.x + tokenSize(k)),
   );
@@ -304,7 +300,7 @@ function addEncounterArea(t: Table): Table {
     encounter: { x: Math.round(right + GAP - own.x), y: 0 },
   };
   if (!t.anchors) return { ...t, shifts };
-  const bar = t.frames?.bar ?? allAreas(t).find((a) => a.id === 'bar')!;
+  const bar = t.frames?.bar ?? inferredAreas(t).find((a) => a.id === 'bar')!;
   return {
     ...t,
     shifts,
@@ -326,7 +322,7 @@ function addBattlefieldArea(t: Table): Table {
   if ((t.layout ?? 0) >= 9) return t;
   const { battlefield: _, ...rest } = t;
   const own = area('battlefield');
-  const areas = allAreas(rest).filter((a) => a.id !== 'battlefield');
+  const areas = inferredAreas(rest).filter((a) => a.id !== 'battlefield');
   const right = Math.max(
     ...areas.map((a) => a.x + a.w),
     ...t.z.map((id) => t.stacks[id].x + CARD_H),
@@ -402,7 +398,7 @@ function layBattlefield(t: Table, cells: Map<string, Cell>): Table {
 function addHandArea(t: Table): Table {
   if ((t.layout ?? 0) >= 6) return t;
   const own = area('hand');
-  const areas = allAreas(t).filter((a) => a.id !== 'hand');
+  const areas = inferredAreas(t).filter((a) => a.id !== 'hand');
   const right = Math.max(
     ...areas.map((a) => a.x + a.w),
     ...t.z.map((id) => t.stacks[id].x + CARD_H),
@@ -429,7 +425,7 @@ function addHandArea(t: Table): Table {
  */
 function layEncounterDeck(t: Table, defs: Record<string, CardDef>): Table {
   if (hasPlaces(t)) return t;
-  return rearrange(t, (t) => {
+  return inferredRearrange(t, (t) => {
     const old = (t.dock ?? []).filter((id) =>
       OLD_ENCOUNTER.includes(t.stacks[id].deck ?? ''),
     );
@@ -630,10 +626,10 @@ function fillBar(t: Table, defs: Record<string, CardDef>): Table {
   // Each goes first in the row, so the last one first. Where the cards in it lie is read off their coordinates
   // (`settleAt()`): the save has no `Stack.at` yet.
   for (const card of [...cards].reverse()) {
-    const settled = settleSpots(next);
-    const spot = spotsOf(settled).find((s) => s.id === 'bar')!;
+    const settled = inferredSettleSpots(next);
+    const spot = inferredSpots(settled).find((s) => s.id === 'bar')!;
     const p = spotPlace(settleAt(settled), spot, null, -Infinity, -Infinity)!;
-    next = addStack(settled, p.x, p.y, [card])[0];
+    next = addStack(settled, { x: p.x, y: p.y }, [card])[0];
   }
   return next;
 }
@@ -669,17 +665,17 @@ function layDecks(t: Table): Table {
   for (const kind of TABLE_DECKS) {
     const s = deckStack(next, kind);
     if (s && next.z.includes(s.id)) continue;
-    const p = deckPlace(next, kind);
     if (!s) {
-      next = addStack(next, p.x, p.y, [], {
+      next = addStack(next, { place: kind }, [], {
         label: DECK_SPECS[kind].label,
         deck: kind,
       })[0];
       continue;
     }
+    const p = deckPlace(next, kind);
     const stacks = {
       ...next.stacks,
-      [s.id]: { ...s, x: p.x, y: p.y, rot: 0 as const },
+      [s.id]: { ...s, x: p.x, y: p.y, at: { place: kind }, rot: 0 as const },
     };
     next = {
       ...next,
@@ -697,8 +693,8 @@ function layDecks(t: Table): Table {
  */
 function clearDeckAreas(t: Table): Table {
   if ((t.layout ?? 0) >= 4) return t;
-  const laid = settle(t);
-  const areas = allAreas(laid).filter((a) => a.deck);
+  const laid = inferredSettle(t);
+  const areas = inferredAreas(laid).filter((a) => a.deck);
   const left = Math.min(...areas.map((a) => a.x));
   const right = Math.max(...areas.map((a) => a.x + a.w));
   const top = Math.min(...areas.map((a) => a.y));
@@ -734,13 +730,13 @@ function clearDeckAreas(t: Table): Table {
  */
 function packAreas(t: Table): Table {
   if ((t.layout ?? 0) >= LAYOUT) return t;
-  return { ...rearrange(t, (t) => t), layout: LAYOUT };
+  return { ...inferredRearrange(t, (t) => t), layout: LAYOUT };
 }
 
 /** Cards with a spot of their own (Character, Alignment and Money Cards) lying elsewhere on the table move onto it. */
 function placeOnSpots(t: Table, defs: Record<string, CardDef>): Table {
   let next = t;
-  const spots = spotsOf(t);
+  const spots = inferredSpots(t);
   for (const spot of spots.filter((s) => s.attracts)) {
     // Read off their coordinates: the save has no `Stack.at` yet.
     const placed = new Set(inferredOnSpot(next, spot));
@@ -760,14 +756,18 @@ function placeOnSpots(t: Table, defs: Record<string, CardDef>): Table {
         const [t2] = takeCard(next, card.id);
         // Appended to a fanned spot; a card that doesn't fit any more stays where it is.
         const p = spotPlace(
-          settleAt(settleSpots(t2)),
+          settleAt(inferredSettleSpots(t2)),
           spot,
           null,
           -Infinity,
           -Infinity,
         );
         if (!p) continue;
-        const [t3, newId] = addStack(settleSpots(t2), p.x, p.y, [card]);
+        const [t3, newId] = addStack(
+          inferredSettleSpots(t2),
+          { x: p.x, y: p.y },
+          [card],
+        );
         next = p.onto ? mergeStacks(t3, newId, p.onto, 'top') : t3;
       }
     }

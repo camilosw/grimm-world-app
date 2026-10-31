@@ -84,7 +84,10 @@ describe('cards turned as they are put on a place', () => {
 
   it("turns the Storybook's Encounter Card face up, and lets it be turned over there", () => {
     const before = table(timePasses, used, stack('e', refs(encounter)));
-    const t = settle(moveStack(before, 'e', spot.x, spot.y), before);
+    const t = settle(
+      moveStack(before, 'e', { spot: 'story-encounter', index: 0 }),
+      before,
+    );
     expect(t.stacks.e.cards[0].faceUp).toBe(true);
 
     const flipped = settle(flipTop(t, 'e'), t);
@@ -142,13 +145,13 @@ describe('in a game', () => {
 
   it('lifts the Encounter Deck off its place by the grip, leaving the time card', () => {
     const place = placeStack(t0, 'time-passes')!;
-    const [t, id] = liftPile(t0, place.id, -3000, -3000);
+    const [t, id] = liftPile(t0, place.id, { x: -3000, y: -3000 });
     expect(t.stacks[place.id].cards.map((c) => defs[c.id].name)).toEqual([
       'Time Passes',
     ]);
     expect(t.stacks[id!].cards).toEqual(unpinned(place));
     // Nothing is left to lift.
-    expect(liftPile(t, place.id, 0, 0)).toEqual([t, null]);
+    expect(liftPile(t, place.id, { x: 0, y: 0 })).toEqual([t, null]);
   });
 
   it('sets cards aside in the Hand and puts them back on the table', () => {
@@ -162,7 +165,7 @@ describe('in a game', () => {
     const t2 = apply(t, (t) => toTray(t, lost.id, 'top', aside));
     expect(t2.tray).toHaveLength(2);
     expect(t2.tray![1]).toBe(aside);
-    const t3 = apply(t2, (t) => fromTray(t, aside, -3000, -3000));
+    const t3 = apply(t2, (t) => fromTray(t, aside, { x: -3000, y: -3000 }));
     expect(t3.tray).toHaveLength(1);
     expect(t3.z.at(-1)).toBe(aside);
     expect(t3.stacks[aside]).toMatchObject({ x: -3000, y: -3000 });

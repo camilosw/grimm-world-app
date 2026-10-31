@@ -386,13 +386,46 @@ export function spotPlaces(spot: Spot, n = 1): Point[] {
 }
 
 /**
+ * Where a pile lies in a fanned spot's row at `index`: on its place, or, for an index between two places (a card just
+ * put between two others, or a pile just spread out, until `settleSpots()` numbers the row again), half a unit or less
+ * before the next place, as the row sorts it.
+ */
+function rowPoint(spot: Spot, index: number): Point {
+  const n = Math.max(0, Math.ceil(index));
+  const step = fanStep(spot);
+  const back = (n - index) * Math.sign(step);
+  const v = vertical(spot);
+  return {
+    x: Math.round(spot.x + (v ? 0 : n * step)) - (v ? 0 : back),
+    y: Math.round(spot.y + (v ? n * step : 0)) - (v ? back : 0),
+  };
+}
+
+/**
+ * How the layout learns which piles lie in a spot's row and on a grid's places: by their `Stack.at` (`'at'`: the app),
+ * or inferred from their coordinates (`'xy'`: the `inferred*` layout, which the migrations of saves from before
+ * version 3 run, as their piles' `at` is missing or stale there).
+ */
+type By = 'at' | 'xy';
+
+/** The piles in a fanned spot's row, by `Stack.at` or by their coordinates. */
+function rowBy(t: Table, spot: Spot, by: By): string[] {
+  return by === 'at' ? fanRow(t, spot) : inferredRow(t, spot);
+}
+
+/** The piles on a grid's places, by "col,row", by `Stack.at` or by their coordinates. */
+function gridBy(t: Table, g: GridId, by: By): Map<string, string> {
+  return by === 'at' ? gridPiles(t, g) : inferredGrid(t, g);
+}
+
+/**
  * Where a spot's next card goes, shown by its placeholder: its place, the place after the last card of a fanned row,
  * or, for a row taking new cards first, the place before its first card.
  */
-export function freePlace(t: Table, spot: Spot): Point {
+export function freePlace(t: Table, spot: Spot, by: By = 'at'): Point {
   if (spot.addsFirst)
     return { x: Math.round(spot.x - fanStep(spot)), y: spot.y };
-  const n = spot.fan ? inferredRow(t, spot).length : 0;
+  const n = spot.fan ? rowBy(t, spot, by).length : 0;
   return spotPlaces(spot, n + 1)[n];
 }
 
@@ -400,9 +433,9 @@ export function freePlace(t: Table, spot: Spot): Point {
  * The places a spot's placeholders show: its free place and, for a row taking new cards first that has cards, also the
  * place after its last card, partly under it, to add a card at the end of the row.
  */
-export function freePlaces(t: Table, spot: Spot): Point[] {
-  const first = freePlace(t, spot);
-  const n = spot.addsFirst ? inferredRow(t, spot).length : 0;
+export function freePlaces(t: Table, spot: Spot, by: By = 'at'): Point[] {
+  const first = freePlace(t, spot, by);
+  const n = spot.addsFirst ? rowBy(t, spot, by).length : 0;
   return n ? [first, spotPlaces(spot, n + 1)[n]] : [first];
 }
 
@@ -416,10 +449,11 @@ const SPLIT_SHOWS = 0.3;
 export function splitBox(
   t: Table,
   spot: Spot,
+  by: By = 'at',
 ): { x: number; y: number; w: number; h: number } {
-  const partner = spotsOf(t).find((s) => s.id === spot.after);
+  const partner = spotsBy(t, by).find((s) => s.id === spot.after);
   const { w, h } = lyingSize(spot);
-  const free = freePlace(t, spot);
+  const free = freePlace(t, spot, by);
   const shows = spot.shows ?? 0.5;
   const size = Math.max(shows, partner?.shows ?? 0.5, SPLIT_SHOWS);
   // In line with the row on the exact line (the other lies a unit beside it).
@@ -479,8 +513,8 @@ function sharesPlaceholder(t: Table, spot: Spot): boolean {
 }
 
 /** Whether a fanned spot's row has room for one more card, so its next place can be shown. */
-export function fanHasPlace(t: Table, spot: Spot): boolean {
-  return inferredRow(t, spot).length < fanMax(spot);
+export function fanHasPlace(t: Table, spot: Spot, by: By = 'at'): boolean {
+  return rowBy(t, spot, by).length < fanMax(spot);
 }
 
 /** Most places in a row between two of its cards: the gap left by cards just taken away, until `settleSpots()`. */
@@ -488,9 +522,10 @@ const FAN_GAP = 3;
 
 // ---------- where piles lie, inferred from their coordinates ----------
 //
-// The layout (`settle()`: `settleSpots()`, `settleLayout()`, `settleAt()`; and where the spots, placeholders and frames
-// lie: `spotsOf()`, `allAreas()`) works out from the piles' `x, y` which piles lie on which spot and grid place: within
-// `settle()` the piles have just moved, so their `at` is not up to date yet. Everything else asks `Stack.at` (below).
+// The migrations of saves from before version 3 (`inferredSettle()` in actions.ts, `settleAt()`, `measure()`, and where
+// the spots and frames lie for them: `inferredSpots()`, `inferredAreas()`) work out from the piles' `x, y` which piles
+// lie on which spot and grid place: those saves don't say, or their piles have just been moved by coordinates. The app
+// asks `Stack.at` (below), and lays the piles out from it (`placePiles()`).
 
 /**
  * Table piles lying on a spot's places, by their coordinates, in place order (see `stacksOnSpot()`, which reads
@@ -577,7 +612,7 @@ function lying(t: Table): Lying {
     else spots.set(spot, [id]);
   };
   for (const id of t.z) {
-    const at = t.stacks[id].at;
+    const at = t.stacks[id]?.at;
     if (!at) continue;
     if ('grid' in at) grids[at.grid].set(cellKey(at.col, at.row), id);
     else if ('spot' in at) {
@@ -661,9 +696,9 @@ export function areaOf(t: Table, id: string): string | undefined {
  * Where cards going to a spot land (top-left dropped at x, y), or null when a
  * fanned spot is full. A plain spot: onto the pile lying there. A fanned spot:
  * at the place the card is dropped on, or after the last card when dropped
- * elsewhere (before the first, for a row taking new cards first, unless dropped in line beyond its last card). That
- * position may lie half a unit beside a place, which sorts the
- * card into the row; `settleSpots()` then lays the row out on its places.
+ * elsewhere (before the first, for a row taking new cards first, unless dropped in line beyond its last card): its
+ * `index` in the row, half way between two piles' to go between them (`settleSpots()` then numbers the row again), and
+ * where it is drawn meanwhile, half a unit beside a place.
  */
 export function spotPlace(
   t: Table,
@@ -671,8 +706,9 @@ export function spotPlace(
   moving: string | null,
   x: number,
   y: number,
-): (Point & { onto: string | null }) | null {
-  if (!spot.fan) return { x: spot.x, y: spot.y, onto: pileOn(t, spot, moving) };
+): (Point & { onto: string | null; index: number }) | null {
+  if (!spot.fan)
+    return { x: spot.x, y: spot.y, onto: pileOn(t, spot, moving), index: 0 };
   const row = fanRow(t, spot);
   const others = row.filter((id) => id !== moving);
   if (others.length >= fanMax(spot)) return null;
@@ -692,15 +728,22 @@ export function spotPlace(
       : others.length;
   const at = (d: number, id: string) => {
     const shift = d * Math.sign(step);
+    const index = indexOf(t, id) + d;
     return v
-      ? { x: spot.x, y: t.stacks[id].y + shift, onto: null }
-      : { x: t.stacks[id].x + shift, y: spot.y, onto: null };
+      ? { x: spot.x, y: t.stacks[id].y + shift, onto: null, index }
+      : { x: t.stacks[id].x + shift, y: spot.y, onto: null, index };
   };
   if (moving && row.indexOf(moving) === i) return at(0, moving);
   if (i < others.length) return at(-0.5, others[i]);
   return others.length
     ? at(0.5, others[others.length - 1])
-    : { x: spot.x, y: spot.y, onto: null };
+    : { x: spot.x, y: spot.y, onto: null, index: 0 };
+}
+
+/** The index of a pile in the row it lies in (`Stack.at`). */
+function indexOf(t: Table, id: string): number {
+  const at = t.stacks[id].at;
+  return at && 'spot' in at ? at.index : 0;
 }
 
 export type Side = 'left' | 'right' | 'top' | 'bottom';
@@ -1315,11 +1358,11 @@ function inferredGrid(t: Table, g: GridId): Map<string, string> {
   const o = cellPlace(t, g, 0, 0);
   // The areas' spots only: the battlefield's lie right of its grid, where it ends (`battlefieldSpots()`).
   const elsewhere = new Set(
-    baseSpots(t).flatMap((sp) => inferredOnSpot(t, sp)),
+    baseSpots(t, 'xy').flatMap((sp) => inferredOnSpot(t, sp)),
   );
   if (g === 'battlefield') {
     for (const id of inferredGrid(t, 'map').values()) elsewhere.add(id);
-    for (const sp of mapSpots(t))
+    for (const sp of mapSpots(t, 'xy'))
       for (const id of inferredOnSpot(t, sp)) elsewhere.add(id);
   }
   for (const id of t.z) {
@@ -1344,9 +1387,14 @@ export function inferredGridCells(
   return cellsOf(inferredGrid(t, g));
 }
 
-/** The piles lying on the grids' places by their coordinates, for laying them face up (`settleSpots()`). */
+/** The piles lying on the grids' places by their coordinates, for laying them face up (`inferredSettleSpots()`). */
 export function inferredGridPiles(t: Table): string[] {
   return GRIDS.flatMap((g) => [...inferredGrid(t, g).values()]);
+}
+
+/** The piles lying on the grids' places (`Stack.at`), for laying them face up (`settleSpots()`). */
+export function allGridPiles(t: Table): string[] {
+  return GRIDS.flatMap((g) => [...gridPiles(t, g).values()]);
 }
 
 /** The piles lying on a grid's places (`Stack.at`), by "col,row". */
@@ -1500,8 +1548,8 @@ export function terrainPlaces(
  * Where a grid lies: its cards, else its first place, with room for the strips of its free places beside them, on the
  * sides it grows on (`grows()`).
  */
-function gridBox(t: Table, g: GridId): Rect {
-  const cells = [...inferredGrid(t, g).keys()];
+function gridBox(t: Table, g: GridId, by: By): Rect {
+  const cells = [...gridBy(t, g, by).keys()];
   const boxes = (cells.length ? cells : [cellKey(0, 0)]).map((k) => {
     const [c, r] = k.split(',').map(Number);
     const b = cellBox(t, g, c, r);
@@ -1521,8 +1569,11 @@ function gridBox(t: Table, g: GridId): Rect {
 }
 
 /** Where the battlefield's grid lies (`gridBox()`), and right of it the place for the Enemy Cards. */
-export function battlefieldBoxes(t: Table): { grid: Rect; enemies: Rect } {
-  const grid = gridBox(t, 'battlefield');
+export function battlefieldBoxes(
+  t: Table,
+  by: By = 'at',
+): { grid: Rect; enemies: Rect } {
+  const grid = gridBox(t, 'battlefield', by);
   const enemies = {
     x: rightOf(grid) + ENEMY_GAP,
     y: grid.y,
@@ -1532,7 +1583,10 @@ export function battlefieldBoxes(t: Table): { grid: Rect; enemies: Rect } {
   return { grid, enemies };
 }
 
-const marketCache = new WeakMap<Table, Spot[]>();
+const marketCache = {
+  at: new WeakMap<Table, Spot[]>(),
+  xy: new WeakMap<Table, Spot[]>(),
+};
 
 /**
  * The Market Prices places of the Region Cards on the Map's grid: the Encounter Card giving the region's market prices
@@ -1540,10 +1594,10 @@ const marketCache = new WeakMap<Table, Spot[]>();
  * its price strip shows (`MARKET_SHOWS`). Left of a Region Card it is turned a quarter right, so its prices lie beside
  * the goods on the card's left edge; right of one it is turned the other way.
  */
-function mapSpots(t: Table): Spot[] {
-  let spots = marketCache.get(t);
+function mapSpots(t: Table, by: By): Spot[] {
+  let spots = marketCache[by].get(t);
   if (spots) return spots;
-  spots = [...inferredGrid(t, 'map')].map(([key, id]): Spot => {
+  spots = [...gridBy(t, 'map', by)].map(([key, id]): Spot => {
     const [col, row] = key.split(',').map(Number);
     const side = marketSide(col);
     const p = cellPlace(t, 'map', col, row);
@@ -1564,7 +1618,7 @@ function mapSpots(t: Table): Spot[] {
       turn: side === 'left' ? 'right' : 'left',
     };
   });
-  marketCache.set(t, spots);
+  marketCache[by].set(t, spots);
   return spots;
 }
 
@@ -1573,15 +1627,18 @@ function mapSpots(t: Table): Spot[] {
  * while it has room for one, else to its last card; a row taking new cards first from its free place to the place after
  * its last card.
  */
-function framedPlaces(t: Table, spot: Spot): Point[] {
+function framedPlaces(t: Table, spot: Spot, by: By): Point[] {
   if (!spot.fan) return [spot];
-  if (spot.addsFirst) return freePlaces(t, spot);
-  const n = inferredRow(t, spot).length;
+  if (spot.addsFirst) return freePlaces(t, spot, by);
+  const n = rowBy(t, spot, by).length;
   const last = spotPlaces(spot, n)[n - 1];
-  const places = [spot, fanHasPlace(t, spot) ? freePlace(t, spot) : last];
+  const places = [
+    spot,
+    fanHasPlace(t, spot, by) ? freePlace(t, spot, by) : last,
+  ];
   if (!spot.split) return places;
   // A split placeholder reaches further than the free place it lies over: a card's place ending where it ends.
-  const box = splitBox(t, spot);
+  const box = splitBox(t, spot, by);
   const { w, h } = lyingSize(spot);
   const side = growth(spot);
   return [
@@ -1617,19 +1674,39 @@ function shiftOf(t: Table, area: string): Point {
   return t.shifts?.[area] ?? NO_SHIFT;
 }
 
-const shiftedSpots = new WeakMap<Table, Spot[]>();
-const tableSpots = new WeakMap<Table, Spot[]>();
+const shiftedSpots = {
+  at: new WeakMap<Table, Spot[]>(),
+  xy: new WeakMap<Table, Spot[]>(),
+};
+const tableSpots = {
+  at: new WeakMap<Table, Spot[]>(),
+  xy: new WeakMap<Table, Spot[]>(),
+};
 
 /**
  * The spots as they lie on this table: moved with their areas (`Table.shifts`), the Market Prices places beside the
  * Region Cards on the Map (`mapSpots()`), and the battlefield's Enemy Card places right of its Terrain Cards
- * (`battlefieldSpots()`). Use these, not `SPOTS`, for positions.
+ * (`battlefieldSpots()`), as far as the rows and grids they lie beyond reach (`Stack.at`). Use these, not `SPOTS`, for
+ * positions.
  */
 export function spotsOf(t: Table): Spot[] {
-  let spots = tableSpots.get(t);
+  return spotsBy(t, 'at');
+}
+
+/** The spots as they lie on this table, the rows and grids they lie beyond read off the coordinates (migrations). */
+export function inferredSpots(t: Table): Spot[] {
+  return spotsBy(t, 'xy');
+}
+
+function spotsBy(t: Table, by: By): Spot[] {
+  let spots = tableSpots[by].get(t);
   if (!spots) {
-    spots = [...baseSpots(t), ...mapSpots(t), ...battlefieldSpots(t)];
-    tableSpots.set(t, spots);
+    spots = [
+      ...baseSpots(t, by),
+      ...mapSpots(t, by),
+      ...battlefieldSpots(t, by),
+    ];
+    tableSpots[by].set(t, spots);
   }
   return spots;
 }
@@ -1640,8 +1717,8 @@ export function spotsOf(t: Table): Spot[] {
  * figure 80), and two more places for that card: on the spent side (rulebook 8.2.1.2.2, figure 91) and over the
  * defeated enemy (8.2.1.3), a unit lower, so it isn't taken for the Enemy Card's pile.
  */
-function battlefieldSpots(t: Table): Spot[] {
-  const { enemies } = battlefieldBoxes(t);
+function battlefieldSpots(t: Table, by: By): Spot[] {
+  const { enemies } = battlefieldBoxes(t, by);
   return Array.from({ length: ENEMY_COLS * ENEMY_ROWS }, (_, i): Spot[] => {
     const n = i + 1;
     // Rounded like the places of a fanned spot (the battlefield's top, like the Home area's, lies half a unit off the
@@ -1686,12 +1763,13 @@ function battlefieldSpots(t: Table): Spot[] {
 
 /**
  * Keep the cards on the battlefield's Enemy Card places on them as the places move with the grid's edge (a Terrain Card
- * laid beyond it, or taken away), and remember where they lie from the grid (`Table.enemies`). Run by `settle()` after
- * every change.
+ * laid beyond it, or taken away), and remember where they lie from the grid (`Table.enemies`): for the piles moved by
+ * their coordinates in the migrations of saves from before version 3 (`inferredSettle()`). The app's piles on those
+ * places move with them, as they lie there (`Stack.at`).
  */
-export function settleEnemies(t: Table): Table {
+export function inferredSettleEnemies(t: Table): Table {
   const o = terrainPlace(t, 0, 0);
-  const { enemies } = battlefieldBoxes(t);
+  const { enemies } = battlefieldBoxes(t, 'xy');
   const at = { x: enemies.x - o.x, y: enemies.y - o.y };
   const was = t.enemies;
   if (was && was.x === at.x && was.y === at.y) return t;
@@ -1700,7 +1778,7 @@ export function settleEnemies(t: Table): Table {
     const dx = Math.round(at.x - was.x);
     const dy = Math.round(at.y - was.y);
     const moved = new Set<string>();
-    for (const s of battlefieldSpots(t))
+    for (const s of battlefieldSpots(t, 'xy'))
       for (const id of t.z) {
         const p = stacks[id];
         if (moved.has(id) || p.x !== s.x - dx || p.y !== s.y - dy) continue;
@@ -1729,8 +1807,8 @@ export function holdsOne(
 }
 
 /** The spots of the areas (`SPOTS`) as they lie on this table: all of them but the grids' (Market Prices, enemies). */
-function baseSpots(t: Table): Spot[] {
-  let spots = shiftedSpots.get(t);
+function baseSpots(t: Table, by: By): Spot[] {
+  let spots = shiftedSpots[by].get(t);
   if (!spots) {
     spots = SPOTS.map((s) => {
       const d = shiftOf(t, s.area);
@@ -1742,13 +1820,13 @@ function baseSpots(t: Table): Spot[] {
       const before = s.after && all.find((b) => b.id === s.after);
       const cover = before && all.find((b) => b.id === before.under);
       if (!before || !cover) return s;
-      const n = inferredRow(t, before).length;
+      const n = rowBy(t, before, by).length;
       const last = n ? spotPlaces(before, n)[n - 1] : cover;
       return vertical(before)
         ? { ...s, y: s.y + last.y - cover.y }
         : { ...s, x: s.x + last.x - cover.x };
     });
-    shiftedSpots.set(t, spots);
+    shiftedSpots[by].set(t, spots);
   }
   return spots;
 }
@@ -1812,7 +1890,7 @@ const measured = new WeakMap<Table, Measured>();
 function measure(t: Table): Measured {
   const known = measured.get(t);
   if (known) return known;
-  const spots = spotsOf(t);
+  const spots = inferredSpots(t);
   const fixed: Area[] = AREAS.filter((a) => !GROWING.includes(a.id)).map(
     (a) => {
       const d = shiftOf(t, a.id);
@@ -1842,19 +1920,21 @@ function measure(t: Table): Measured {
   const wide = new Set(
     spots.filter((s) => s.landscape).flatMap((s) => inferredOnSpot(t, s)),
   );
-  const field = battlefieldBoxes(t);
+  const field = battlefieldBoxes(t, 'xy');
   const frame = (area: string) => ({
     id: area,
     ...frameAround([
       ...(area === 'battlefield'
         ? [field.grid, field.enemies]
         : area === 'map'
-          ? [gridBox(t, 'map')]
+          ? [gridBox(t, 'map', 'xy')]
           : []),
       ...spots
         .filter((s) => s.area === area)
         .flatMap((s) =>
-          framedPlaces(t, s).map((p) => cardRect(p.x, p.y, !!s.landscape)),
+          framedPlaces(t, s, 'xy').map((p) =>
+            cardRect(p.x, p.y, !!s.landscape),
+          ),
         ),
       ...loose
         .filter((id) => owner.get(id) === area)
@@ -1891,9 +1971,159 @@ export function inferredArea(t: Table, id: string): string | undefined {
   return measure(t).owner.get(id);
 }
 
-/** The areas as they lie on the table. Use these, not `AREAS`. */
-export function allAreas(t: Table): Area[] {
+/** The areas as they lie on a table whose piles were moved by their coordinates (`measure()`; migrations). */
+export function inferredAreas(t: Table): Area[] {
   return measure(t).areas;
+}
+
+const framesCache = new WeakMap<Table, Area[]>();
+
+/**
+ * The areas as they lie on this table: each of fixed size at its own place moved with it (`Table.shifts`), each growing
+ * one framed around its places (a fanned row as far as its next place, a grid's cards with the strips of its free
+ * places) and the piles lying loose in it (`Stack.at`). Use these, not `AREAS`.
+ */
+export function allAreas(t: Table): Area[] {
+  let areas = framesCache.get(t);
+  if (areas) return areas;
+  const spots = spotsOf(t);
+  const field = battlefieldBoxes(t);
+  const loose = new Map<string, Rect[]>();
+  for (const id of t.z) {
+    const at = t.stacks[id].at;
+    if (!at || !('area' in at)) continue;
+    const p = pointOf(t, at)!;
+    loose.set(at.area, [...(loose.get(at.area) ?? []), cardRect(p.x, p.y)]);
+  }
+  areas = AREAS.map((a): Area => {
+    if (!GROWING.includes(a.id)) {
+      const d = shiftOf(t, a.id);
+      return { ...a, x: a.x + d.x, y: a.y + d.y };
+    }
+    return {
+      ...a,
+      ...frameAround([
+        ...(a.id === 'battlefield'
+          ? [field.grid, field.enemies]
+          : a.id === 'map'
+            ? [gridBox(t, 'map', 'at')]
+            : []),
+        ...spots
+          .filter((s) => s.area === a.id)
+          .flatMap((s) =>
+            framedPlaces(t, s, 'at').map((p) =>
+              cardRect(p.x, p.y, !!s.landscape),
+            ),
+          ),
+        ...(loose.get(a.id) ?? []),
+      ]),
+    };
+  });
+  framesCache.set(t, areas);
+  return areas;
+}
+
+/** Where a table pile lying `at` lies on this table (null: on a spot no longer there, a Region Card's that has left). */
+export function pointOf(t: Table, at: At): Point | null {
+  if ('place' in at) {
+    const p = at.place;
+    if (p === 'story' || p === 'story-revealed') {
+      const d = shiftOf(t, 'storybook');
+      return { x: STORY_SLOTS[p].x + d.x, y: STORY_SLOTS[p].y + d.y };
+    }
+    const spot = PLACE_SPOTS[p];
+    if (spot) return spotPoint(spotsById(t).get(spot)!, 0);
+    if (ENCOUNTER_PLACES.some((e) => e.place === p))
+      return encounterPlace(t, p as EncounterPlace);
+    return deckPlace(t, p as DeckKind);
+  }
+  if ('grid' in at) return cellPlace(t, at.grid, at.col, at.row);
+  if ('spot' in at) {
+    const spot = spotsById(t).get(at.spot);
+    return spot ? spotPoint(spot, at.index) : null;
+  }
+  if ('area' in at) {
+    const a = AREAS.find((a) => a.id === at.area)!;
+    const d = shiftOf(t, a.id);
+    return { x: a.x + d.x + at.x, y: a.y + d.y + at.y };
+  }
+  return { x: at.x, y: at.y };
+}
+
+/** Where a pile lies on a spot's place `index` (`rowPoint()`): a spot of a single place has just the one. */
+function spotPoint(spot: Spot, index: number): Point {
+  return spot.fan ? rowPoint(spot, index) : { x: spot.x, y: spot.y };
+}
+
+/** Whether a pile lying `at` lies loose outside the areas. */
+export function outsideAreas(at: At): at is { x: number; y: number } {
+  return !('place' in at || 'grid' in at || 'spot' in at || 'area' in at);
+}
+
+/** Lying loose in `area` with its top-left corner at (x, y): from the area's own corner, as it lies on this table. */
+function inArea(t: Table, area: string, x: number, y: number): At {
+  const a = AREAS.find((a) => a.id === area)!;
+  const d = shiftOf(t, area);
+  return { area, x: x - a.x - d.x, y: y - a.y - d.y };
+}
+
+/**
+ * Where a pile put loose with its top-left corner at (x, y) lies (`Stack.at`): in the area that point belongs to
+ * (`areaForCard()`), from the area's own corner, else loose on the table.
+ */
+export function looseAt(t: Table, x: number, y: number): At {
+  const area = areaForCard(t, x, y);
+  return area ? inArea(t, area.id, x, y) : { x, y };
+}
+
+/**
+ * Give the piles lying loose outside the areas that now lie in one to that area (`looseAt()`): under one of fixed size
+ * (its middle), or under a growing area's frame (the one it overlaps most), which then grows around them, perhaps over
+ * more of them. Returns the same table when none does.
+ */
+function takeIn(t: Table): Table {
+  let next = t;
+  for (;;) {
+    let stacks: Record<string, Stack> | undefined;
+    for (const id of next.z) {
+      const s = next.stacks[id];
+      if (!s.at || !outsideAreas(s.at) || isFixedPile(s)) continue;
+      const at = looseAt(next, s.at.x, s.at.y);
+      if (outsideAreas(at)) continue;
+      stacks ??= { ...next.stacks };
+      stacks[id] = { ...s, at };
+    }
+    if (!stacks) return next;
+    next = { ...next, stacks };
+  }
+}
+
+/** A deck, a storybook place or another fixed place (`isFixed()` in actions.ts). */
+function isFixedPile(s: Stack): boolean {
+  return !!s.deck || !!s.slot || !!s.place;
+}
+
+/**
+ * Lay every table pile where its `Stack.at` says (`pointOf()`), on this table's layout, and leave the piles in the
+ * sidebar or set aside without a place (no `at`, `x, y` 0). Returns the same table when nothing moves.
+ */
+export function placePiles(t: Table): Table {
+  const onTable = new Set(t.z);
+  let stacks: Record<string, Stack> | undefined;
+  for (const [id, s] of Object.entries(t.stacks)) {
+    if (onTable.has(id)) {
+      const p = s.at && pointOf(t, s.at);
+      if (!p || (p.x === s.x && p.y === s.y)) continue;
+      stacks ??= { ...t.stacks };
+      stacks[id] = { ...s, x: p.x, y: p.y };
+    } else if (s.at || s.x !== 0 || s.y !== 0) {
+      stacks ??= { ...t.stacks };
+      const next = { ...s, x: 0, y: 0 };
+      delete next.at;
+      stacks[id] = next;
+    }
+  }
+  return stacks ? { ...t, stacks } : t;
 }
 
 /**
@@ -1907,7 +2137,7 @@ function placesOf(t: Table): Map<string, At> {
   for (const g of GRIDS)
     for (const { col, row, id } of inferredGridCells(t, g))
       at.set(id, { grid: g, col, row });
-  for (const spot of spotsOf(t))
+  for (const spot of inferredSpots(t))
     inferredOnSpot(t, spot).forEach((id, index) => {
       if (!at.has(id)) at.set(id, { spot: spot.id, index });
     });
@@ -1927,7 +2157,8 @@ function placesOf(t: Table): Map<string, At> {
   return at;
 }
 
-function sameAt(a: At | undefined, b: At): boolean {
+/** Whether two piles lie at the same place (`Stack.at`). */
+export function sameAt(a: At | undefined, b: At): boolean {
   if (!a) return false;
   const was: Record<string, unknown> = a;
   return (
@@ -1937,9 +2168,9 @@ function sameAt(a: At | undefined, b: At): boolean {
 }
 
 /**
- * Record where each table pile lies in the game's terms (`Stack.at`, `placesOf()`), and forget it for the piles in the
- * sidebar or set aside. Run last by `settle()`, once everything lies where it stays. Returns the same table when
- * nothing changes.
+ * Record where each table pile lies in the game's terms (`Stack.at`, `placesOf()`), read off where it lies, and forget
+ * it for the piles in the sidebar or set aside: for the migrations of saves from before version 3, which move piles by
+ * their coordinates (run last by `inferredSettle()`). Returns the same table when nothing changes.
  */
 export function settleAt(t: Table): Table {
   const at = placesOf(t);
@@ -2210,13 +2441,96 @@ export function anchorsAfterMove(
   return moved;
 }
 
+/** Where the areas go (packed, or where the player put them), and how far each moves from where it lies now. */
+function arrange(
+  t: Table,
+  areas: Area[],
+): {
+  now: Map<string, Area>;
+  anchors: Record<string, Point> | undefined;
+  delta: Map<string, Point>;
+} {
+  const now = new Map(areas.map((a) => [a.id, a]));
+  const anchors = t.anchors && anchorsOf(t, areas);
+  const places = anchors
+    ? anchoredPlaces(areas, anchors)
+    : packedPlaces(t, now);
+  const delta = new Map<string, Point>();
+  for (const [id, p] of places) {
+    const a = now.get(id)!;
+    // In whole units, so that the spots moved with it stay on the grid their rows are laid out on.
+    delta.set(id, { x: Math.round(p.x - a.x), y: Math.round(p.y - a.y) });
+  }
+  return { now, anchors, delta };
+}
+
+/** Shifts with each area's moved by `delta`; an area back on its own place has none. */
+function shifted(
+  shifts: Table['shifts'],
+  delta: Map<string, Point>,
+): Record<string, Point> {
+  const next = { ...shifts };
+  for (const [id, d] of delta) {
+    if (!d.x && !d.y) continue;
+    const old = next[id] ?? NO_SHIFT;
+    const p = { x: old.x + d.x, y: old.y + d.y };
+    if (p.x || p.y) next[id] = p;
+    else delete next[id];
+  }
+  return next;
+}
+
 /**
  * Lay the areas out after a change: packed together (`packedPlaces()`), or, once the player has dragged one, where they
- * put each (`Table.anchors`, `anchoredPlaces()`). An area moves with everything lying in it (its spots, piles and
- * figures, see `Table.shifts`), so it moves back as an area in its way shrinks, and an area growing toward the one
- * before it moves itself instead. Returns the same table when nothing moves.
+ * put each (`Table.anchors`, `anchoredPlaces()`). An area moves with everything lying in it (its spots and piles, which
+ * lie there by their `Stack.at`, and figures; how far it lies from its own place: `Table.shifts`), so it moves back as an
+ * area in its way shrinks, and an area growing toward the one before it moves itself instead. Piles lying loose outside
+ * the areas that an area comes to lie over, before or after it moves, belong to it from then on (`takeIn()`). Returns
+ * the same table when nothing moves.
  */
 export function settleLayout(t: Table): Table {
+  const taken = takeIn(t);
+  const { now, anchors, delta } = arrange(taken, allAreas(taken));
+  const moves = [...delta].filter(([, d]) => d.x || d.y);
+  const kept = (a?: Record<string, Point>) =>
+    !anchors ||
+    (!!a &&
+      Object.keys(a).length === Object.keys(anchors).length &&
+      Object.entries(anchors).every(
+        ([id, p]) => a[id]?.x === p.x && a[id]?.y === p.y,
+      ));
+  if (!moves.length && kept(taken.anchors)) return takeIn(taken);
+  const tokens = taken.tokens.map((k) => {
+    const c = { x: k.x + tokenSize(k) / 2, y: k.y + tokenSize(k) / 2 };
+    const move = moves.find(([id]) => inRect(now.get(id)!, c.x, c.y));
+    return move ? { ...k, x: k.x + move[1].x, y: k.y + move[1].y } : k;
+  });
+  return takeIn({
+    ...taken,
+    tokens,
+    shifts: shifted(taken.shifts, delta),
+    ...(anchors ? { anchors } : {}),
+  });
+}
+
+/**
+ * A table laid out from where its piles lie (`Stack.at`) and where the player put the areas (`Table.anchors`), as a
+ * save holds it: how far each area lies from its own place (`Table.shifts`), and each table pile's `x, y`
+ * (`placePiles()`). Nothing else moves: the save was laid out when it was written.
+ */
+export function layOut(t: Table): Table {
+  const bare = { ...t };
+  delete bare.shifts;
+  const { delta } = arrange(bare, allAreas(bare));
+  return placePiles({ ...bare, shifts: shifted(undefined, delta) });
+}
+
+/**
+ * Lay the areas out after the piles were moved by their coordinates, as `settleLayout()` does, the areas framed around
+ * the piles `measure()` gives them, and remember the frames (`Table.frames`): for the migrations of saves from before
+ * version 3 (`inferredSettle()`).
+ */
+export function inferredSettleLayout(t: Table): Table {
   const { areas, owner } = measure(t);
   const now = new Map(areas.map((a) => [a.id, a]));
   const anchors = t.anchors && anchorsOf(t, areas);
@@ -2330,8 +2644,13 @@ export function acceptsText(area: Area): string {
  * The area a card whose top-left corner is at (x, y) lies in: the area of fixed size containing its center, else the
  * growing area it overlaps most (as `measure()` decides for the piles on the table).
  */
-export function areaForCard(t: Table, x: number, y: number): Area | null {
-  const areas = allAreas(t);
+export function areaForCard(
+  t: Table,
+  x: number,
+  y: number,
+  by: By = 'at',
+): Area | null {
+  const areas = by === 'at' ? allAreas(t) : inferredAreas(t);
   return (
     areas.find(
       (a) =>
@@ -2491,7 +2810,8 @@ export function drawOrder(t: Table): string[] {
 }
 
 export interface Placement {
-  /** Where the cards really go: a new pile at (x, y), or on top of pile `onto`. */
+  /** Where the cards really go: a new pile lying `at` (drawn at x, y until the table is settled), or on top of pile `onto`. */
+  at: At;
   x: number;
   y: number;
   onto: string | null;
@@ -2533,6 +2853,7 @@ export function placement(
   const market = under === 'map' && spotAt(t, x, y, families, pointer);
   if (under && !(market && families.every((f) => takes(market.spot, f))))
     return {
+      at: looseAt(t, x, y),
       x,
       y,
       onto: null,
@@ -2551,6 +2872,7 @@ export function placement(
     const place = spotPlace(t, own, moving, x, y);
     return {
       ...(place ?? { x: own.x, y: own.y, onto: null }),
+      at: { spot: own.id, index: place?.index ?? 0 },
       area,
       spot: own,
       refused: mixed ?? oneEach(own, cardIds) ?? (place ? null : full(own)),
@@ -2567,6 +2889,7 @@ export function placement(
     areaSpot(t, area, families);
   if (!taken)
     return {
+      at: looseAt(t, x, y),
       x,
       y,
       onto,
@@ -2598,6 +2921,7 @@ export function placement(
   if (!spot.fan)
     return {
       ...place,
+      at: { spot: spot.id, index: 0 },
       onto: pileOn(t, spot, moving),
       area,
       spot,
@@ -2608,6 +2932,7 @@ export function placement(
   const inRow = spotPlace(t, spot, moving, to.x, to.y);
   return {
     ...(inRow ?? { ...place, onto: null }),
+    at: { spot: spot.id, index: inRow?.index ?? 0 },
     area,
     spot,
     refused: refused ?? oneEach(spot, cardIds) ?? (inRow ? null : full(spot)),
@@ -2683,7 +3008,10 @@ function ontoGrid(
         ? null
         : `There is no free place beside the ${area.label}'s cards`;
   const place = near?.p ?? { x, y };
-  return { x: place.x, y: place.y, onto: null, area, spot: null, refused };
+  const at: At = near
+    ? { grid: g, col: near.p.col, row: near.p.row }
+    : looseAt(t, x, y);
+  return { at, x: place.x, y: place.y, onto: null, area, spot: null, refused };
 }
 
 /** Cards dropped in a table deck's area go onto its pile (into the deck, `dropOnto()`), if it may hold them all. */
@@ -2697,8 +3025,10 @@ function intoDeck(
   const spec = DECK_SPECS[kind];
   const onto = placeStack(t, kind)?.id ?? null;
   const bad = cardIds.map((id) => defs[id]).find((d) => d && !spec.holds(d));
+  const p = deckPlace(t, kind);
   return {
-    ...deckPlace(t, kind),
+    ...p,
+    at: looseAt(t, p.x, p.y),
     onto,
     area,
     spot: null,
@@ -2722,6 +3052,7 @@ function ontoPlace(
     ...encounterPlace(t, place),
   })).reduce((a, p) => (far(p) < far(a) ? p : a));
   return {
+    at: looseAt(t, nearest.x, nearest.y),
     x: nearest.x,
     y: nearest.y,
     onto: placeStack(t, nearest.place)?.id ?? null,

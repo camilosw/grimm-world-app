@@ -103,7 +103,7 @@ export function drop(
       taken = t2;
       return { ...c!, faceUp: true };
     });
-    const [t3, id] = addStack(taken, p.x, p.y, cards);
+    const [t3, id] = addStack(taken, p.at, cards);
     return p.onto && t3.stacks[p.onto] ? dropOnto(t3, id, p.onto, defs) : t3;
   });
   return [next, p];

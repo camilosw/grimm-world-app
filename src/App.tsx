@@ -25,6 +25,7 @@ import {
   battlefieldInUse,
   COMBAT_AREAS,
   facedSpot,
+  looseAt,
   onGrid,
   placement,
   PLAY_AREAS,
@@ -72,6 +73,7 @@ import { storage } from './storage';
 import { useDragOut } from './useDragOut';
 import { isCompact, useCompact } from './compact';
 import type {
+  At,
   CardDef,
   CardManifest,
   CardRef,
@@ -453,12 +455,11 @@ export default function App() {
   };
 
   /**
-   * A free spot near the middle of the screen, in table coordinates, for the
-   * given cards: outside the areas if possible, else in an area that takes them.
-   * Null (and the player is told why) when they can't go on the table.
+   * Where the given cards go when put on the table near the middle of the screen: a free spot, outside the areas if
+   * possible, else in an area that takes them. Null (and the player is told why) when they can't go on the table.
    */
   const dropAt = useCallback(
-    (cardIds: string[] = []): { x: number; y: number } | null => {
+    (cardIds: string[] = []): At | null => {
       const el = areaRef.current!;
       const cx = (el.clientWidth / 2 - view.x) / view.scale - CARD_W / 2;
       const cy = (el.clientHeight / 2 - view.y) / view.scale - CARD_H / 2;
@@ -471,7 +472,7 @@ export default function App() {
         : centered;
       if (own.spot?.attracts) {
         if (own.refused) notify(own.refused);
-        return own.refused ? null : { x: own.x, y: own.y };
+        return own.refused ? null : own.at;
       }
       const stacks = table.z.map((id) => table.stacks[id]);
       const free = (x: number, y: number) =>
@@ -493,10 +494,11 @@ export default function App() {
       const outside = spots.find(
         (p) => free(p.x, p.y) && !areaForCard(table, p.x, p.y),
       );
+      if (outside) return { x: outside.x, y: outside.y };
       const allowed = spots
         .map((p) => placement(table, cardIds, defs, p.x, p.y, null))
         .find((p) => free(p.x, p.y) && !p.refused);
-      return outside ?? allowed ?? { x: cx, y: cy };
+      return allowed?.at ?? looseAt(table, cx, cy);
     },
     [view, table, defs],
   );
@@ -786,7 +788,7 @@ export default function App() {
     const p = placeAt(cardIds, at.x, at.y, target);
     if (p)
       update((t) =>
-        A.playCards(t, stackId, indices, p.x, p.y, p.onto, defs, faceUp),
+        A.playCards(t, stackId, indices, p.at, p.onto, defs, faceUp),
       );
   };
 
@@ -879,7 +881,7 @@ export default function App() {
     const p = placeAt([card.id], at.x, at.y, target);
     if (!p) return;
     update((t) => {
-      const [t2, newId] = A.takeTop(t, deckId, p.x, p.y);
+      const [t2, newId] = A.takeTop(t, deckId, p.at);
       return newId && p.onto ? A.dropOnto(t2, newId, p.onto, defs) : t2;
     });
   };
@@ -905,7 +907,7 @@ export default function App() {
     const p = placeAt(cardIds, at.x, at.y, target);
     if (!p) return;
     update((t) => {
-      const t2 = A.fromTray(t, stackId, p.x, p.y);
+      const t2 = A.fromTray(t, stackId, p.at);
       return p.onto ? A.dropOnto(t2, stackId, p.onto, defs) : t2;
     });
   };
@@ -1348,7 +1350,7 @@ export default function App() {
             <button
               onClick={() => {
                 const at = dropAt(selectedStack.cards.map((c) => c.id));
-                if (at) act((t, id) => A.fromTray(t, id, at.x, at.y));
+                if (at) act((t, id) => A.fromTray(t, id, at));
               }}
             >
               ⤴ To table

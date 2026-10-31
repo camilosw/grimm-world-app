@@ -40,6 +40,22 @@ describe('readSave', () => {
     expect(readSave(text, manifest)).toEqual(t0);
   });
 
+  it('writes where the piles lie, not where they are drawn nor the layout', () => {
+    const { table } = JSON.parse(saveText(t0));
+    for (const s of Object.values(table.stacks) as object[]) {
+      expect(s).not.toHaveProperty('x');
+      expect(s).not.toHaveProperty('y');
+    }
+    for (const key of ['shifts', 'frames', 'enemies'])
+      expect(table).not.toHaveProperty(key);
+    expect(table.stacks[t0.z[0]].at).toEqual(t0.stacks[t0.z[0]].at);
+  });
+
+  it('lays out a save holding its layout (version 2), as it lay', () => {
+    const v2 = { ...t0, frames: {}, enemies: { x: 410, y: 0 } };
+    expect(readSave(envelope(v2, 2), manifest)).toEqual(t0);
+  });
+
   it('brings a bare table (before the version was saved) up to date', () => {
     const t = readSave(SAVES['v0.1.0'], manifest);
     expect(t.layout).toBe(newGame().layout);
@@ -100,6 +116,15 @@ describe('readSave', () => {
         stacks: { ...t0.stacks, [id]: { ...pile, at: { spot: 'money' } } },
       }),
     ).toBe(`it is damaged (table.stacks.${id}.at.index is not a number)`);
+    expect(
+      damaged({
+        ...t0,
+        stacks: {
+          ...t0.stacks,
+          [id]: { ...pile, at: { grid: 'nope', col: 0, row: 0 } },
+        },
+      }),
+    ).toBe(`it is damaged (table.stacks.${id}.at.grid is no grid)`);
     expect(damaged({ ...t0, tokens: [{ id: 'k' }] })).toBe(
       'it is damaged (table.tokens[0].x is not a number)',
     );
