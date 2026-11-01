@@ -2,7 +2,8 @@
 
 Long-term goal: make this project the base of a library for building other card and board games for the browser. There
 is no rush for the library: first the current app's architecture is made solid (phase A), then the engine is separated
-from the game (phase B).
+from the game (phase B). This repo stays Grimm World's: the reusable code lies apart in `src/lib/`, and if other games
+come, it moves to a library repo of its own and each game gets a repo.
 
 ## Progress
 
@@ -21,14 +22,14 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | A4.1 Gesture reducer, generic TableView  | Opus                                                                                                | ✅ Done        |
 | A4.2 Hooks out of App.tsx                | Sonnet                                                                                              | ✅ Done        |
 | A5. Documentation                        | Sonnet                                                                                              | 🔁 Ongoing     |
-| B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | ⬜ Not started |
+| B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | 🟡 In progress |
 | B2. Injected `GameDefinition`            | Opus                                                                                                | ⬜ Not started |
 | B3. Composable place behaviours          | Opus                                                                                                | ⬜ Not started |
 | B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ⬜ Not started |
 | B5. Refusals as codes                    | Sonnet, once Opus has fixed the list of codes                                                       | ⬜ Not started |
 | B6. Generic cards, images and content    | Opus for `CardDef`; Sonnet for the pipeline configuration and the content provider                  | ⬜ Not started |
 | B7. A minimal second game                | Opus                                                                                                | ⬜ Not started |
-| B8. Packages                             | Sonnet                                                                                              | ⬜ Not started |
+| B8. Library repo                         | Sonnet                                                                                              | ⬜ Not started |
 
 ### Choosing the model
 
@@ -352,12 +353,120 @@ the final folders exist.
 
 ### B1. Folders and boundary
 
-- `src/engine/` (pure TypeScript, no React: model, actions, placement, layout, settle, store, saves), `src/ui/` (generic
-  React components: table, gestures, sidebar, Hand, Browse, `CardGhost`, `useFlip`, `useDragOut`) and
-  `src/games/grimm-world/` (decks, areas, spots, setup, migrations, rules, its own UI).
-- An import rule in lint (oxlint's `no-restricted-imports`, or dependency-cruiser if that isn't enough): `engine` doesn't
-  import from `ui` or `games`; `ui` doesn't import from `games`.
-- First only move code; design changes come in the following steps.
+Goal: what could become the library lies in `src/lib/`, the game everywhere else in `src/`, and lint says where the two
+are still tied. This repo stays Grimm World's: if other games come, `src/lib/` moves to a library repo of its own (B8).
+
+```
+src/
+  lib/
+    engine/   pure TypeScript, no React: model, pile actions, spots, grids, layout, placement, settle, store
+    ui/       generic React: table view and gestures, sidebar, Hand, Browse panel, dialogs, action bar, toolbar
+  …           Grimm World: its types, cards, decks, areas and spots, battlefield, storybook, setup, saves and
+              migrations, rules and booklets, its own UI, App.tsx, main.tsx, styles.css, test/
+```
+
+**Only code moves.** No function changes what it does; the commits are `refactor`, and the tests, the save snapshots
+and Playwright at the four sizes show nothing changed. Allowed besides moving: exporting a helper that the other side
+now needs (`setStack`, `withCards`, `newId`, `cardsOf`, `shiftOf`, `gridPiles`…), and updating import paths. A
+function with a Grimm branch inside (`pointOf()`'s storybook case, `allAreas()`'s battlefield) moves as it is; making
+it generic is B2/B3.
+
+**What goes where.** A declaration goes to `src/lib/` when its job is the same in any card game laid out in areas
+(piles, spots, fans, grids, frames, layout, placement, settling, pile actions, the generic UI), even when it still reads
+Grimm data; it stays in `src/` when it _is_ Grimm data (areas, spots, decks, sizes, texts, ids) or a Grimm-only rule.
+A file moving to `src/lib/` leaves its Grimm constants behind in a game file.
+
+The split of the files that mix both, declaration by declaration (`→ lib`: to the file of the same name in
+`src/lib/engine/` unless another is named; `stays`: in the game's file of that name):
+
+- `types.ts` → lib: `CardDef`, `CardManifest`, `CardRef`, `Rotation`, `Stack`, `At`, `Token`, `Table`, `View`.
+  Stays: `CardType`, `StorySlot`, `EncounterPlace`, `Place`.
+- `cards.ts` → `src/lib/engine/geometry.ts`, a leaf importing nothing but types: `CARD_W`, `CARD_H`, `cardBox`,
+  `tokenSize`, `clampScale`, `Turn`, and from `areas.ts` `AREA_PAD`, `AREA_HEADER`, `GAP`, `box()`, `Point`, `Rect`,
+  `Side`, `OPPOSITE`, `inRect`, `overlap`, `cardRect`, `distanceTo`, `rightOf`, `bottomOf`. → lib (`cards.ts`):
+  `cardLabel`, `compareCards`, `queryTerms`, `matchesQuery`. → `src/lib/ui/cardClasses.ts`: `turnedClass`,
+  `landscapeClass`. Stays: `Family`, `family`, `isLandscape`, `loadManifest`, `cardImage` (the card images' paths).
+- `decks.ts` → lib: `DeckSpec`, `deckStack`. Stays: `DeckKind`, `DECKS`, `DECK_SPECS`, `TABLE_DECKS`, `returnsCards`,
+  `SIDEBAR_DECKS`, `storySlot`, `defaultDeck`, `homeDeck`.
+- `areas.ts` → lib, the mechanics: `Area`, `Spot`; the fan geometry (`fanMax` … `fanHasPlace`, `splitBox`,
+  `splitHalves`); `lying`, `stacksOnSpot`, `fanRow`, `spotOf`, `spotsById`, `pileOn`, `areaOf`, `spotPlace`, `indexOf`,
+  `takes` and the spot queries (`facedSpot` … `coveredSide`, `holdsOne`); `placeStack`; the grid mechanics
+  (`cellPlace`, `cellBox`, `cellKey`, `allGridPiles`, `gridPiles`, `gridCells`, `cellsOf`, `gridOf`, `onGrid`,
+  `GridPlace`, `SIDE_STEPS`, `stripBox`, `gridPlaces`, `terrainPlaces`, `gridBox`); `framedPlaces`, `NO_SHIFT`,
+  `shiftOf`, `spotsOf`, `baseSpots`, `frameAround`, `mostOverlapped`, `allAreas`, `pointOf` … `sameAt`, `takeIn`,
+  `isFixedPile`, `placePiles`, `bottomUnder`, `crowd`, `pushAside`, `anchorsOf`, `anchoredPlaces`, `SNAP`, `snapArea`,
+  `anchorsAfterMove`, `arrange`, `shifted`, `settleLayout`, `layOut`, `areaForCard`, `spotAt`, `drawOrder`,
+  `Placement`, `placement`, `pairedRow`, `withinRow`, `GRID_REACH`, `ontoGrid`, `intoDeck`, `areaSpot`, `oneEach`,
+  `familyNames`, `full`. Stays, the data and the Grimm-only rules: every size and `*_SHOWS` constant and the areas' own
+  boxes (`map`, `bar`, `encounter`, …, `battlefield`, `deckArea`, the enemies' block), `AREAS`, the spots' anchors
+  (`characterSpot`, `storageSpot`, `houseSpot`, …, `regionGrid`, `handSpot`) and `SPOTS`, `BROWSE_DECKS`,
+  `PLACE_BUTTON`, `PLACE_GAP`, `STORY_SLOTS`, `ENCOUNTER_PLACES`, `encounterPlace`, `deckPlace`, `PLACE_SPOTS`,
+  `placeArea`, `GridId`, `GRIDS`, `GRID_FAMILY`, `gridOrigin`, `MAP_COLS`, `grows`, `terrainPlace`, `marketSide`,
+  `marketCache`, `mapSpots`, `battlefieldSpots`, `battlefieldBoxes`, `battlefieldInUse`, `gridFaceUp`, `GROWING`,
+  `ABOVE_PLAY`, `DECK_BLOCK`, `PLAY_AREAS`, `COMBAT_AREAS`, `packedPlaces`, `battlefieldPlace`, `HOME_AREA`,
+  `FAMILY_NAMES`, `SHORT_NAMES`, `CARD_NAMES`, `acceptsText`, `refusal`, `gridLabel`, `ontoPlace`, and `RAIL_AREAS`
+  (from `Toolbar.tsx`). A cache goes with the function that fills it.
+- `actions.ts` → lib: all but two blocks, which stay in game files of their own: `battlefield.ts` (`TerrainSlot`,
+  `BattlefieldLayout`, `parseBattlefield`, `battlefieldText`, `buildBattlefield`, `clearBattlefield`; `takeCard`, in
+  that block, is generic and goes to lib) and `storybook.ts` (`revealStory`, `storyToBar`, `unrevealStory`,
+  `putUnderChapter`, `storyProgress`, `storyAt`, `intoStory`).
+- `store.ts` → lib: all but the React hooks, `useTable` and `useHistory`, which go to `src/lib/ui/useStore.ts`
+  (`subscribe` is exported for them).
+- `storage.ts` → lib, whole (its `grimm-world:` prefix stays for now: it is B2's `GameDefinition.id`).
+- `validate.ts` → lib: `tableProblems`. Stays: `isValidTable`, which checks the shape of an old save (`OldTable`).
+
+A declaration not named here goes with what uses it; if both sides do, to lib.
+
+`src/lib/ui/`, whole files: `Table.tsx`, `TablePieces.tsx`, `TablePlaces.tsx`, `tableGestures.ts`,
+`useTableGestures.ts`, `Sidebar.tsx`, `Tray.tsx`, `CardGhost.tsx`, `useFlip.ts`, `useDragOut.ts`, `usePanel.ts`,
+`useNotice.ts`, `useFitView.ts`, `useTransient.ts`, `useDialogs.ts`, `compact.ts`, `dropRouting.ts`, `ActionBar.tsx`,
+`Popovers.tsx`, `Toolbar.tsx` (its `RAIL_AREAS` stays in the game's `areas.ts`), and `dialogs.tsx` but for
+`ChapterDialog` and `AboutDialog`, which go to `src/GameDialogs.tsx`. Staying in `src/`, whole: `App.tsx`, `main.tsx`,
+`styles.css`, `env.d.ts`, `AreaIcon.tsx`, `BattlefieldBar.tsx`, `useBattlefieldBar.ts`, `useTableEvents.ts`,
+`RulesPanel.tsx`, `Booklets.tsx`, `booklets.ts`, `rules.ts`, `useRulesPanel.ts`, `setup.ts`, `save.ts`, `legacy/`,
+`test/`. `styles.css` isn't split yet: the `src/lib/ui/` components still use its classes.
+
+Tests move with the module they are named after (`areas.test.ts` → `src/lib/engine/`, `tableGestures.test.ts` and
+`dropRouting.test.ts` → `src/lib/ui/`); `properties.test.ts`, `saves.test.ts`, `save.test.ts`, `decks.test.ts`,
+`cards.test.ts`, `BattlefieldBar.test.tsx` and `src/test/` stay, since they play the real game. A test may import from
+both sides.
+
+**The import rule** (`.oxlintrc.json`, `overrides`; checked to work with oxlint 1.86):
+
+- `src/lib/**` imports nothing of `src/` outside `src/lib/` (`no-restricted-imports`, pattern `../../*` but
+  `../../lib/**`, so `src/lib/engine/` and `src/lib/ui/` hold no subfolders yet);
+- `src/lib/engine/**` doesn't import `src/lib/ui/` nor `react`;
+- tests (`src/lib/**/*.test.ts(x)`) are exempt.
+
+Each import that still breaks the rule is marked where it is, one per import:
+
+```ts
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { AREAS, SPOTS } from '../../areas';
+```
+
+So `grep -rn -- '-- B2' src/lib` is B2's list of what to inject, and B2 is done when it is empty. Grimm literals inside
+`src/lib/` functions (`'battlefield'`, `'story'`…) aren't marked: those functions all import from the game anyway.
+
+**Import cycles.** `src/lib/engine/areas.ts` imports the game's `areas.ts` for its data, which imports the engine's for
+`shiftOf`, `cellPlace`, `gridPiles`… That works as long as the top level of a game data module (what runs on import:
+`AREAS`, `SPOTS`, their boxes) uses only `src/lib/engine/geometry.ts`, other game data and types, never a function of a
+module it is in a cycle with; otherwise loading fails with a `ReferenceError` (a binding used before initialization),
+which the tests show at once. That is why `geometry.ts` is a leaf.
+
+**What changes besides `src/`:**
+
+- `vite.config.ts`: coverage `include` gets `src/lib/**/*.ts`; the thresholds cover every file the covered modules
+  were split into (`src/lib/engine/{areas,actions,decks,validate}.ts`, the game's `areas.ts`, `actions`' two blocks in
+  `battlefield.ts` and `storybook.ts`, `decks.ts`, `save.ts`, `setup.ts`, `validate.ts`). A new small file falling below
+  its threshold is reported, not given a lower one.
+- `src/legacy/migrate.test.ts`: the imports the frozen migrations may have become the files `cards.ts`, `decks.ts` and
+  `types.ts` were split into (on both sides). Only their import paths change.
+- `CLAUDE.md`: the thorough reorganization A5 left for this step. The architecture section becomes a map by folder,
+  each module gets a header comment saying what it holds, and the rule and its `-- B2` markers are described.
+
+Done when: lint passes with the rule on, every remaining tie is a `-- B2` import, `typecheck`, the tests (with coverage)
+and the build pass, the save snapshots are unchanged, and Playwright shows nothing changed at the four sizes.
 
 ### B2. Injected `GameDefinition`
 
@@ -407,12 +516,13 @@ the text. This opens the door to translating the app.
 
 ### B7. A minimal second game
 
-A simple card solitaire, built only with the library. Whatever is hard to fit in there shows what is still coupled; it
-is fixed before going further.
+A simple card solitaire, built only with `src/lib/`, as a throwaway test in this repo: whatever is hard to fit in there
+shows what is still coupled, and is fixed in `src/lib/` before going further. The solitaire itself is then deleted.
 
-### B8. Packages
+### B8. Library repo
 
-With two games working: npm workspaces (`engine`, `ui`, `pipeline`, and each game as an app). Not before.
+Only once another game is actually wanted: `src/lib/` (and the pipeline's configurable scripts) move to a library repo
+of their own, published as a package that this repo and the new game's repo depend on. Not before.
 
 ## Open decisions
 
@@ -421,4 +531,4 @@ With two games working: npm workspaces (`engine`, `ui`, `pipeline`, and each gam
   changing an own place or an id still needs a migration of the saves; figures still lie by table coordinates, and
   move with an area only by lying over it. The 1-unit offsets between rows on one line (`Spot.after`) only matter to
   the frozen migrations now and could go with a layout change.
-- Which game serves as the second game in B7.
+- Which solitaire serves as B7's throwaway test.
