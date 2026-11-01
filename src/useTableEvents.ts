@@ -1,26 +1,31 @@
 import { useMemo } from 'react';
-import * as A from './actions';
+import * as A from './lib/engine/actions';
 import {
-  allAreas,
-  BROWSE_DECKS,
   battlefieldInUse,
+  BROWSE_DECKS,
   deckPlace,
   ENCOUNTER_PLACES,
   encounterPlace,
+  gridFaceUp,
+  PLACE_BUTTON,
+} from './areas';
+import { clearBattlefield } from './battlefield';
+import { type DeckKind, returnsCards, storySlot } from './decks';
+import {
+  allAreas,
   facedSpot,
   gridCells,
-  gridFaceUp,
   gridOf,
-  PLACE_BUTTON,
   placeStack,
-} from './areas';
-import { CARD_H, CARD_W } from './cards';
-import { deckStack, returnsCards, storySlot, type DeckKind } from './decks';
+} from './lib/engine/areas';
+import { deckStack } from './lib/engine/decks';
+import { CARD_H, CARD_W } from './lib/engine/geometry';
+import { update } from './lib/engine/store';
+import type { CardDef, CardRef, Table } from './lib/engine/types';
+import type { Selection, TableControl, TableDrop, Zone } from './lib/ui/Table';
+import type { Target } from './lib/ui/tableGestures';
 import { AREA_RULES } from './rules';
-import { update } from './store';
-import type { Selection, TableControl, TableDrop, Zone } from './Table';
-import type { Target } from './tableGestures';
-import type { CardDef, CardRef, Table } from './types';
+import { revealStory, storyToBar, unrevealStory } from './storybook';
 
 // The game layer of the table: what Grimm World makes of the generic events of `TableView` (a tap, a drop…) and the
 // buttons it draws on the table.
@@ -82,13 +87,11 @@ export function useTableEvents(g: TableGame) {
     if (!table) return;
     const story = storySlot(table, 'story');
     const top = story?.cards.at(-1);
-    if (slot === 'story' && story && top && A.storyToBar(table, defs)) {
+    if (slot === 'story' && story && top && storyToBar(table, defs)) {
       g.notify('Sub-chapter card placed in the Encounter Bar', true);
       g.deal(top.id, { x: story.x, y: story.y });
     }
-    update((t) =>
-      slot === 'story' ? A.revealStory(t, defs) : A.unrevealStory(t),
-    );
+    update((t) => (slot === 'story' ? revealStory(t, defs) : unrevealStory(t)));
   }
 
   function onTap(target: Target) {
@@ -222,7 +225,7 @@ export function useTableEvents(g: TableGame) {
             key: 'clear',
             label: '↩ Return to deck',
             at: { area: area.id },
-            run: () => update((t) => A.clearBattlefield(t, defs)),
+            run: () => update((t) => clearBattlefield(t, defs)),
           });
         list.push({
           key: 'type-layout',

@@ -22,7 +22,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | A4.1 Gesture reducer, generic TableView  | Opus                                                                                                | ✅ Done        |
 | A4.2 Hooks out of App.tsx                | Sonnet                                                                                              | ✅ Done        |
 | A5. Documentation                        | Sonnet                                                                                              | 🔁 Ongoing     |
-| B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | 🟡 In progress |
+| B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | ✅ Done        |
 | B2. Injected `GameDefinition`            | Opus                                                                                                | ⬜ Not started |
 | B3. Composable place behaviours          | Opus                                                                                                | ⬜ Not started |
 | B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ⬜ Not started |
@@ -467,6 +467,23 @@ which the tests show at once. That is why `geometry.ts` is a leaf.
 
 Done when: lint passes with the rule on, every remaining tie is a `-- B2` import, `typecheck`, the tests (with coverage)
 and the build pass, the save snapshots are unchanged, and Playwright shows nothing changed at the four sizes.
+
+Outcome (November 2026; `CLAUDE.md` describes the folders and the rule):
+
+- Every top-level declaration of `src/` before the step is in the new tree with the same text (checked by a script
+  comparing them, ignoring `export` and formatting), except for the expected changes. Calls such as
+  `A.revealStory()` became `revealStory()` once those functions left `actions.ts`, and `store.ts`'s two hooks moved to
+  `src/lib/ui/useStore.ts` over a new `historyFlags()`. The save snapshots didn't change. The development server and
+  the production build load and play without console errors (the import cycles between the engine and the game's data
+  load in both).
+- 37 `-- B2` imports remain, all from `src/lib/` into `areas` (8), `cards` (8), `decks` (6), `types`, `storybook`,
+  `setup`, `save`, `AreaIcon` (2 each), `rules` and `legacy/table` (1 each; `tableProblems` checks for the removed
+  hand of old saves).
+- Differences from the list above: `SPLIT_SHOWS` went to the engine with `splitBox()`, its only user, a generic minimum
+  rather than Grimm data. The rule's patterns are `../../**`, since `../../*` let deeper paths like `../../legacy/table`
+  through.
+- Coverage of the files split from the covered modules: 85–100% of lines, 83–94% of branches, every one above its
+  threshold.
 
 ### B2. Injected `GameDefinition`
 

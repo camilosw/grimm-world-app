@@ -1,10 +1,19 @@
-import * as A from './actions';
-import { facedSpot, onGrid, turnedSpot, upsideDownSpot } from './areas';
-import { isLandscape } from './cards';
-import { cardRule, DECK_RULES } from './rules';
-import { update } from './store';
+import * as A from '../engine/actions';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { isLandscape } from '../../cards';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { cardRule, DECK_RULES } from '../../rules';
+import { facedSpot, onGrid, turnedSpot, upsideDownSpot } from '../engine/areas';
+import { update } from '../engine/store';
+import type {
+  At,
+  CardDef,
+  CardRef,
+  Stack,
+  Table,
+  Token,
+} from '../engine/types';
 import type { Dialog, PutUnder } from './useDialogs';
-import type { At, CardDef, CardRef, Stack, Table, Token } from './types';
 
 /** What the action bar needs of the app. */
 export interface PileBarProps {

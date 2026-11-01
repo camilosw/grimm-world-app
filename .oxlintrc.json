@@ -7,5 +7,52 @@
     // Only dialogs focus a field on opening, which is what their pattern asks for.
     "jsx-a11y/no-autofocus": "off",
     "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/lib/ui/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["../../**", "!../../lib", "!../../lib/**"],
+                "message": "src/lib/ imports nothing of the game (mark a tie left for B2 with -- B2)"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/lib/engine/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              { "name": "react", "message": "src/lib/engine/ has no React" }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "../../**",
+                  "!../../lib",
+                  "!../../lib/**",
+                  "../ui",
+                  "../ui/**"
+                ],
+                "message": "src/lib/engine/ imports neither the game nor src/lib/ui/ (mark a tie left for B2 with -- B2)"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/lib/**/*.test.ts", "src/lib/**/*.test.tsx"],
+      "rules": { "no-restricted-imports": "off" }
+    }
+  ]
 }

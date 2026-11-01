@@ -1,20 +1,23 @@
-import { addStack, dropOnto, settle, takeCard } from '../actions';
 import {
   AREAS,
-  cellPlace,
   deckPlace,
   ENCOUNTER_PLACES,
   encounterPlace,
-  placement,
-  spotPlaces,
-  spotsOf,
   STORY_SLOTS,
-  type Placement,
-  type Spot,
 } from '../areas';
 import type { DeckKind } from '../decks';
+import { addStack, dropOnto, settle, takeCard } from '../lib/engine/actions';
+import {
+  cellPlace,
+  placement,
+  type Placement,
+  type Spot,
+  spotPlaces,
+  spotsOf,
+} from '../lib/engine/areas';
+import type { At, CardDef, Table } from '../lib/engine/types';
 import { initialTable } from '../setup';
-import type { At, CardDef, EncounterPlace, Table } from '../types';
+import type { EncounterPlace } from '../types';
 import { realManifest } from './fixtures';
 
 // Playing on a table of the real card set, as the player does: cards are put where `placement()` says, and every

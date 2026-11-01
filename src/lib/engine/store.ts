@@ -1,6 +1,9 @@
-import { useSyncExternalStore } from 'react';
+// The external store holding the one Table, with undo/redo history and debounced autosave. Its React hooks are in
+// src/lib/ui/useStore.ts.
+
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { writeGame } from '../../save';
 import { settle } from './actions';
-import { writeGame } from './save';
 import type { Table } from './types';
 
 const HISTORY_LIMIT = 200;
@@ -58,7 +61,7 @@ export function redo() {
   emit();
 }
 
-function subscribe(listener: () => void) {
+export function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
@@ -67,13 +70,7 @@ export function getTable(): Table | null {
   return table;
 }
 
-export function useTable(): Table | null {
-  return useSyncExternalStore(subscribe, () => table);
-}
-
-export function useHistory() {
-  return useSyncExternalStore(
-    subscribe,
-    () => (past.length ? 1 : 0) + (future.length ? 2 : 0),
-  );
+/** Whether there is anything to undo (1) and to redo (2), added up. */
+export function historyFlags(): number {
+  return (past.length ? 1 : 0) + (future.length ? 2 : 0);
 }

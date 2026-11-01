@@ -1,14 +1,16 @@
-import type { RefObject } from 'react';
+import { type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import * as A from './actions';
-import { tokenSize } from './cards';
-import { readSave, saveText } from './save';
-import { initialTable } from './setup';
-import { resetTable, update } from './store';
+import * as A from '../engine/actions';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { readSave, saveText } from '../../save';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { initialTable } from '../../setup';
+import { tokenSize } from '../engine/geometry';
+import { resetTable, update } from '../engine/store';
+import type { CardManifest, Table, Token, View } from '../engine/types';
 import type { Selection } from './Table';
-import type { CardManifest, Table, Token, View } from './types';
-import { useDragOut } from './useDragOut';
 import type { Dialog } from './useDialogs';
+import { useDragOut } from './useDragOut';
 
 type FigureKind = { label: string; color: string; shape: Token['shape'] };
 

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { storage } from './storage';
+import { storage } from '../engine/storage';
 
 /** A remembered on/off panel setting (per device). */
 export function usePanel(

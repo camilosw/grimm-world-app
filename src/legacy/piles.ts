@@ -1,6 +1,7 @@
-import { compareCards } from '../cards';
-import { DECK_SPECS, deckStack, homeDeck, type DeckKind } from '../decks';
-import type { At, CardDef, CardRef, Stack } from '../types';
+import { DECK_SPECS, type DeckKind, homeDeck } from '../decks';
+import { compareCards } from '../lib/engine/cards';
+import { deckStack } from '../lib/engine/decks';
+import type { At, CardDef, CardRef, Stack } from '../lib/engine/types';
 import type { OldTable } from './table';
 
 // Frozen: the pile operations the migrations of saves from before version 3 use, as they were then (actions.ts), working

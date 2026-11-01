@@ -1,13 +1,15 @@
-import { CARD_H, CARD_W, family, tokenSize } from '../cards';
+import { family } from '../cards';
 import {
   DECK_SPECS,
+  type DeckKind,
   DECKS,
-  deckStack,
   homeDeck,
   storySlot,
-  type DeckKind,
 } from '../decks';
-import type { CardDef, CardRef, EncounterPlace, Stack } from '../types';
+import { deckStack } from '../lib/engine/decks';
+import { CARD_H, CARD_W, tokenSize } from '../lib/engine/geometry';
+import type { CardDef, CardRef, Stack } from '../lib/engine/types';
+import type { EncounterPlace } from '../types';
 import {
   addedPlace,
   AREA_HEADER,

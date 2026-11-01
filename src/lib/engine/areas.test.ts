@@ -1,4 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { AREAS, encounterPlace } from '../../areas';
+import {
+  apply,
+  card,
+  cardsOf,
+  defs,
+  drop,
+  dropEach,
+  misplaced,
+  newGame,
+  pileOf,
+  spot,
+} from '../../test/play';
 import {
   addStack,
   moveArea,
@@ -11,21 +24,18 @@ import {
 import {
   allAreas,
   areaOf,
-  AREAS,
   cellPlace,
   drawOrder,
-  encounterPlace,
   fanRow,
   freePlace,
-  GAP,
   gridOf,
   gridPlaces,
   layOut,
   looseAt,
-  placePiles,
   placement,
-  pointOf,
+  placePiles,
   placeStack,
+  pointOf,
   settleLayout,
   slidesUnder,
   spotOf,
@@ -33,18 +43,7 @@ import {
   stacksOnSpot,
 } from './areas';
 import { deckStack } from './decks';
-import {
-  apply,
-  card,
-  cardsOf,
-  defs,
-  drop,
-  dropEach,
-  misplaced,
-  newGame,
-  pileOf,
-  spot,
-} from './test/play';
+import { GAP } from './geometry';
 import type { Table } from './types';
 
 const t0 = newGame();

@@ -1,22 +1,17 @@
-import { addStack, settle, shuffled, takeCard } from './actions';
-import { compareCards } from './cards';
 import { ENCOUNTER_PLACES } from './areas';
-import { LAYOUT } from './legacy/migrate';
 import {
   DECK_SPECS,
+  type DeckKind,
   DECKS,
-  deckStack,
   SIDEBAR_DECKS,
   TABLE_DECKS,
-  type DeckKind,
 } from './decks';
-import type {
-  CardDef,
-  CardManifest,
-  CardRef,
-  EncounterPlace,
-  Table,
-} from './types';
+import { LAYOUT } from './legacy/migrate';
+import { addStack, settle, shuffled, takeCard } from './lib/engine/actions';
+import { compareCards } from './lib/engine/cards';
+import { deckStack } from './lib/engine/decks';
+import type { CardDef, CardManifest, CardRef, Table } from './lib/engine/types';
+import type { EncounterPlace } from './types';
 
 /** Every card used in play: all of them except the title card. */
 export function playableCards(manifest: CardManifest): CardDef[] {

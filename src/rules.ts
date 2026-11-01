@@ -1,5 +1,5 @@
 import type { DeckKind } from './decks';
-import type { CardDef } from './types';
+import type { CardDef } from './lib/engine/types';
 
 /** public/rules/rules.json, made by scripts/split_rules.py. */
 export interface RulesManifest {

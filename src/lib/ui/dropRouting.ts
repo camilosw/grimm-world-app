@@ -1,17 +1,20 @@
 import { useCallback, useState, type RefObject } from 'react';
-import * as A from './actions';
-import { areaForCard, looseAt, placement } from './areas';
-import { CARD_H, CARD_W } from './cards';
+import * as A from '../engine/actions';
+// oxlint-disable-next-line no-restricted-imports -- B2
 import {
   DECK_SPECS,
+  type DeckKind,
   homeDeck,
   returnsCards,
   storySlot,
-  type DeckKind,
-} from './decks';
-import { update } from './store';
+} from '../../decks';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { intoStory } from '../../storybook';
+import { areaForCard, looseAt, placement } from '../engine/areas';
+import { CARD_H, CARD_W } from '../engine/geometry';
+import { update } from '../engine/store';
+import type { At, CardDef, CardRef, Table, View } from '../engine/types';
 import type { Incoming, Selection, Zone } from './Table';
-import type { At, CardDef, CardRef, Table, View } from './types';
 import type { Dialog, PutUnder } from './useDialogs';
 
 // Where cards go when they are put on the table or dropped on it, on the sidebars and from the Browse panel: the
@@ -151,7 +154,7 @@ const onStory = (
   defs: Record<string, CardDef>,
   at: { x: number; y: number },
   cardIds: string[],
-) => !!table && A.intoStory(table, cardIds, defs, at.x, at.y);
+) => !!table && intoStory(table, cardIds, defs, at.x, at.y);
 
 /** The drop zones and drops from outside the table, with the state that lights up where cards would land. */
 export function useDropRouting(g: DropGame) {

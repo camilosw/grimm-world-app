@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import * as A from './actions';
-import { update } from './store';
+import * as A from '../engine/actions';
+import { update } from '../engine/store';
 import type { Dealt } from './Table';
 
 /** How long a pile on the table shows being shuffled (see `.shuffle-card` in styles.css). */

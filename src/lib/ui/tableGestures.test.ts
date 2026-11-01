@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import type { View } from '../engine/types';
 import {
   DOUBLE_TAP_MS,
-  initialGestures,
-  step,
-  TAP_SLOP,
   type GestureContext,
   type GestureEffect,
   type GestureEvent,
   type GestureState,
+  initialGestures,
+  step,
+  TAP_SLOP,
   type Target,
 } from './tableGestures';
-import type { View } from './types';
 
 const view: View = { x: 0, y: 0, scale: 1 };
 const pile: Target = { kind: 'stack', id: 's1', whole: false };

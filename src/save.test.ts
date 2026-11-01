@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { storage } from './lib/engine/storage';
+import type { Table } from './lib/engine/types';
+import { tableProblems } from './lib/engine/validate';
 import { loadGame, readSave, SAVE_VERSION, saveText, writeGame } from './save';
-import { storage } from './storage';
 import { SAVES } from './test/fixtures';
 import { manifest, newGame } from './test/play';
-import type { Table } from './types';
-import { tableProblems } from './validate';
 
 const t0 = newGame();
 const SAVED = 'grimm-world:table:v1';

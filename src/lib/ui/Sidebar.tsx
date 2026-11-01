@@ -1,9 +1,13 @@
 import { useRef, useState } from 'react';
-import { cardImage, cardLabel, isLandscape, landscapeClass } from './cards';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { cardImage, isLandscape } from '../../cards';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { DECK_SPECS } from '../../decks';
+import { cardLabel } from '../engine/cards';
+import type { CardDef, CardRef, Stack } from '../engine/types';
+import { landscapeClass } from './cardClasses';
 import { CardGhost } from './CardGhost';
-import { DECK_SPECS } from './decks';
-import type { CardDef, CardRef, Stack } from './types';
-import { useDragOut, type DragOut } from './useDragOut';
+import { type DragOut, useDragOut } from './useDragOut';
 
 interface Props {
   decks: Stack[];

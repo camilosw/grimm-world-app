@@ -1,25 +1,11 @@
-import { AreaIcon } from './AreaIcon';
-import { allAreas, type Area } from './areas';
-import { redo, undo } from './store';
-import type { Table } from './types';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { AreaIcon } from '../../AreaIcon';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { RAIL_AREAS } from '../../areas';
+import { allAreas, type Area } from '../engine/areas';
+import { redo, undo } from '../engine/store';
+import type { Table } from '../engine/types';
 import type { Dialog } from './useDialogs';
-
-/** The area buttons along the left edge of the screen, in the order the areas lie (`packedPlaces()`). */
-const RAIL_AREAS = [
-  'bar',
-  'map',
-  'encounter',
-  'storybook',
-  'storage',
-  'character',
-  'hand',
-  'home',
-  'battlefield',
-  'quest',
-  'enemy',
-  'training',
-  'banned',
-];
 
 /** The toolbar: decks, undo and redo, Find card, Figures, Rules, Fit and the menu. */
 export function Toolbar({

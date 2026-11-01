@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { compareCards, family, matchesQuery, queryTerms } from './cards';
+import { family } from './cards';
+import { compareCards, matchesQuery, queryTerms } from './lib/engine/cards';
 import { card } from './test/fixtures';
 
 describe('family', () => {

@@ -1,18 +1,18 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  loadBooklets,
-  pageLabel,
   type BookletPlace,
   type BookletsManifest,
+  loadBooklets,
+  pageLabel,
 } from './booklets';
 import { BookletScroll, BookletShelf, BookletSpread } from './Booklets';
+import { storage } from './lib/engine/storage';
 import {
   rulePageImage,
   type RuleSection,
   type RulesManifest,
   type RuleTarget,
 } from './rules';
-import { storage } from './storage';
 
 interface Props {
   rules: RulesManifest;

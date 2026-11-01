@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { CardRef } from './types';
+import type { CardRef } from '../engine/types';
 
 export type Dialog =
   | { kind: 'inspect'; card: CardRef }

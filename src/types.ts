@@ -1,5 +1,5 @@
-import type { GridId } from './areas';
-import type { DeckKind } from './decks';
+// Grimm World's own kinds: card types, the storybook's slots and the fixed places (the table's model is in
+// src/lib/engine/types.ts).
 
 export type CardType =
   | 'title'
@@ -16,73 +16,6 @@ export type CardType =
   | 'encounter-x'
   | 'lost-pages';
 
-/** One physical card as described by public/cards/cards.json. */
-export interface CardDef {
-  id: string;
-  sheet: number;
-  row: number;
-  col: number;
-  type?: CardType;
-  /** Printed card number, e.g. "Y003", "B23", "T07". */
-  code?: string;
-  name?: string;
-}
-
-export interface CardManifest {
-  source: string;
-  cardSize: { width: number; height: number };
-  cards: CardDef[];
-}
-
-export interface CardRef {
-  id: string;
-  faceUp: boolean;
-}
-
-export type Rotation = 0 | 90 | 180 | 270;
-
-/** A pile of one or more cards lying on the table. `cards` is bottom → top. */
-export interface Stack {
-  id: string;
-  /**
-   * Where a table pile is drawn (its top-left corner, as a portrait card's): worked out from its `at` and the layout by
-   * `settle()` (`placePiles()` in areas.ts), so up to date on a settled table only; 0 for the piles off the table. Not
-   * saved (from save format version 3): loading lays the piles out (`layOut()`).
-   */
-  x: number;
-  y: number;
-  rot: Rotation;
-  cards: CardRef[];
-  label?: string;
-  /** Which deck this is (sidebar decks and the storybook). */
-  deck?: DeckKind;
-  /** Fixed places on the table: the face-down storybook and its revealed cards. */
-  slot?: StorySlot;
-  /** Fixed places: the Encounter Deck area's (the time card under the deck, and the used cards) and the Damage Card's. */
-  place?: Place;
-  /**
-   * Where it lies on the table in the game's terms (table piles only, `z`): what the actions set (`placement()` says
-   * where cards go) and the save holds, and what everything asks which spot, grid place, fixed place or area a pile lies
-   * on (`stacksOnSpot()`, `spotOf()`, `gridOf()`, `placeStack()`, `areaOf()` in areas.ts); its `x, y` follow from it.
-   * Only the migrations of saves from before version 3 read it off `x, y` (`settleAt()` in legacy/layout.ts).
-   */
-  at?: At;
-}
-
-/**
- * Where a table pile lies in the game's terms: on its fixed place (`Stack.place`, `slot` or `deck`, in that order), on a
- * grid's place, on a spot (`index`: its place in the spot's row, from the first; 0 for a spot of one place; half way
- * between two places' to go between them, until `settle()` numbers the row again), loose in an area (`x, y` from the
- * area's own corner in `AREAS`, which the layout moves with it, `Table.shifts`), or loose outside the areas (`x, y` on
- * the table).
- */
-export type At =
-  | { place: Place | StorySlot | DeckKind }
-  | { grid: GridId; col: number; row: number }
-  | { spot: string; index: number }
-  | { area: string; x: number; y: number }
-  | { x: number; y: number };
-
 export type StorySlot = 'story' | 'story-revealed';
 
 /**
@@ -93,44 +26,3 @@ export type EncounterPlace = 'time-passes' | 'next-chapter' | 'used';
 
 /** The table's fixed places: the Encounter Deck area's, and the Damage Card's in the Actions area, with the cards under it. */
 export type Place = EncounterPlace | 'damage';
-
-export interface Token {
-  id: string;
-  x: number;
-  y: number;
-  color: string;
-  shape: 'pawn' | 'cube';
-}
-
-export interface Table {
-  stacks: Record<string, Stack>;
-  /** Ids of the stacks lying on the table, from back to front. */
-  z: string[];
-  /** Ids of the decks kept in the sidebar, top to bottom. */
-  dock?: string[];
-  /** Ids of the piles set aside in the right sidebar (e.g. the setup cards), top to bottom. */
-  tray?: string[];
-  /** The sidebar deck each card last came out of, so it can go back there. */
-  origin?: Record<string, DeckKind>;
-  tokens: Token[];
-  /** Version of the area layout the cards lie in (missing: before the Storybook area grew for its Encounter Card). */
-  layout?: number;
-  /**
-   * How far each area lies from its place in `AREAS`, with its spots, as `settleLayout()` laid it out (missing: not
-   * moved). Worked out from where the piles lie and `anchors`, so not saved (from save format version 3): loading lays
-   * the areas out again (`layOut()`).
-   */
-  shifts?: Record<string, { x: number; y: number }>;
-  /**
-   * Where the player put each area (the top-left corner of its frame, by area id) once they dragged one: the areas then
-   * lie there, pushed aside only by an area growing into them (`settleLayout()`). Missing: the areas lie packed together.
-   */
-  anchors?: Record<string, { x: number; y: number }>;
-  nextId: number;
-}
-
-export interface View {
-  x: number;
-  y: number;
-  scale: number;
-}

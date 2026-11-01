@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import type { BattlefieldLayout } from './actions';
-import type { CardDef } from './types';
+import type { BattlefieldLayout } from './battlefield';
+import type { CardDef } from './lib/engine/types';
 
 interface Props {
   text: string;

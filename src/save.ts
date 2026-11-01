@@ -1,10 +1,11 @@
-import { layOut } from './areas';
 import { migrateTable, recordAt } from './legacy/migrate';
 import type { OldTable } from './legacy/table';
+import { layOut } from './lib/engine/areas';
+import { storage } from './lib/engine/storage';
+import type { CardDef, CardManifest, Stack, Table } from './lib/engine/types';
+import { tableProblems } from './lib/engine/validate';
 import { initialTable } from './setup';
-import { storage } from './storage';
-import type { CardDef, CardManifest, Stack, Table } from './types';
-import { isValidTable, tableProblems } from './validate';
+import { isValidTable } from './validate';
 
 /** Which game a save file is of. */
 const GAME = 'grimm-world';

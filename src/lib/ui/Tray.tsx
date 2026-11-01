@@ -1,9 +1,12 @@
 import { useRef, useState } from 'react';
-import { cardImage, cardLabel, isLandscape, landscapeClass } from './cards';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { cardImage, isLandscape } from '../../cards';
+import { cardLabel } from '../engine/cards';
+import { storage } from '../engine/storage';
+import type { CardDef, CardRef, Stack } from '../engine/types';
+import { landscapeClass } from './cardClasses';
 import { CardGhost } from './CardGhost';
-import { storage } from './storage';
-import type { CardDef, CardRef, Stack } from './types';
-import { useDragOut, type DragOut } from './useDragOut';
+import { type DragOut, useDragOut } from './useDragOut';
 import { useFlip } from './useFlip';
 
 const WIDTH_KEY = storage('tray-width');

@@ -5,12 +5,17 @@ import {
   useState,
   type RefObject,
 } from 'react';
-import * as A from './actions';
-import { allAreas, type Area } from './areas';
-import { getTable, update } from './store';
-import type { Selection } from './Table';
-import type { CardDef, Table } from './types';
-import type { PutUnder } from './useDialogs';
+import * as A from './lib/engine/actions';
+import {
+  battlefieldText,
+  buildBattlefield,
+  parseBattlefield,
+} from './battlefield';
+import { allAreas, type Area } from './lib/engine/areas';
+import { getTable, update } from './lib/engine/store';
+import type { CardDef, Table } from './lib/engine/types';
+import type { Selection } from './lib/ui/Table';
+import type { PutUnder } from './lib/ui/useDialogs';
 
 /** What the Battlefield bar needs of the app. */
 export interface BattlefieldBarGame {
@@ -44,13 +49,13 @@ export function useBattlefieldBar(g: BattlefieldBarGame) {
 
   // The battlefield typed in the bar, and the table with it laid out, shown meanwhile.
   const battleLayout = useMemo(
-    () => (battleText === null ? null : A.parseBattlefield(battleText)),
+    () => (battleText === null ? null : parseBattlefield(battleText)),
     [battleText],
   );
   const battlePreview = useMemo(
     () =>
       battleLayout && table
-        ? A.settle(A.buildBattlefield(table, battleLayout.rows, defs))
+        ? A.settle(buildBattlefield(table, battleLayout.rows, defs))
         : null,
     [battleLayout, table, defs],
   );
@@ -109,14 +114,14 @@ export function useBattlefieldBar(g: BattlefieldBarGame) {
 
   /** Open the bar for typing the battlefield, filled in with the one lying on the table. */
   const typeBattlefield = () => {
-    setBattleText(A.battlefieldText(table!, defs));
+    setBattleText(battlefieldText(table!, defs));
     g.setSelection(null);
     g.setPutUnder(null);
   };
 
   const layOutBattlefield = () => {
     if (!battleLayout) return;
-    update((t) => A.buildBattlefield(t, battleLayout.rows, defs));
+    update((t) => buildBattlefield(t, battleLayout.rows, defs));
     setBattleText(null);
     const area = allAreas(getTable() ?? table!).find(
       (a) => a.id === 'battlefield',

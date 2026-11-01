@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { battlefieldText, settle } from './actions';
+import { battlefieldText } from './battlefield';
 import { migrateTable, recordAt } from './legacy/migrate';
 import type { OldTable } from './legacy/table';
+import { settle } from './lib/engine/actions';
+import type { At, Table } from './lib/engine/types';
+import { tableProblems } from './lib/engine/validate';
 import { migrate, readSave, saveText } from './save';
 import { deepFreeze, realManifest, SAVES } from './test/fixtures';
 import { misplaced } from './test/play';
-import type { At, Table } from './types';
-import { isValidTable, tableProblems } from './validate';
+import { isValidTable } from './validate';
 
 const manifest = realManifest();
 const defs = Object.fromEntries(manifest.cards.map((c) => [c.id, c]));

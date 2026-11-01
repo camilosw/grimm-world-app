@@ -1,15 +1,15 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { clampScale } from './cards';
+import { clampScale } from '../engine/geometry';
+import type { View } from '../engine/types';
 import {
-  initialGestures,
-  LONG_PRESS_MS,
-  step,
   type GestureContext,
   type GestureEvent,
+  initialGestures,
+  LONG_PRESS_MS,
   type Point,
+  step,
   type Target,
 } from './tableGestures';
-import type { View } from './types';
 
 export interface TableGestureOptions {
   view: View;

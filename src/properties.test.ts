@@ -1,22 +1,31 @@
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import * as A from './actions';
+import * as A from './lib/engine/actions';
+import { deckPlace, ENCOUNTER_PLACES, encounterPlace } from './areas';
+import {
+  buildBattlefield,
+  clearBattlefield,
+  parseBattlefield,
+} from './battlefield';
+import { DECK_SPECS, returnsCards, storySlot, TABLE_DECKS } from './decks';
 import {
   allAreas,
-  ENCOUNTER_PLACES,
-  encounterPlace,
   freePlaces,
   gridPlaces,
   looseAt,
   placement,
   spotsOf,
-} from './areas';
-import { CARD_H, CARD_W } from './cards';
-import { DECK_SPECS, storySlot, TABLE_DECKS, returnsCards } from './decks';
-import { deckPlace } from './areas';
+} from './lib/engine/areas';
+import { CARD_H, CARD_W } from './lib/engine/geometry';
+import type { Table } from './lib/engine/types';
+import { tableProblems } from './lib/engine/validate';
+import {
+  intoStory,
+  putUnderChapter,
+  revealStory,
+  unrevealStory,
+} from './storybook';
 import { defs, manifest, misplaced, newGame } from './test/play';
-import type { Table } from './types';
-import { tableProblems } from './validate';
 
 // Random games: sequences of the moves the player can make, each applied as the app applies it (through `placement()`
 // for anything put on the table, and `settle()` after every change, as `store.update` does), keep the table sound.
@@ -137,7 +146,7 @@ function play(t: Table, m: Move): Table {
       if (!s?.cards.length) return t;
       const ids =
         m.kind === 2 ? [s.cards.at(-1)!.id] : s.cards.map((c) => c.id);
-      if (A.intoStory(t, ids, defs, x, y)) return t;
+      if (intoStory(t, ids, defs, x, y)) return t;
       const p = placement(t, ids, defs, x, y, pileAt(t, x, y, null));
       if (p.refused) return t;
       return update((t) => {
@@ -205,7 +214,7 @@ function play(t: Table, m: Move): Table {
       if (!s?.cards.length || s.slot === 'story-revealed') return t;
       const picked = indices(s, m.b, m.c).filter((i) => !A.isPinned(s, i));
       const ids = picked.map((i) => s.cards[i].id);
-      if (!ids.length || A.intoStory(t, ids, defs, x, y)) return t;
+      if (!ids.length || intoStory(t, ids, defs, x, y)) return t;
       const p = placement(t, ids, defs, x, y, pileAt(t, x, y, null));
       if (p.refused) return t;
       return update((t) =>
@@ -248,9 +257,7 @@ function play(t: Table, m: Move): Table {
     }
     // The storybook: turn its next card over, or put the last one back.
     case 10:
-      return update((t) =>
-        m.b % 3 ? A.revealStory(t, defs) : A.unrevealStory(t),
-      );
+      return update((t) => (m.b % 3 ? revealStory(t, defs) : unrevealStory(t)));
     // Cards put into the storybook under a chapter (the chapter picker).
     case 11: {
       const s = pick([...onTable, ...aside.map((id) => t.stacks[id])], m.a);
@@ -263,7 +270,7 @@ function play(t: Table, m: Move): Table {
       if (s.slot === 'story' && !cardIds) return t;
       if (A.notHeldBy(t, s.id, 'storybook', defs, cardIds).length) return t;
       const name = pick(names, m.c)!;
-      return update((t) => A.putUnderChapter(t, s.id, name, defs, cardIds));
+      return update((t) => putUnderChapter(t, s.id, name, defs, cardIds));
     }
     // An area dragged by its grip, or the areas packed together again.
     case 12: {
@@ -275,7 +282,7 @@ function play(t: Table, m: Move): Table {
     }
     // The battlefield typed in, or cleared; a figure put on the table.
     case 13: {
-      if (m.b % 4 === 0) return update((t) => A.clearBattlefield(t, defs));
+      if (m.b % 4 === 0) return update((t) => clearBattlefield(t, defs));
       if (m.b % 4 === 1)
         return update((t) =>
           A.addToken(t, x, y, '#000', m.c % 2 ? 'pawn' : 'cube'),
@@ -283,7 +290,7 @@ function play(t: Table, m: Move): Table {
       const n = (m.a % 46) + 1;
       const text = `${n} ${(n % 46) + 1}v -\n${((n + 7) % 46) + 1}`;
       return update((t) =>
-        A.buildBattlefield(t, A.parseBattlefield(text).rows, defs),
+        buildBattlefield(t, parseBattlefield(text).rows, defs),
       );
     }
   }

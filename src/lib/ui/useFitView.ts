@@ -1,7 +1,9 @@
 import { useCallback, useRef, useState, type RefObject } from 'react';
-import { allAreas, battlefieldInUse, COMBAT_AREAS, PLAY_AREAS } from './areas';
-import { CARD_H, CARD_W, clampScale, tokenSize } from './cards';
-import type { Table, View } from './types';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { battlefieldInUse, COMBAT_AREAS, PLAY_AREAS } from '../../areas';
+import { allAreas } from '../engine/areas';
+import { CARD_H, CARD_W, clampScale, tokenSize } from '../engine/geometry';
+import type { Table, View } from '../engine/types';
 
 /** How long the view glides to an area or a pile it is sent to (see `.world.gliding` in styles.css). */
 export const GLIDE_MS = 500;

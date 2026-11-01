@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { placeStack } from './areas';
-import { deckStack } from './decks';
+import { placeStack } from './lib/engine/areas';
+import { deckStack } from './lib/engine/decks';
+import type { Stack, Table } from './lib/engine/types';
+import { tableProblems } from './lib/engine/validate';
 import { card, manifest, newGame } from './test/play';
-import type { Stack, Table } from './types';
-import { isValidTable, tableProblems } from './validate';
+import { isValidTable } from './validate';
 
 const t0 = newGame();
 

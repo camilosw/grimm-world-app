@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 /** Line drawings on a 24-unit grid, one per area id (`AREAS`), stroked in the header's text colour. */
 const ICONS: Record<string, ReactNode> = {

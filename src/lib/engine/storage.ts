@@ -1,3 +1,5 @@
+// Values kept per device in localStorage, under the game's prefix.
+
 /** Prefix of every key the app keeps in `localStorage`. */
 const PREFIX = 'grimm-world:';
 

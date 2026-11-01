@@ -1,21 +1,24 @@
 import { useLayoutEffect, useRef } from 'react';
-import { AreaIcon } from './AreaIcon';
-import { unpinned } from './actions';
-import { acceptsText, type Area, type Side } from './areas';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { AreaIcon } from '../../AreaIcon';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { acceptsText } from '../../areas';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { cardImage, isLandscape } from '../../cards';
+import { unpinned } from '../engine/actions';
+import type { Area } from '../engine/areas';
+import { cardLabel } from '../engine/cards';
 import {
   CARD_H,
   CARD_W,
   cardBox,
-  cardImage,
-  cardLabel,
-  isLandscape,
-  landscapeClass,
+  type Side,
   tokenSize,
-  turnedClass,
   type Turn,
-} from './cards';
+} from '../engine/geometry';
+import type { CardDef, Stack, Token } from '../engine/types';
+import { landscapeClass, turnedClass } from './cardClasses';
 import type { Dealt, TableControl } from './Table';
-import type { CardDef, Stack, Token } from './types';
 import { useFlip } from './useFlip';
 
 // The pieces the table is drawn with: its areas, piles, storybook places, figures and the buttons drawn on it.

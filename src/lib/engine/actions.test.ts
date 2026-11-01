@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import {
-  gridOf,
-  gridPlaces,
-  placement,
-  placeStack,
-  spotsOf,
-  stacksOnSpot,
-} from './areas';
+import * as game from '../../test/play';
 import {
   battlefieldText,
   buildBattlefield,
+  parseBattlefield,
+} from '../../battlefield';
+import { storySlot } from '../../decks';
+import {
+  putUnderChapter,
+  revealStory,
+  storyProgress,
+  unrevealStory,
+} from '../../storybook';
+import { card, refs, stack, table } from '../../test/fixtures';
+import {
   cardsToDecks,
   dragged,
   dragsWhole,
@@ -22,23 +26,24 @@ import {
   movedCards,
   moveStack,
   movingPile,
-  parseBattlefield,
-  putUnderChapter,
   putUnderPile,
-  revealStory,
   settle,
   shuffleStack,
   sortStack,
   stackToDecks,
-  storyProgress,
-  toTray,
   topToBottom,
+  toTray,
   unpinned,
-  unrevealStory,
 } from './actions';
-import { deckStack, storySlot } from './decks';
-import { card, refs, stack, table } from './test/fixtures';
-import * as game from './test/play';
+import {
+  gridOf,
+  gridPlaces,
+  placement,
+  placeStack,
+  spotsOf,
+  stacksOnSpot,
+} from './areas';
+import { deckStack } from './decks';
 
 describe('pinned cards', () => {
   const time = card('T01', 'time');

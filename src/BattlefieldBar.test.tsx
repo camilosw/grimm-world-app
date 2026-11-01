@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { parseBattlefield } from './actions';
+import { parseBattlefield } from './battlefield';
 import { BattlefieldBar } from './BattlefieldBar';
 import { card } from './test/fixtures';
 

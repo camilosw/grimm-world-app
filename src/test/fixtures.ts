@@ -1,4 +1,10 @@
-import type { CardDef, CardManifest, CardRef, Stack, Table } from '../types';
+import type {
+  CardDef,
+  CardManifest,
+  CardRef,
+  Stack,
+  Table,
+} from '../lib/engine/types';
 
 // The real cards come from public/cards/cards.json, which is generated and git-ignored, so tests make their own, or
 // use the definitions kept with the saves exported from released versions (`saves/`).

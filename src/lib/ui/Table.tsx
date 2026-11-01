@@ -1,5 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { ENCOUNTER_PLACES, type GridId } from '../../areas';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { cardImage, isLandscape } from '../../cards';
 import {
+  type Destination,
   dragged,
   dragsWhole,
   dropDestination,
@@ -10,28 +15,21 @@ import {
   settleSpots,
   stackTargetAt,
   unpinned,
-  type Destination,
-} from './actions';
+} from '../engine/actions';
 import {
   allAreas,
   areaOf,
   coveredSide,
   drawOrder,
-  ENCOUNTER_PLACES,
   fanRow,
   placePiles,
   snapArea,
   spotsOf,
   stacksOnSpot,
-  type GridId,
-} from './areas';
-import {
-  CARD_H,
-  CARD_W,
-  cardImage,
-  isLandscape,
-  landscapeClass,
-} from './cards';
+} from '../engine/areas';
+import { CARD_H, CARD_W } from '../engine/geometry';
+import type { At, CardDef, Table as TableState, View } from '../engine/types';
+import { landscapeClass } from './cardClasses';
 import { CardGhost } from './CardGhost';
 import type { Point, Target } from './tableGestures';
 import {
@@ -42,7 +40,6 @@ import {
   TokenView,
 } from './TablePieces';
 import { Placeholders } from './TablePlaces';
-import type { At, CardDef, Table as TableState, View } from './types';
 import { useTableGestures } from './useTableGestures';
 
 export type Selection = { kind: 'stack' | 'token'; id: string } | null;

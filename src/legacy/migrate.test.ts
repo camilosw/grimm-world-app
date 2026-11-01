@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { deckStack } from '../decks';
+import { deckStack } from '../lib/engine/decks';
+import type { Table } from '../lib/engine/types';
+import { tableProblems } from '../lib/engine/validate';
 import { readSave } from '../save';
 import { realManifest, SAVES } from '../test/fixtures';
-import type { Table } from '../types';
-import { tableProblems } from '../validate';
 import type { OldTable } from './table';
 
 // The migrations of the saves from before version 3 are frozen: saves.test.ts loads the saves of each released version
@@ -43,7 +43,15 @@ describe('the migrations of saves from before version 3', () => {
       const outside = from.filter(
         (path) =>
           !path.startsWith('./') &&
-          !['../cards', '../decks', '../types'].includes(path),
+          ![
+            '../cards',
+            '../decks',
+            '../types',
+            '../lib/engine/cards',
+            '../lib/engine/decks',
+            '../lib/engine/geometry',
+            '../lib/engine/types',
+          ].includes(path),
       );
       expect(outside, file).toEqual([]);
     }

@@ -1,5 +1,5 @@
-import { clampScale } from './cards';
-import type { View } from './types';
+import { clampScale } from '../engine/geometry';
+import type { View } from '../engine/types';
 
 // The table's pointer gestures as a pure state machine: `step()` takes the gesture so far and what a pointer did, and
 // returns the gesture after it with what the table should do (`GestureEffect`). It knows nothing of the DOM, React or

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { addStack, settle } from './actions';
-import { allAreas, areaForCard, looseAt, spotsOf } from './areas';
-import { CARD_H, CARD_W } from './cards';
-import { DECK_SPECS } from './decks';
+import { DECK_SPECS } from '../../decks';
+import { cardsOf, defs, newGame } from '../../test/play';
+import { addStack, settle } from '../engine/actions';
+import { allAreas, areaForCard, looseAt, spotsOf } from '../engine/areas';
+import { CARD_H, CARD_W } from '../engine/geometry';
+import type { Table } from '../engine/types';
 import { freeDropAt, homeNames, worldPoint } from './dropRouting';
-import { cardsOf, defs, newGame } from './test/play';
-import type { Table } from './types';
 
 // Far from every area: a card put there lies loose on the table.
 const FAR = { x: -20000, y: -20000 };

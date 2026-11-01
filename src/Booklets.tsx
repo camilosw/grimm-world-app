@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  bookletImage,
-  pageLabel,
   type Booklet,
+  bookletImage,
   type BookletsManifest,
+  pageLabel,
 } from './booklets';
 
 const TURN_MS = 420;

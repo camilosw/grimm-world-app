@@ -1,4 +1,4 @@
-import type { CardRef, Table } from '../types';
+import type { CardRef, Table } from '../lib/engine/types';
 
 /** Where a battlefield was built, before the Battlefield was an area of its own (`OldTable.battlefield`). */
 export interface OldBattlefield {

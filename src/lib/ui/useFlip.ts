@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState, type RefObject } from 'react';
-import type { CardRef } from './types';
+import type { CardRef } from '../engine/types';
 
 const HALF_MS = 110;
 const PERSPECTIVE = 'perspective(1500px)';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DECK_SPECS, homeDeck, type DeckKind } from './decks';
+import { DECK_SPECS, type DeckKind, homeDeck } from './decks';
 import { card, table } from './test/fixtures';
 import type { CardType } from './types';
 

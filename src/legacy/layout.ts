@@ -1,6 +1,8 @@
-import { CARD_H, CARD_W, cardBox, tokenSize, type Family } from '../cards';
+import type { Family } from '../cards';
 import type { DeckKind } from '../decks';
-import type { At, EncounterPlace, Stack } from '../types';
+import { CARD_H, CARD_W, cardBox, tokenSize } from '../lib/engine/geometry';
+import type { At, Stack } from '../lib/engine/types';
+import type { EncounterPlace } from '../types';
 import { addStack, isFixed, setStack } from './piles';
 import type { OldTable } from './table';
 

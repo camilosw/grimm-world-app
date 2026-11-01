@@ -1,9 +1,10 @@
-import { movingPile, type DraggedPile } from './actions';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { deckPlace, ENCOUNTER_PLACES, encounterPlace } from '../../areas';
+// oxlint-disable-next-line no-restricted-imports -- B2
+import { DECK_SPECS } from '../../decks';
+import { type DraggedPile, movingPile } from '../engine/actions';
 import {
   allAreas,
-  deckPlace,
-  ENCOUNTER_PLACES,
-  encounterPlace,
   fanHasPlace,
   fanRow,
   freeCovered,
@@ -13,15 +14,14 @@ import {
   holdsOne,
   placeStack,
   splitHalves,
+  type Spot,
   spotsOf,
   stacksOnSpot,
-  type Spot,
-} from './areas';
-import { cardBox } from './cards';
-import { DECK_SPECS } from './decks';
+} from '../engine/areas';
+import { cardBox } from '../engine/geometry';
+import type { Table } from '../engine/types';
 import type { Incoming, TableControl } from './Table';
 import { Hit } from './TablePieces';
-import type { Table } from './types';
 
 // The empty card places drawn on the table, under the piles: the grids' free places, the spots' and the fixed places'
 // (Encounter Deck places, the decks lying on the table), each lit up while cards dragged over it would go there.

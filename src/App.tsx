@@ -1,39 +1,41 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import * as A from './actions';
-import { CARD_H, CARD_W, loadManifest } from './cards';
+import * as A from './lib/engine/actions';
+import { BattlefieldBar } from './BattlefieldBar';
+import { loadManifest } from './cards';
+import { returnsCards } from './decks';
+import { AboutDialog, ChapterDialog } from './GameDialogs';
+import { allAreas, type Area } from './lib/engine/areas';
+import { CARD_H, CARD_W } from './lib/engine/geometry';
+import { redo, resetTable, undo, update } from './lib/engine/store';
+import type { CardDef, CardManifest } from './lib/engine/types';
+import { FigureBar, PileBar } from './lib/ui/ActionBar';
+import { isCompact, useCompact } from './lib/ui/compact';
 import {
-  AboutDialog,
   BrowsePanel,
   CardViewer,
-  ChapterDialog,
   FindDialog,
   RenameDialog,
-} from './dialogs';
-import { BattlefieldBar } from './BattlefieldBar';
-import { allAreas, type Area } from './areas';
-import { returnsCards } from './decks';
-import { loadGame } from './save';
-import { playableCards } from './setup';
+} from './lib/ui/dialogs';
+import { useDropRouting } from './lib/ui/dropRouting';
+import { FiguresPopover, MenuPopover } from './lib/ui/Popovers';
+import { Sidebar } from './lib/ui/Sidebar';
+import { type Selection, TableView } from './lib/ui/Table';
+import { AreaRail, Toolbar } from './lib/ui/Toolbar';
+import { Tray } from './lib/ui/Tray';
+import { useDialogs } from './lib/ui/useDialogs';
+import { useFitView } from './lib/ui/useFitView';
+import { useNotice } from './lib/ui/useNotice';
+import { usePanel } from './lib/ui/usePanel';
+import { useHistory, useTable } from './lib/ui/useStore';
+import { useTransient } from './lib/ui/useTransient';
 import { cardRule } from './rules';
 import { RulesPanel } from './RulesPanel';
-import { Sidebar } from './Sidebar';
-import { redo, resetTable, undo, update, useHistory, useTable } from './store';
-import { TableView, type Selection } from './Table';
-import { Tray } from './Tray';
-import { PileBar, FigureBar } from './ActionBar';
-import { AreaRail, Toolbar } from './Toolbar';
+import { loadGame } from './save';
+import { playableCards } from './setup';
+import { putUnderChapter, storyProgress } from './storybook';
 import { useBattlefieldBar } from './useBattlefieldBar';
-import { usePanel } from './usePanel';
 import { useRulesPanel } from './useRulesPanel';
-import { FiguresPopover, MenuPopover } from './Popovers';
-import { useDialogs } from './useDialogs';
-import { useDropRouting } from './dropRouting';
-import { useFitView } from './useFitView';
-import { useNotice } from './useNotice';
 import { useTableEvents } from './useTableEvents';
-import { useTransient } from './useTransient';
-import { isCompact, useCompact } from './compact';
-import type { CardDef, CardManifest } from './types';
 
 export default function App() {
   const [manifest, setManifest] = useState<CardManifest | null>(null);
@@ -460,10 +462,10 @@ export default function App() {
             []
           }
           defs={defs}
-          progress={A.storyProgress(table, defs)}
+          progress={storyProgress(table, defs)}
           onPick={(name) => {
             update((t) =>
-              A.putUnderChapter(t, dialog.stackId, name, defs, dialog.cardIds),
+              putUnderChapter(t, dialog.stackId, name, defs, dialog.cardIds),
             );
             setDialog(null);
           }}
