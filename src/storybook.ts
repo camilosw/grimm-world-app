@@ -4,7 +4,8 @@ import { refusal } from './areas';
 import { family } from './cards';
 import { DECK_SPECS, storySlot } from './decks';
 import { addStack, notHeldBy, setStack, takeCards } from './lib/engine/actions';
-import { areaForCard, spotPlace, spotsOf } from './lib/engine/areas';
+import { areaForCard, spotsOf } from './lib/engine/areas';
+import { spotPlace } from './lib/engine/arrangement';
 import { CARD_H, CARD_W } from './lib/engine/geometry';
 import type { At, CardDef, Table } from './lib/engine/types';
 
@@ -39,7 +40,8 @@ export function storyToBar(
 ): { x: number; y: number; at: At } | null {
   const top = storySlot(t, 'story')?.cards.at(-1);
   const spot = spotsOf(t).find((s) => s.id === 'bar');
-  if (!top || !spot || family(defs[top.id]) !== spot.family) return null;
+  if (!top || !spot || family(defs[top.id]) !== spot.accepts.family)
+    return null;
   const p = spotPlace(t, spot, null, -Infinity, -Infinity);
   return p && { x: p.x, y: p.y, at: { spot: spot.id, index: p.index } };
 }

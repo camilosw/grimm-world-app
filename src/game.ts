@@ -70,6 +70,11 @@ export const grimmWorld: GameDefinition = {
   placeArea,
   placePoint,
   deckPlaces: ENCOUNTER_PLACES,
+  // Only a revealed card that isn't a storybook card leaves the storybook (a Y-card, for the Encounter Bar).
+  slotGives: (slot, top) =>
+    slot === 'story-revealed' && top?.type !== 'storybook',
+  // The face-down storybook's cards move between its chapters only (`putUnderChapter`).
+  sealedSlots: ['story'],
   pinsBottom: PINNED_BOTTOM,
   pinsTop: PINNED_TOP,
   // Cards the storybook may hold, dropped on it, go under one of its chapters (the chapter picker).

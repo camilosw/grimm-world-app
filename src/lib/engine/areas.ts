@@ -1,6 +1,35 @@
 // The mechanics of the play area: spots, fans, grids, frames, the layout of the areas, where a pile lies (`at`), placement
 // and drawing order. Reads the game's areas, spots and rules from its GameDefinition (`game()`).
 
+import {
+  type Accepts,
+  areaSpot,
+  attractor,
+  mixedRefusal,
+  refusedBy,
+  takes,
+} from './accepts';
+import {
+  type Fan,
+  fanRow,
+  framedPlaces,
+  freePlace,
+  growth,
+  nearPlaces,
+  paired,
+  pairedRow,
+  type Pile,
+  shows,
+  splitBox,
+  splitHalves,
+  spotPlace,
+  spotPlaces,
+  spotPoint,
+  vertical,
+  withinRow,
+} from './arrangement';
+import { layerBehaviours, refusedOnto } from './behaviours';
+import type { Facing } from './facing';
 import { family, game } from './game';
 import {
   AREA_HEADER,
@@ -8,20 +37,19 @@ import {
   bottomOf,
   CARD_H,
   CARD_W,
-  cardBox,
   cardRect,
   distanceTo,
   GAP,
   inRect,
-  OPPOSITE,
   overlap,
   type Point,
   type Rect,
   rightOf,
   type Side,
   tokenSize,
-  type Turn,
 } from './geometry';
+import { coveredSide, type Layer } from './layering';
+import { landscapeSpot, lyingSize, type Orientation } from './orientation';
 import type {
   At,
   CardDef,
@@ -30,7 +58,6 @@ import type {
   FixedPlace,
   GridId,
   Stack,
-  StorySlot,
   Table,
 } from './types';
 
@@ -49,256 +76,32 @@ export interface Area {
 
 /**
  * A card-sized place inside an area reserved for one card family: no other card
- * may lie on it, and cards of that family dropped near it snap onto it.
+ * may lie on it, and cards of that family dropped near it snap onto it. Its options lie on axes, each read by a module
+ * of its own (behaviours.ts): what it accepts, its arrangement (one pile, or a fanned row), its layering, its facing and
+ * its orientation. Its arrangement: a fanned row of single cards (`fan`, arrangement.ts), or one pile (`pile`, how it
+ * takes cards; left out, the default).
  */
-export interface Spot {
+export type Spot = SpotPlace &
+  // A row, or one pile, never both.
+  ({ fan: Fan; pile?: never } | { fan?: never; pile?: Pile });
+
+/** What every spot has, whatever its arrangement. */
+interface SpotPlace {
   id: string;
   label: string;
   /** Second line of the empty placeholder. */
   hint?: string;
   area: string;
-  family: Family;
-  /** Further card families it takes (Broken Items: Y-cards too, as some items are printed on them). */
-  also?: Family[];
-  /** Cards of the family always land here, wherever they are dropped on the table. */
-  attracts: boolean;
   x: number;
   y: number;
-  /** The spot beside (or above/below) this one whose card lies on top of it, covering the side next to it. */
-  under?: string;
-  /**
-   * The pile lying on top of this spot's card, covering its `side` (a Market Prices card under its Region Card, which
-   * lies on the Map's grid, not on a spot).
-   */
-  underPile?: { id: string; side: Side };
-  /**
-   * Part of the card's width (height, for a spot above or below it), as it lies, still showing beside the card on top
-   * of it (default: half).
-   */
-  shows?: number;
-  /**
-   * One card per place, in a row growing away from the `under` card, each slid under the one before as far as the
-   * first lies under that card: at most `count` of them (`Infinity`: any number, the area growing with the row).
-   * With `count: 1`, the spot holds a single card.
-   */
-  fan?: { count: number };
-  /**
-   * Its row starts beyond the last card of this spot's row, under it, and moves out as that row grows (the Skills beyond
-   * the Titles, the Money Cards beyond the stowed items, `spotsOf()`). The two rows lie a unit apart across them: the
-   * saves from before version 3 tell the rows apart by it, as their migrations take the piles on a row's line only
-   * (legacy/layout.ts).
-   */
-  after?: string;
-  /**
-   * Its placeholder, beyond the last card of both rows, is shared with the `after` row: cards dropped on one half join
-   * that row, on the other this one (`splitHalves()`), so that row's free place, under this row, isn't shown on its own.
-   * A pile moved within either row stays in it (`placement()`).
-   */
-  split?: boolean;
-  /** The spot whose card this spot's card lies on, drawn above it (a Hit Point Card on its Enemy Card). */
-  above?: string;
-  /** Its placeholder shows only while that spot holds a card (a Hit Point Card's, once its Enemy Card is there). */
-  needs?: string;
-  /**
-   * Another place for that spot's card (a Hit Point Card on the spent side, or over its defeated enemy): it shows no
-   * placeholder, and the spot and its other places hold one card between them (`one`).
-   */
-  alt?: string;
-  /** Holds one card (with its `alt` places, between them): another dropped there is refused. */
-  one?: boolean;
-  /** The storybook place whose top card this spot's card lies on. */
-  over?: StorySlot;
-  /** Cards of the family dropped anywhere in its area go here. */
-  fillsArea?: boolean;
-  /** Its card lies landscape across the place (Region Cards, see `cardBox()`). */
-  landscape?: boolean;
-  /**
-   * A portrait card lies here landscape, turned a quarter to this side, face up unless `faceDown` (the Encounter Cards
-   * giving a region's market prices, the Y-cards in the Encounter Bar): it can't be turned over or rotated there.
-   */
-  turn?: Turn;
-  /** Its cards lie face down (the Encounter Bar's Y-cards, whose backs show the location they belong to). */
-  faceDown?: boolean;
-  /** Its cards lie face up, turned so when put there, and can't be turned over there (Broken Items, Status Upgrades, the hand). */
-  faceUp?: boolean;
-  /** A card put here turns face up, but may be turned over afterwards (the Storybook's Encounter Card; `faceArrivals()`). */
-  putFaceUp?: boolean;
-  /**
-   * New cards go to the front of the fanned row, on top of the others, and its free place is shown before its first
-   * card, partly under it as the cards are under each other, instead of after its last (the Encounter Bar, a row
-   * running right).
-   */
-  addsFirst?: boolean;
-  /**
-   * The fanned row has no card covering it and runs toward this side, each card lying on top of the one before, of which
-   * the `shows` part is left showing (the hand in the Actions area: down, the top of each card showing above the next).
-   */
-  overlaps?: Side;
-  /** Its cards lie turned 180° (the Actions area's), so they can't be rotated there. */
-  upsideDown?: boolean;
-  /**
-   * A pile dropped on its row (of any number of cards, `fan.count: Infinity`) is spread out on it, one card per place,
-   * its top card still lying on top of the others (`settleSpots()`): the hand, taking back the cards under the Damage
-   * Card or the discard pile, its bottom card first; the Encounter Bar, its top card first.
-   */
-  takesPiles?: boolean;
-  /** Cards dropped on its pile go under it, not on top (the Damage Card, with the Action Cards lost as damage under it). */
-  slidesUnder?: boolean;
-}
-
-/** Most cards a fanned spot holds. */
-function fanMax(spot: Spot): number {
-  return spot.fan?.count ?? 1;
-}
-
-/** Which way a fanned spot's row runs: away from the card covering it, the way its cards lie on each other, else right. */
-function growth(spot: Spot): Side {
-  const side = coveredSide(spot);
-  return spot.overlaps ?? (side ? OPPOSITE[side] : 'right');
-}
-
-/** Whether a spot's row runs down or up. */
-function vertical(spot: Spot): boolean {
-  const side = growth(spot);
-  return side === 'top' || side === 'bottom';
-}
-
-/** Size of a spot's card as it lies there. */
-function lyingSize(spot: Spot): { w: number; h: number } {
-  const { width, height } = cardBox(0, 0, !!spot.landscape);
-  return { w: width, h: height };
-}
-
-/** Signed distance between the places of a fanned spot (negative: the row grows to the left or up). */
-function fanStep(spot: Spot): number {
-  const side = growth(spot);
-  const dir = side === 'left' || side === 'top' ? -1 : 1;
-  const size = lyingSize(spot);
-  return dir * (spot.shows ?? 0.5) * (vertical(spot) ? size.h : size.w);
-}
-
-/** Top-left corners of a spot's places: one, or the first `n` of a fanned spot's row. */
-export function spotPlaces(spot: Spot, n = 1): Point[] {
-  const step = fanStep(spot);
-  const [dx, dy] = vertical(spot) ? [0, step] : [step, 0];
-  return Array.from({ length: spot.fan ? n : 1 }, (_, i) => ({
-    x: Math.round(spot.x + i * dx),
-    y: Math.round(spot.y + i * dy),
-  }));
-}
-
-/**
- * Where a pile lies in a fanned spot's row at `index`: on its place, or, for an index between two places (a card just
- * put between two others, or a pile just spread out, until `settleSpots()` numbers the row again), half a unit or less
- * before the next place, as the row sorts it.
- */
-function rowPoint(spot: Spot, index: number): Point {
-  const n = Math.max(0, Math.ceil(index));
-  const step = fanStep(spot);
-  const back = (n - index) * Math.sign(step);
-  const v = vertical(spot);
-  return {
-    x: Math.round(spot.x + (v ? 0 : n * step)) - (v ? 0 : back),
-    y: Math.round(spot.y + (v ? n * step : 0)) - (v ? back : 0),
-  };
-}
-
-/**
- * Where a spot's next card goes, shown by its placeholder: its place, the place after the last card of a fanned row,
- * or, for a row taking new cards first, the place before its first card.
- */
-export function freePlace(t: Table, spot: Spot): Point {
-  if (spot.addsFirst)
-    return { x: Math.round(spot.x - fanStep(spot)), y: spot.y };
-  const n = spot.fan ? fanRow(t, spot).length : 0;
-  return spotPlaces(spot, n + 1)[n];
-}
-
-/**
- * The places a spot's placeholders show: its free place and, for a row taking new cards first that has cards, also the
- * place after its last card, partly under it, to add a card at the end of the row.
- */
-export function freePlaces(t: Table, spot: Spot): Point[] {
-  const first = freePlace(t, spot);
-  const n = spot.addsFirst ? fanRow(t, spot).length : 0;
-  return n ? [first, spotPlaces(spot, n + 1)[n]] : [first];
-}
-
-/** Least part of a card's height a split placeholder shows: room for the two lines of text on each half. */
-const SPLIT_SHOWS = 0.3;
-
-/**
- * Where a split placeholder lies (`Spot.split`): right beyond the last card of both rows, across the row as wide as a
- * card, along it as far as the larger strip of the two rows shows, at least `SPLIT_SHOWS`.
- */
-export function splitBox(
-  t: Table,
-  spot: Spot,
-): { x: number; y: number; w: number; h: number } {
-  const partner = spotsOf(t).find((s) => s.id === spot.after);
-  const { w, h } = lyingSize(spot);
-  const free = freePlace(t, spot);
-  const shows = spot.shows ?? 0.5;
-  const size = Math.max(shows, partner?.shows ?? 0.5, SPLIT_SHOWS);
-  // In line with the row on the exact line (the other lies a unit beside it).
-  const x = Math.min(spot.x, partner?.x ?? spot.x);
-  const y = Math.min(spot.y, partner?.y ?? spot.y);
-  // Beyond the edge of the last card, which covers the part of the free place that doesn't show.
-  switch (growth(spot)) {
-    case 'top': {
-      const edge = free.y + Math.round(shows * h);
-      return { x, y: edge - Math.round(size * h), w, h: Math.round(size * h) };
-    }
-    case 'bottom':
-      return {
-        x,
-        y: free.y + Math.round((1 - shows) * h),
-        w,
-        h: Math.round(size * h),
-      };
-    case 'left': {
-      const edge = free.x + Math.round(shows * w);
-      return { x: edge - Math.round(size * w), y, w: Math.round(size * w), h };
-    }
-    case 'right':
-      return {
-        x: free.x + Math.round((1 - shows) * w),
-        y,
-        w: Math.round(size * w),
-        h,
-      };
-  }
-}
-
-/**
- * The halves of a split placeholder and the row each takes cards into: the `after` row's first (left of a column, above
- * a row's other), this row's while it has room. Once it is full, the whole placeholder is the other row's.
- */
-export function splitHalves(
-  t: Table,
-  spot: Spot,
-): { spot: Spot; x: number; y: number; w: number; h: number }[] {
-  const box = splitBox(t, spot);
-  const partner = spotsOf(t).find((s) => s.id === spot.after);
-  const rows = partner
-    ? [partner, ...(fanHasPlace(t, spot) ? [spot] : [])]
-    : [spot];
-  const n = rows.length;
-  return rows.map((s, i) =>
-    vertical(spot)
-      ? { spot: s, ...box, x: box.x + (i * box.w) / n, w: box.w / n }
-      : { spot: s, ...box, y: box.y + (i * box.h) / n, h: box.h / n },
-  );
-}
-
-/** The row sharing its placeholder with the row beyond it (the Titles, with the Skills'), if `spot` is one. */
-function sharesPlaceholder(t: Table, spot: Spot): boolean {
-  return spotsOf(t).some((s) => s.split && s.after === spot.id);
-}
-
-/** Whether a fanned spot's row has room for one more card, so its next place can be shown. */
-export function fanHasPlace(t: Table, spot: Spot): boolean {
-  return fanRow(t, spot).length < fanMax(spot);
+  /** The cards it takes, and where from (accepts.ts). */
+  accepts: Accepts;
+  /** Which card its cards lie under or over (layering.ts). */
+  layer?: Layer;
+  /** How its cards face (facing.ts); left out, as the player turns them. */
+  facing?: Facing;
+  /** How its cards lie, turned or upside down (orientation.ts); left out, as the player turns them. */
+  orientation?: Orientation;
 }
 
 interface Lying {
@@ -350,11 +153,6 @@ export function stacksOnSpot(t: Table, spot: Spot): readonly string[] {
   return lying(t).spots.get(spot.id) ?? [];
 }
 
-/** Piles lying in a fanned spot's row (`Stack.at`), from its first place on. */
-export function fanRow(t: Table, spot: Spot): readonly string[] {
-  return spot.fan ? stacksOnSpot(t, spot) : [];
-}
-
 /**
  * The spot pile `id` lies on (`Stack.at`: its spot, or the spot its fixed place lies on), if any. Only the pile's own
  * `at` counts, so it holds within an action too, as long as that pile hasn't moved (`dropOnto()` asks about the pile
@@ -385,7 +183,11 @@ function spotsById(t: Table): Map<string, Spot> {
 }
 
 /** The pile lying on a spot of a single place (other than `exclude`), if any. */
-function pileOn(t: Table, spot: Spot, exclude: string | null): string | null {
+export function pileOn(
+  t: Table,
+  spot: Spot,
+  exclude: string | null,
+): string | null {
   return stacksOnSpot(t, spot).find((id) => id !== exclude) ?? null;
 }
 
@@ -401,115 +203,6 @@ export function areaOf(t: Table, id: string): string | undefined {
   if ('spot' in at) return spotOf(t, id)?.area;
   if ('area' in at) return at.area;
   return undefined;
-}
-
-/**
- * Where cards going to a spot land (top-left dropped at x, y), or null when a
- * fanned spot is full. A plain spot: onto the pile lying there. A fanned spot:
- * at the place the card is dropped on, or after the last card when dropped
- * elsewhere (before the first, for a row taking new cards first, unless dropped in line beyond its last card): its
- * `index` in the row, half way between two piles' to go between them (`settleSpots()` then numbers the row again), and
- * where it is drawn meanwhile, half a unit beside a place.
- */
-export function spotPlace(
-  t: Table,
-  spot: Spot,
-  moving: string | null,
-  x: number,
-  y: number,
-): (Point & { onto: string | null; index: number }) | null {
-  if (!spot.fan)
-    return { x: spot.x, y: spot.y, onto: pileOn(t, spot, moving), index: 0 };
-  const row = fanRow(t, spot);
-  const others = row.filter((id) => id !== moving);
-  if (others.length >= fanMax(spot)) return null;
-  // Measured along the row, in places as spaced once the card is in it.
-  const v = vertical(spot);
-  const step = fanStep(spot);
-  const [pos, off] = v ? [y - spot.y, x - spot.x] : [x - spot.x, y - spot.y];
-  const [length, breadth] = v ? [CARD_H, CARD_W] : [CARD_W, CARD_H];
-  const along = (pos * Math.sign(step)) / Math.abs(step);
-  const reach = others.length + length / 2 / Math.abs(step);
-  const inLine = Math.abs(off) < breadth / 2;
-  const near = inLine && along > -length / 2 / Math.abs(step) && along < reach;
-  const i = near
-    ? Math.max(0, Math.min(others.length, Math.round(along)))
-    : spot.addsFirst && !(inLine && along >= reach)
-      ? 0
-      : others.length;
-  const at = (d: number, id: string) => {
-    const shift = d * Math.sign(step);
-    const index = indexOf(t, id) + d;
-    return v
-      ? { x: spot.x, y: t.stacks[id].y + shift, onto: null, index }
-      : { x: t.stacks[id].x + shift, y: spot.y, onto: null, index };
-  };
-  if (moving && row.indexOf(moving) === i) return at(0, moving);
-  if (i < others.length) return at(-0.5, others[i]);
-  return others.length
-    ? at(0.5, others[others.length - 1])
-    : { x: spot.x, y: spot.y, onto: null, index: 0 };
-}
-
-/** The index of a pile in the row it lies in (`Stack.at`). */
-function indexOf(t: Table, id: string): number {
-  const at = t.stacks[id].at;
-  return at && 'spot' in at ? at.index : 0;
-}
-
-/** Whether a spot takes cards of family `f`. */
-export function takes(spot: Spot, f: Family | undefined): boolean {
-  return f === spot.family || (!!f && !!spot.also?.includes(f));
-}
-
-/** The spot pile `id` lies on that keeps its cards face up or down (Market Prices, Encounter Bar, Broken Items, …). */
-export function facedSpot(t: Table, id: string): Spot | undefined {
-  const s = spotOf(t, id);
-  return s?.turn || s?.faceUp ? s : undefined;
-}
-
-/** The spot turning the card lying on it (Market Prices) that pile `id` lies on, if any. */
-export function turnedSpot(t: Table, id: string): Spot | undefined {
-  const s = spotOf(t, id);
-  return s?.turn ? s : undefined;
-}
-
-/** Whether pile `id` lies on a spot taking the cards dropped on it underneath (the Damage Card's). */
-export function slidesUnder(t: Table, id: string): boolean {
-  return !!spotOf(t, id)?.slidesUnder;
-}
-
-/** The spot laying the cards on it upside down (the Actions area's) that pile `id` lies on, if any. */
-export function upsideDownSpot(t: Table, id: string): Spot | undefined {
-  const s = spotOf(t, id);
-  return s?.upsideDown ? s : undefined;
-}
-
-/**
- * Which side of a spot's free place lies under a card, so only the rest of it shows: under the card covering the spot,
- * or, in a row whose cards lie on the one before, under its last card.
- */
-export function freeCovered(t: Table, spot: Spot): Side | null {
-  if (spot.overlaps)
-    return fanRow(t, spot).length ? OPPOSITE[spot.overlaps] : null;
-  return coveredSide(spot);
-}
-
-/** Which side of a spot's card is covered by the card of the spot it lies under. */
-export function coveredSide(spot: Spot): Side | null {
-  if (spot.underPile) return spot.underPile.side;
-  // Where they lie in the game's `spots`: moved with their area, they lie the same way side by side.
-  // A row `after` another lies there as if that row had no cards: beside that row's covering card (`spotsOf()`).
-  const before = spot.after && game().spots.find((s) => s.id === spot.after);
-  const cover = game().spots.find(
-    (s) => s.id === (before ? before.under : spot.under),
-  );
-  if (!cover) return null;
-  spot = game().spots.find((s) => s.id === spot.id) ?? spot;
-  // Side by side, or one above the other (a row `after` another lies a unit beside it).
-  if (Math.abs(cover.x - spot.x) > Math.abs(cover.y - spot.y))
-    return cover.x > spot.x ? 'right' : 'left';
-  return cover.y > spot.y ? 'bottom' : 'top';
 }
 
 /** The pile on a fixed place lying on the table (`Stack.at`): an Encounter Deck place, a table deck's, the storybook's. */
@@ -694,31 +387,6 @@ export function gridBox(t: Table, g: GridId): Rect {
   return { x, y, w: right - x, h: bottom - y };
 }
 
-/**
- * The places an area is framed around for a spot: its place, or a fanned row from its first place to the next card's
- * while it has room for one, else to its last card; a row taking new cards first from its free place to the place after
- * its last card.
- */
-function framedPlaces(t: Table, spot: Spot): Point[] {
-  if (!spot.fan) return [spot];
-  if (spot.addsFirst) return freePlaces(t, spot);
-  const n = fanRow(t, spot).length;
-  const last = spotPlaces(spot, n)[n - 1];
-  const places = [spot, fanHasPlace(t, spot) ? freePlace(t, spot) : last];
-  if (!spot.split) return places;
-  // A split placeholder reaches further than the free place it lies over: a card's place ending where it ends.
-  const box = splitBox(t, spot);
-  const { w, h } = lyingSize(spot);
-  const side = growth(spot);
-  return [
-    ...places,
-    {
-      x: side === 'right' ? box.x + box.w - w : box.x,
-      y: side === 'bottom' ? box.y + box.h - h : box.y,
-    },
-  ];
-}
-
 const NO_SHIFT: Point = { x: 0, y: 0 };
 
 /** How far an area and everything in it lies from its own place (the game's `areas` / `spots`), pushed by the areas before it. */
@@ -744,23 +412,6 @@ export function spotsOf(t: Table): Spot[] {
   return spots;
 }
 
-/**
- * Whether one of the places holding a single card between them (a spot and its `alt` places) holds a pile other than
- * `moving`.
- */
-export function holdsOne(
-  t: Table,
-  spot: Spot,
-  moving: string | null = null,
-): boolean {
-  const main = spot.alt ?? spot.id;
-  return spotsOf(t).some(
-    (s) =>
-      (s.alt ?? s.id) === main &&
-      stacksOnSpot(t, s).some((id) => id !== moving),
-  );
-}
-
 /** The spots of the areas (the game's `spots`) as they lie on this table: all of them but the grids' (Market Prices, enemies). */
 function baseSpots(t: Table): Spot[] {
   let spots = shiftedSpots.get(t);
@@ -772,8 +423,9 @@ function baseSpots(t: Table): Spot[] {
     // A row after another starts beyond that row's last card: as far from it as from that row's covering card while it
     // has none.
     spots = spots.map((s, _, all) => {
-      const before = s.after && all.find((b) => b.id === s.after);
-      const cover = before && all.find((b) => b.id === before.under);
+      const after = s.fan?.after;
+      const before = after && all.find((b) => b.id === after);
+      const cover = before && all.find((b) => b.id === before.layer?.under);
       if (!before || !cover) return s;
       const n = fanRow(t, before).length;
       const last = n ? spotPlaces(before, n)[n - 1] : cover;
@@ -845,7 +497,7 @@ export function allAreas(t: Table): Area[] {
         ...spots
           .filter((s) => s.area === a.id)
           .flatMap((s) =>
-            framedPlaces(t, s).map((p) => cardRect(p.x, p.y, !!s.landscape)),
+            framedPlaces(t, s).map((p) => cardRect(p.x, p.y, landscapeSpot(s))),
           ),
         ...(loose.get(a.id) ?? []),
       ]),
@@ -873,11 +525,6 @@ export function pointOf(t: Table, at: At): Point | null {
     return { x: a.x + d.x + at.x, y: a.y + d.y + at.y };
   }
   return { x: at.x, y: at.y };
-}
-
-/** Where a pile lies on a spot's place `index` (`rowPoint()`): a spot of a single place has just the one. */
-function spotPoint(spot: Spot, index: number): Point {
-  return spot.fan ? rowPoint(spot, index) : { x: spot.x, y: spot.y };
 }
 
 /** Whether a pile lying `at` lies loose outside the areas. */
@@ -1232,7 +879,7 @@ function spotAt(
   const cx = pointer?.x ?? x + CARD_W / 2;
   const cy = pointer?.y ?? y + CARD_H / 2;
   const reach = CARD_W * 0.4;
-  for (const spot of spotsOf(t).filter((s) => s.split)) {
+  for (const spot of spotsOf(t).filter((s) => s.fan?.split)) {
     const box = splitBox(t, spot);
     const side = growth(spot);
     const near = {
@@ -1248,31 +895,17 @@ function spotAt(
       halves[halves.length - 1];
     return { spot: half.spot, place: freePlace(t, half.spot), split: true };
   }
-  // An unlimited row reaches one place past its last card (unless it takes new cards through a split placeholder);
-  // taking new cards first, also its free place before them.
-  const places = (spot: Spot) => {
-    if (spot.addsFirst)
-      return [
-        ...freePlaces(t, spot),
-        ...spotPlaces(spot, fanRow(t, spot).length),
-      ];
-    const n =
-      fanMax(spot) === Infinity
-        ? fanRow(t, spot).length + (sharesPlaceholder(t, spot) ? 0 : 1)
-        : fanMax(spot);
-    return spotPlaces(spot, n);
-  };
   // Laid right on the place, or with its middle over the part of the place left showing beside a covering card.
   const shown = (spot: Spot): Point => {
     const side = coveredSide(spot);
-    const hidden = 1 - (spot.shows ?? 0.5);
+    const hidden = 1 - shows(spot);
     const dx = side === 'left' ? 1 : side === 'right' ? -1 : 0;
     const dy = side === 'top' ? 1 : side === 'bottom' ? -1 : 0;
     const { w, h } = lyingSize(spot);
     return { x: (dx * hidden * w) / 2, y: (dy * hidden * h) / 2 };
   };
   const near = spotsOf(t).flatMap((spot) =>
-    places(spot).map((place) => ({
+    nearPlaces(t, spot).map((place) => ({
       spot,
       place,
       d: Math.min(
@@ -1295,54 +928,10 @@ function spotAt(
 /**
  * Table piles back to front as drawn: piles on a spot lie right under the card
  * (or fanned row) of the spot covering them, later places of a fanned spot under earlier ones,
- * and piles on a spot lying over a storybook place right above it.
+ * and piles on a spot lying over another card right above it (the spots' `layer` hooks, layering.ts).
  */
 export function drawOrder(t: Table): string[] {
-  let z = t.z;
-  const spots = spotsOf(t);
-  for (const spot of spots) {
-    if (!spot.under && !spot.underPile && !spot.fan) continue;
-    // Later places lie under earlier ones, unless each card lies on the one before (the hand).
-    const row = stacksOnSpot(t, spot);
-    const below = spot.overlaps ? row : [...row].reverse();
-    if (!below.length) continue;
-    // Under the lowest card of the covering spot (the last of a fanned row, e.g. the outer house extension); while that
-    // has none, of the spot covering it (the Skills under the Character Card while there are no Titles).
-    let cover = spots.find((s) => s.id === spot.under);
-    let covering = spot.underPile
-      ? [spot.underPile.id]
-      : cover
-        ? stacksOnSpot(t, cover)
-        : [];
-    while (cover && !covering.length) {
-      const next: string | undefined = cover.under;
-      cover = spots.find((s) => s.id === next);
-      covering = cover ? stacksOnSpot(t, cover) : [];
-    }
-    const first = Math.min(...below.map((id) => z.indexOf(id)));
-    z = z.filter((id) => !below.includes(id));
-    const above = Math.min(...covering.map((id) => z.indexOf(id)));
-    z.splice(covering.length ? above : first, 0, ...below);
-  }
-  // A card lying on another's card (a Hit Point Card on its Enemy Card) right above it.
-  for (const spot of spots) {
-    if (!spot.above) continue;
-    const on = stacksOnSpot(t, spot);
-    const cover = spots.find((s) => s.id === spot.above);
-    const below = cover ? stacksOnSpot(t, cover) : [];
-    if (!on.length || !below.length) continue;
-    z = z.filter((id) => !on.includes(id));
-    z.splice(Math.max(...below.map((id) => z.indexOf(id))) + 1, 0, ...on);
-  }
-  for (const spot of spots) {
-    if (!spot.over) continue;
-    const on = stacksOnSpot(t, spot);
-    const slot = placeStack(t, spot.over)?.id;
-    if (!on.length || !slot) continue;
-    z = z.filter((id) => !on.includes(id));
-    z.splice(z.indexOf(slot) + 1, 0, ...on);
-  }
-  return z;
+  return layerBehaviours(t, t.z, spotsOf(t));
 }
 
 export interface Placement {
@@ -1391,7 +980,7 @@ export function placement(
     under &&
     !(
       beside &&
-      beside.spot.underPile &&
+      beside.spot.layer?.underPile &&
       beside.spot.area === under &&
       families.every((f) => takes(beside.spot, f))
     )
@@ -1411,19 +1000,18 @@ export function placement(
   const places = area ? deckPlacesIn(area.id) : [];
   if (area && places.length)
     return ontoPlace(t, area, places, cardIds, defs, at);
-  const own = spotsOf(t).find((s) => s.attracts && families.includes(s.family));
+  const own = attractor(t, families);
   if (own) {
     const area = allAreas(t).find((a) => a.id === own.area)!;
-    const mixed = families.every((f) => f === own.family)
-      ? null
-      : `The ${own.label} lies alone on its place in the ${area.label} area`;
     const place = spotPlace(t, own, moving, x, y);
     return {
       ...(place ?? { x: own.x, y: own.y, onto: null }),
       at: { spot: own.id, index: place?.index ?? 0 },
       area,
       spot: own,
-      refused: mixed ?? oneEach(own, cardIds) ?? (place ? null : full(own)),
+      refused:
+        mixedRefusal(own, area, families) ??
+        refusedOnto(t, own, cardIds, moving),
     };
   }
   // Nothing stacks onto a card in a fanned row (or on a grid), so dropped on one, the cards go to the place they are
@@ -1455,17 +1043,14 @@ export function placement(
     from &&
     !('split' in taken && taken.split) &&
     from.id !== spot.id &&
-    (from.after === spot.id || spot.after === from.id)
+    paired(from, spot)
   ) {
     spot = from;
     to = withinRow(t, from, at);
   }
-  const fits = families.every((f) => takes(spot, f));
-  const other = spot.attracts
-    ? `Only the ${spot.label} goes on its place`
-    : `Only ${familyNames(spot)} go on the ${spot.label} place`;
-  // A spot takes its cards even in an area that doesn't (the Encounter Card in the Storybook area).
-  const refused = fits ? null : (game().refusal(area, cardIds, defs) ?? other);
+  const refused =
+    refusedBy(spot, area, cardIds, defs, families) ??
+    refusedOnto(t, spot, cardIds, moving);
   if (!spot.fan)
     return {
       ...place,
@@ -1473,8 +1058,7 @@ export function placement(
       onto: pileOn(t, spot, moving),
       area,
       spot,
-      refused:
-        refused ?? (spot.one && holdsOne(t, spot, moving) ? full(spot) : null),
+      refused,
     };
   // A card joins a fanned row at the place it is dropped on, never on top of another card.
   const inRow = spotPlace(t, spot, moving, to.x, to.y);
@@ -1483,26 +1067,8 @@ export function placement(
     at: { spot: spot.id, index: inRow?.index ?? 0 },
     area,
     spot,
-    refused: refused ?? oneEach(spot, cardIds) ?? (inRow ? null : full(spot)),
+    refused,
   };
-}
-
-/** The row pile `id` lies in, if it is one of two rows sharing a split placeholder (the Titles, the Skills). */
-function pairedRow(t: Table, id: string): Spot | undefined {
-  return spotsOf(t).find(
-    (s) => (s.split || sharesPlaceholder(t, s)) && fanRow(t, s).includes(id),
-  );
-}
-
-/** The point of a row nearest to `p`: on its line, between its first and last places. */
-function withinRow(t: Table, spot: Spot, p: Point): Point {
-  const n = Math.max(1, fanRow(t, spot).length);
-  const last = spotPlaces(spot, n)[n - 1];
-  const clamp = (v: number, a: number, b: number) =>
-    Math.max(Math.min(a, b), Math.min(Math.max(a, b), v));
-  return vertical(spot)
-    ? { x: spot.x, y: clamp(p.y, spot.y, last.y) }
-    : { x: clamp(p.x, spot.x, last.x), y: spot.y };
 }
 
 /** How far from a free place of a grid a card dropped outside its area still goes to it. */
@@ -1595,45 +1161,4 @@ function ontoPlace(
     spot: null,
     refused: game().refusal(area, cardIds, defs),
   };
-}
-
-/** The spot taking cards of these families dropped anywhere in `area`, if any. */
-function areaSpot(
-  t: Table,
-  area: Area | null,
-  families: (Family | undefined)[],
-): { spot: Spot; place: Point } | undefined {
-  const spot = spotsOf(t).find(
-    (s) =>
-      s.fillsArea && s.area === area?.id && families.every((f) => takes(s, f)),
-  );
-  return spot && { spot, place: { x: spot.x, y: spot.y } };
-}
-
-/** A fanned spot takes one card per place, not a pile (unless it spreads a pile out on its row, as the hand does). */
-function oneEach(spot: Spot, cardIds: string[]): string | null {
-  return spot.fan && !spot.takesPiles && cardIds.length > 1
-    ? `Put ${familyNames(spot)} on the ${spot.label} place one at a time`
-    : null;
-}
-
-/** The names of the card families a spot takes, e.g. "Encounter Cards and Lost Pages Cards". */
-function familyNames(spot: Spot): string {
-  return [spot.family, ...(spot.also ?? [])]
-    .map((f) => game().familyNames[f])
-    .join(' and ');
-}
-
-function full(spot: Spot): string {
-  const area = game().areas.find((a) => a.id === spot.area)!;
-  // Several places for the family: they are all taken.
-  const max = game()
-    .spots.filter((s) => s.area === spot.area && s.family === spot.family)
-    .reduce((n, s) => n + fanMax(s), 0);
-  // A place cards don't find on their own: that one is taken.
-  if (!spot.attracts && fanMax(spot) > 1 && fanMax(spot) < Infinity)
-    return `The ${spot.label} place in the ${area.label} area holds at most ${fanMax(spot)} cards`;
-  if (max === 1 || !spot.attracts)
-    return `There is already a card on the ${spot.label} place in the ${area.label} area`;
-  return `The ${area.label} area holds at most ${max} ${game().familyNames[spot.family]}`;
 }

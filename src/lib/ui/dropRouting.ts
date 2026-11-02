@@ -101,7 +101,7 @@ export function freeDropAt(
   const own = centered.area?.deck
     ? placement(table, cardIds, defs, -Infinity, -Infinity, null)
     : centered;
-  if (own.spot?.attracts)
+  if (own.spot?.accepts.attracts)
     return own.refused ? { at: null, refused: own.refused } : { at: own.at };
   const stacks = table.z.map((id) => table.stacks[id]);
   const free = (x: number, y: number) =>

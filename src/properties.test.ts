@@ -10,12 +10,12 @@ import {
 import { DECK_SPECS, returnsCards, storySlot, TABLE_DECKS } from './decks';
 import {
   allAreas,
-  freePlaces,
   gridPlaces,
   looseAt,
   placement,
   spotsOf,
 } from './lib/engine/areas';
+import { freePlaces } from './lib/engine/arrangement';
 import { CARD_H, CARD_W } from './lib/engine/geometry';
 import type { Table } from './lib/engine/types';
 import { tableProblems } from './lib/engine/validate';

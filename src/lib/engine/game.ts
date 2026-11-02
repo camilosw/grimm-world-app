@@ -13,6 +13,7 @@ import type {
   FixedPlace,
   GridId,
   Place,
+  StorySlot,
   Table,
 } from './types';
 
@@ -84,6 +85,13 @@ export interface GameDefinition {
    * their piles telling nothing of their size; cards dropped in their area go onto the nearest (`placement()`).
    */
   deckPlaces: { place: Place; label: string; hint?: string }[];
+  /**
+   * Whether a drag on the pile of a fixed table place (`Stack.slot`) takes its top card `top` off it (the revealed
+   * storybook's, but for a storybook card); else nothing leaves it by a drag (`dragged()`).
+   */
+  slotGives(slot: StorySlot, top: CardDef | undefined): boolean;
+  /** Fixed table places (`Stack.slot`) whose cards only the game's own actions move: "Put under…" takes none of them. */
+  sealedSlots: StorySlot[];
   /** Fixed places whose bottom card stays there for good (`pinned()`). */
   pinsBottom: Place[];
   /** Fixed places whose top card stays there for good (`pinnedOnTop()`), besides a deck's `DeckSpec.keeps`. */

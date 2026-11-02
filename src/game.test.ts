@@ -89,6 +89,17 @@ describe("Grimm World's definition", () => {
     expect(grimmWorld.pickedPile(t, [b], defs, story.x, story.y)).toBeNull();
   });
 
+  it('lets only a revealed card that is no storybook card be dragged off the storybook', () => {
+    const [y] = cardsOf('lost-pages', 1);
+    const [chapter] = cardsOf('storybook', 1);
+    expect(grimmWorld.slotGives('story-revealed', defs[y])).toBe(true);
+    expect(grimmWorld.slotGives('story-revealed', defs[chapter])).toBe(false);
+    // A card the card set doesn't know: not a storybook card.
+    expect(grimmWorld.slotGives('story-revealed', undefined)).toBe(true);
+    expect(grimmWorld.slotGives('story', defs[y])).toBe(false);
+    expect(grimmWorld.sealedSlots).toEqual(['story']);
+  });
+
   it('finds time cards and the Damage Card off their places', () => {
     const t = newGame();
     expect(grimmWorld.problems(t, manifest)).toEqual([]);

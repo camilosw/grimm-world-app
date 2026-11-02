@@ -1,6 +1,8 @@
 import * as A from '../engine/actions';
 import { game, isLandscape } from '../engine/game';
-import { facedSpot, onGrid, turnedSpot, upsideDownSpot } from '../engine/areas';
+import { onGrid } from '../engine/areas';
+import { facedSpot } from '../engine/facing';
+import { turnedSpot, upsideDownSpot } from '../engine/orientation';
 import { update } from '../engine/store';
 import type {
   At,

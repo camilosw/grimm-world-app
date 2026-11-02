@@ -12,9 +12,9 @@ import {
   placement,
   type Placement,
   type Spot,
-  spotPlaces,
   spotsOf,
 } from '../lib/engine/areas';
+import { spotPlaces } from '../lib/engine/arrangement';
 import type { At, CardDef, Table } from '../lib/engine/types';
 import { initialTable } from '../setup';
 import type { EncounterPlace } from '../types';

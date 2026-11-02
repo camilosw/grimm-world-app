@@ -3,10 +3,7 @@
 
 import {
   allAreas,
-  allGridPiles,
   anchorsAfterMove,
-  facedSpot,
-  fanRow,
   gridOf,
   looseAt,
   onGrid,
@@ -17,16 +14,16 @@ import {
   pointOf,
   sameAt,
   settleLayout,
-  slidesUnder,
   spotsOf,
-  stacksOnSpot,
-  turnedSpot,
-  upsideDownSpot,
 } from './areas';
+import { slidesUnder } from './arrangement';
+import { arriveBehaviours, settleBehaviours } from './behaviours';
 import { compareCards } from './cards';
+import { cardsOn, facedSpot, faceUpGrids, turnArrived } from './facing';
 import { game, isLandscape } from './game';
 import { deckStack } from './decks';
 import { CARD_H, CARD_W } from './geometry';
+import { turnedSpot, upsideDownSpot } from './orientation';
 import type {
   At,
   CardDef,
@@ -542,9 +539,9 @@ export function movingPile(
 }
 
 /**
- * What a drag starting on a table pile moves, or null when nothing leaves it (the table is panned instead). Only a
- * revealed card that isn't a storybook card leaves the storybook (a Y-card, for the Encounter Bar), as its top card; a
- * time card alone on its place stays there.
+ * What a drag starting on a table pile moves, or null when nothing leaves it (the table is panned instead). A fixed
+ * table place's pile (`Stack.slot`) gives its top card only, if the game says so (`slotGives`: a revealed card that isn't
+ * a storybook card, a Y-card for the Encounter Bar); a time card alone on its place stays there.
  */
 export function dragged(
   t: Table,
@@ -555,12 +552,7 @@ export function dragged(
   let moved = pile;
   if (s?.slot) {
     const top = s.cards.at(-1);
-    if (
-      s.slot !== 'story-revealed' ||
-      !top ||
-      defs[top.id]?.type === 'storybook'
-    )
-      return null;
+    if (!top || !game().slotGives(s.slot, defs[top.id])) return null;
     moved = { id: pile.id, whole: false };
   }
   return movedCards(t, moved.id, moved.whole).length ? moved : null;
@@ -849,6 +841,11 @@ export function notHeldBy(
     .filter((d) => d && !game().decks[kind].holds(d));
 }
 
+/** Whether a pile lies on a fixed table place whose cards only the game's own actions move (the face-down storybook). */
+function sealed(s: Stack | undefined): boolean {
+  return !!s?.slot && game().sealedSlots.includes(s.slot);
+}
+
 /**
  * Slide a table pile, or cards picked out of any pile, under the deck `deckId`, as the rules ask (X-cards under the
  * Encounter Deck, enemies under the Enemy Card, banished cards under Banned Cards).
@@ -866,7 +863,7 @@ export function putUnderDeck(
     !s ||
     !kind ||
     stackId === deckId ||
-    s.slot === 'story' ||
+    sealed(s) ||
     notHeldBy(t, stackId, kind, defs, cardIds).length
   )
     return t;
@@ -882,11 +879,7 @@ export function putUnderPile(
   targetId: string,
   faceUp = true,
 ): Table {
-  if (
-    stackId === targetId ||
-    !t.stacks[targetId] ||
-    t.stacks[stackId]?.slot === 'story'
-  )
+  if (stackId === targetId || !t.stacks[targetId] || sealed(t.stacks[stackId]))
     return t;
   const [t2, cards] = takeCards(t, stackId, cardIds);
   const target = t2.stacks[targetId];
@@ -928,107 +921,30 @@ function locate(t: Table): Table {
 }
 
 /**
- * Lay the spots out: spread out piles dropped on the hand or the Encounter Bar, close the gaps in fanned spots (Money
- * Cards, Goods), their piles numbered from the first place in row order, and lay cards on a spot that turns them straight
- * and face up (Market Prices) or face down (Encounter Bar), or face up (Broken Items, Status Upgrades & Items), or
- * upside down (Actions area, Titles, Skills, Broken Items, Status Upgrades & Items), as they must lie there; Region Cards
- * on the Map and Terrain Cards on the battlefield lie face up. Where piles lie is their `Stack.at`.
+ * Lay the spots out, each as its behaviours say (their `settle` hooks, behaviours.ts): spread out piles dropped on the
+ * hand or the Encounter Bar, close the gaps in fanned spots (Money Cards, Goods), their piles numbered from the first
+ * place in row order (arrangement.ts), and lay cards on a spot that turns them straight (Market Prices, Encounter Bar)
+ * or upside down (Actions area, Titles, Skills, Broken Items, Status Upgrades & Items; orientation.ts), face up or down
+ * (facing.ts), as they must lie there; Region Cards on the Map and Terrain Cards on the battlefield lie face up. Where
+ * piles lie is their `Stack.at`.
  */
 export function settleSpots(t: Table): Table {
-  let next = locate(t);
-  const spots = spotsOf(next);
-  // A pile dropped on the hand or the Encounter Bar is spread out, one card per place, its top card still on top: its
-  // other cards just after its first one, before the next pile, the row numbered again below. In the hand each card
-  // lies on the one before, so its bottom card comes first; in the bar on the one after, its top card.
-  for (const spot of spots.filter((s) => s.takesPiles)) {
-    for (const id of fanRow(next, spot)) {
-      const s = next.stacks[id];
-      if (s.cards.length < 2) continue;
-      const index = s.at && 'spot' in s.at ? s.at.index : 0;
-      const cards = spot.overlaps ? s.cards : [...s.cards].reverse();
-      next = setStack(next, { ...s, cards: cards.slice(0, 1) });
-      cards.slice(1).forEach((card, i) => {
-        const d = ((i + 1) / s.cards.length) * 0.4;
-        next = addStack(next, { spot: spot.id, index: index + d }, [card], {
-          rot: s.rot,
-        })[0];
-      });
-    }
-  }
-  for (const spot of spots.filter((s) => s.fan)) {
-    fanRow(next, spot).forEach((id, index) => {
-      const s = next.stacks[id];
-      const at = { spot: spot.id, index };
-      if (!sameAt(s.at, at)) next = setStack(next, { ...s, at });
-    });
-  }
-  for (const spot of spots.filter((s) => s.turn)) {
-    const faceUp = !spot.faceDown;
-    for (const id of stacksOnSpot(next, spot)) {
-      const s = next.stacks[id];
-      if (s.rot || s.cards.some((c) => c.faceUp !== faceUp))
-        next = setStack(next, {
-          ...s,
-          rot: 0,
-          cards: s.cards.map((c) => ({ ...c, faceUp })),
-        });
-    }
-  }
-  for (const spot of spots.filter((s) => s.faceUp)) {
-    for (const id of stacksOnSpot(next, spot)) {
-      const s = next.stacks[id];
-      if (s.cards.some((c) => !c.faceUp))
-        next = setStack(next, {
-          ...s,
-          cards: s.cards.map((c) => ({ ...c, faceUp: true })),
-        });
-    }
-  }
-  for (const id of allGridPiles(next)) {
-    const s = next.stacks[id];
-    if (s.cards.some((c) => !c.faceUp))
-      next = setStack(next, {
-        ...s,
-        cards: s.cards.map((c) => ({ ...c, faceUp: true })),
-      });
-  }
-  for (const spot of spots.filter((s) => s.upsideDown)) {
-    for (const id of stacksOnSpot(next, spot)) {
-      const s = next.stacks[id];
-      if (s.rot !== 180) next = setStack(next, { ...s, rot: 180 });
-    }
-  }
-  return next;
+  const next = locate(t);
+  return faceUpGrids(settleBehaviours(next, spotsOf(next)));
 }
 
 /**
  * Turn the cards just put on a place that takes them so, however they got there, and leave them free to be turned over
- * there afterwards: face up on a spot with `putFaceUp` (the Storybook's Encounter Card), face down on the Encounter Deck
- * area's places (like the cards going into a deck with `DeckSpec.faceUp`).
+ * there afterwards: as the spots' `arrive` hooks say (facing.ts: face up on a spot with `facing: 'arrives-up'`, the
+ * Storybook's Encounter Card), face down on the places of a deck's piles (the Encounter Deck area's, like the cards going
+ * into a deck with `DeckSpec.faceUp`).
  */
 export function faceArrivals(prev: Table, t: Table): Table {
-  let next = t;
-  const turn = (s: Stack, before: Set<string>, faceUp: boolean) => {
-    if (s.cards.some((c) => !before.has(c.id) && c.faceUp !== faceUp))
-      next = setStack(next, {
-        ...s,
-        cards: s.cards.map((c) => (before.has(c.id) ? c : { ...c, faceUp })),
-      });
-  };
-  const cardsOn = (u: Table, ids: readonly string[]) =>
-    new Set(ids.flatMap((id) => u.stacks[id].cards.map((c) => c.id)));
-  const before = spotsOf(prev);
-  for (const spot of spotsOf(t).filter((s) => s.putFaceUp)) {
-    const was = before.find((s) => s.id === spot.id);
-    const had = cardsOn(prev, was ? stacksOnSpot(prev, was) : []);
-    for (const id of stacksOnSpot(t, spot)) turn(t.stacks[id], had, true);
-  }
+  let next = arriveBehaviours(prev, t, spotsOf(prev), spotsOf(t));
   const places = new Set<string>(game().deckPlaces.map((p) => p.place));
-  for (const s of Object.values(t.stacks)) {
-    const was = prev.stacks[s.id];
-    if (s.place && places.has(s.place) && was)
-      turn(s, cardsOn(prev, [s.id]), false);
-  }
+  for (const s of Object.values(t.stacks))
+    if (s.place && places.has(s.place) && prev.stacks[s.id])
+      next = turnArrived(next, s.id, cardsOn(prev, [s.id]), false);
   return next;
 }
 

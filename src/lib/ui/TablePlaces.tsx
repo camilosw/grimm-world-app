@@ -3,20 +3,22 @@ import { game } from '../engine/game';
 import {
   allAreas,
   deckPlacesIn,
-  fanHasPlace,
-  fanRow,
-  freeCovered,
-  freePlaces,
   gridCells,
   gridPlaces,
-  holdsOne,
   placeStack,
-  splitHalves,
   type Spot,
   spotsOf,
-  stacksOnSpot,
 } from '../engine/areas';
+import {
+  fanRow,
+  freePlaces,
+  shows,
+  showsPlace,
+  splitHalves,
+} from '../engine/arrangement';
 import { cardBox } from '../engine/geometry';
+import { freeCovered } from '../engine/layering';
+import { landscapeSpot } from '../engine/orientation';
 import type { Table } from '../engine/types';
 import type { Incoming, TableControl } from './Table';
 import { Hit } from './TablePieces';
@@ -72,8 +74,8 @@ export function Placeholders({
     // A row sharing a split placeholder shows no free place of its own: the split one takes its cards, beyond both rows
     // (Titles | Skills above the Character Card, Items over Money right of the Storage Card), all of it once the other
     // row is full.
-    if (spots.some((s) => s.split && s.after === spot.id)) return [];
-    if (spot.split) {
+    if (spots.some((s) => s.fan?.split && s.fan.after === spot.id)) return [];
+    if (spot.fan?.split) {
       const halves = splitHalves(shown, spot);
       const side = freeCovered(shown, spot);
       const across = side === 'top' || side === 'bottom';
@@ -102,17 +104,13 @@ export function Placeholders({
         );
       });
     }
-    if (spot.fan && !fanHasPlace(shown, spot)) return [];
-    // A place holding one card shows none once that card is there (a Hit Point Card on any of its places); another place
-    // for a spot's card shows none of its own (the spent side, over the defeated enemy); a Hit Point Card's place shows
-    // only once its Enemy Card is there.
-    if (spot.alt || (spot.one && holdsOne(shown, spot))) return [];
-    const needed = spot.needs && spots.find((s) => s.id === spot.needs);
-    if (needed && !stacksOnSpot(shown, needed).length) return [];
-    const row = spot.addsFirst ? fanRow(shown, spot) : [];
+    // None once a row is full, nor where a place shows none of its own (`showsPlace()`).
+    if (!showsPlace(shown, spot, spots)) return [];
+    const addsFirst = !!spot.fan?.addsFirst;
+    const row = addsFirst ? fanRow(shown, spot) : [];
     // Where the dragged card goes: after the row's last card (not counting the card itself), else before its first.
     // Taken from the table itself: the preview spreads a dragged pile out into cards that aren't on it.
-    const others = spot.addsFirst
+    const others = addsFirst
       ? fanRow(table, spot).filter((id) => id !== dragged?.id)
       : [];
     const toEnd =
@@ -129,9 +127,9 @@ export function Placeholders({
         : row.length
           ? 'right'
           : freeCovered(shown, spot);
-      const hover = hl?.spot === spot.id && (!spot.addsFirst || end === toEnd);
-      const box = cardBox(at.x, at.y, !!spot.landscape);
-      const hidden = 1 - (spot.shows ?? 0.5);
+      const hover = hl?.spot === spot.id && (!addsFirst || end === toEnd);
+      const box = cardBox(at.x, at.y, landscapeSpot(spot));
+      const hidden = 1 - shows(spot);
       if (side === 'left') box.left += hidden * box.width;
       if (side === 'top') box.top += hidden * box.height;
       if (side === 'left' || side === 'right') box.width *= 1 - hidden;

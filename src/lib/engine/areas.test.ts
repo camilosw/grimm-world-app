@@ -26,8 +26,6 @@ import {
   areaOf,
   cellPlace,
   drawOrder,
-  fanRow,
-  freePlace,
   gridOf,
   gridPlaces,
   layOut,
@@ -37,11 +35,10 @@ import {
   placeStack,
   pointOf,
   settleLayout,
-  slidesUnder,
   spotOf,
-  spotPlaces,
   stacksOnSpot,
 } from './areas';
+import { fanRow, freePlace, slidesUnder, spotPlaces } from './arrangement';
 import { deckStack } from './decks';
 import { GAP } from './geometry';
 import type { Table } from './types';

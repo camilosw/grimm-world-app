@@ -16,14 +16,14 @@ import {
 import {
   allAreas,
   areaOf,
-  coveredSide,
   drawOrder,
-  fanRow,
   placePiles,
   snapArea,
   spotsOf,
   stacksOnSpot,
 } from '../engine/areas';
+import { fanRow } from '../engine/arrangement';
+import { coveredSide } from '../engine/layering';
 import { CARD_H, CARD_W } from '../engine/geometry';
 import type {
   At,
@@ -350,7 +350,7 @@ export function TableView(props: Props) {
   );
   const covered = new Map(
     spots
-      .filter((s) => s.under || s.underPile)
+      .filter((s) => s.layer?.under || s.layer?.underPile)
       .flatMap((s) =>
         stacksOnSpot(shownTable, s).map((id) => [id, coveredSide(s)]),
       ),
@@ -358,8 +358,10 @@ export function TableView(props: Props) {
   const faded = new Set(preview?.faded ?? []);
   const turned = new Map(
     spots.flatMap((s) =>
-      s.turn
-        ? stacksOnSpot(shownTable, s).map((id) => [id, s.turn!] as const)
+      s.orientation?.turn
+        ? stacksOnSpot(shownTable, s).map(
+            (id) => [id, s.orientation!.turn!] as const,
+          )
         : [],
     ),
   );

@@ -11,13 +11,8 @@ import {
 } from './areas';
 import { clearBattlefield } from './battlefield';
 import { type DeckKind, returnsCards, storySlot } from './decks';
-import {
-  allAreas,
-  facedSpot,
-  gridCells,
-  gridOf,
-  placeStack,
-} from './lib/engine/areas';
+import { allAreas, gridCells, gridOf, placeStack } from './lib/engine/areas';
+import { facedSpot } from './lib/engine/facing';
 import { deckStack } from './lib/engine/decks';
 import { CARD_H, CARD_W } from './lib/engine/geometry';
 import { update } from './lib/engine/store';
@@ -111,7 +106,7 @@ export function useTableEvents(g: TableGame) {
     const fixed = facedSpot(table, target.id);
     if (fixed)
       return g.notify(
-        `Cards on the ${fixed.label} place lie face ${fixed.faceDown ? 'down' : 'up'}`,
+        `Cards on the ${fixed.label} place lie face ${fixed.facing === 'down' ? 'down' : 'up'}`,
       );
     const grid = gridOf(table, target.id);
     if (grid) return g.notify(gridFaceUp(grid));

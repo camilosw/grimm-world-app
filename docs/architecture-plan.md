@@ -24,7 +24,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | A5. Documentation                        | Sonnet                                                                                              | 🔁 Ongoing     |
 | B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | ✅ Done        |
 | B2. Injected `GameDefinition`            | Opus                                                                                                | ✅ Done        |
-| B3. Composable place behaviours          | Opus                                                                                                | ⬜ Not started |
+| B3. Composable place behaviours          | Opus                                                                                                | ✅ Done        |
 | B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ⬜ Not started |
 | B5. Refusals as codes                    | Sonnet, once Opus has fixed the list of codes                                                       | ⬜ Not started |
 | B6. Generic cards, images and content    | Opus for `CardDef`; Sonnet for the pipeline configuration and the content provider                  | ⬜ Not started |
@@ -555,6 +555,41 @@ The roughly 25 options of `Spot` are grouped into axes, each a module with its h
 arrangement (single card, fan, grid), facing (up, down, free), orientation, what it accepts, and layering (above or
 below another card). Adding a behaviour no longer means touching `placement`, `settleSpots`, `drawOrder` and
 `faceArrivals`.
+
+Outcome (November 2026, on top of B2; `CLAUDE.md` describes the axes under **Rules**):
+
+- **Six axes instead of about 25 options.** A `Spot` is its id, label, hint, area and place, and one field per axis:
+  `accepts` (`family`, `also`, `attracts`, `fillsArea`), its arrangement, `fan` (`count`, `shows`, `after`, `split`,
+  `addsFirst`, `overlaps`, `takesPiles`) or `pile` (`slidesUnder`, `one`, `alt`, `needs`) for a spot that isn't a row,
+  `layer` (one of `under`, `underPile`, `above`, `over`), `facing` (`'up'`, `'down'`, `'arrives-up'`; left out: free)
+  and `orientation` (`turn` or `upsideDown`). Every option sat on one axis but `shows`, which only rows have, so it went
+  to `fan`; `landscape` went, as a spot's card lies landscape exactly when it is turned (`landscapeSpot()`); a turned
+  spot no longer faces its cards up by itself: the Market Prices say `facing: 'up'`. `fan` and `pile` exclude each
+  other (`Spot` is a union).
+- **A module per axis, with its hooks.** `src/lib/engine/accepts.ts`, `arrangement.ts` (the row geometry, the free
+  places, `spotPlace()`, the split placeholder, and why a spot takes no more), `layering.ts`, `facing.ts` and
+  `orientation.ts`, flat beside `areas.ts` (the import rule keeps the engine's folder without subfolders).
+  `behaviours.ts` holds `PlaceBehaviour` — `settle(t, spot)`, `arrive(prev, t, spot, was)`, `layer(t, spot, z, spots)`,
+  `refuse(t, spot, cardIds, moving)` — and `behaviours()`, the list in the order the hooks run (arrangement,
+  orientation, facing, layering), gathered on first use since the modules import each other. `settleSpots()`,
+  `faceArrivals()` and `drawOrder()` are now loops over those hooks; `placement()` asks `accepts.ts` whether the spot
+  takes the cards, then the `refuse` hooks. What it still does itself is choose the spot (attracting, near, filling the
+  area, the paired rows), which is the same for any spot.
+- Grids stay apart from spots: their cards lying face up is `faceUpGrids()` in `facing.ts`, run by `settleSpots()`
+  after the spots; so do the deck places' cards turned face down as they arrive (`faceArrivals()`, sharing
+  `turnArrived()` with the spots' `arrive` hook). Making a grid an arrangement of spots would change `At` and the saves, for no game asking for it.
+- **Fixed places.** The engine's storybook literals went into the game's definition: `slotGives(slot, top)` (what a
+  drag takes off a `Stack.slot` pile: the revealed storybook's top card unless it is a storybook card) and
+  `sealedSlots` (the face-down storybook, which "Put under…" takes nothing from). Left for B4, in the UI: the
+  chapter picker's drop (`Destination`'s `{ story }`, `dropRouting.ts`, `Table.tsx`, `TablePieces.tsx`).
+- **Nothing changed for the player**, checked three ways: the tests and the save snapshots are unchanged; 150 random
+  games of 30–60 moves (fast-check, fixed seed) gave, after every move, the same table, drawing order, spots, areas,
+  placements of a card on every target and refusals to turn or rotate each pile, hashed, as on `main`; and the table
+  drawn from four saves at the four sizes is the same HTML as on `main`.
+- Tests: `src/lib/engine/behaviours.test.ts` (the hooks' order, each axis on the real game: the bar face down, the
+  Storybook's Encounter Card turned up as it arrives, the Actions area upside down, the free places under a card, a
+  Hit Point Card over its Enemy Card and its places, a pile moved within the paired Titles and Skills rows); each new
+  module has the coverage thresholds of the rules modules.
 
 ### B4. Commands and UI extensions
 

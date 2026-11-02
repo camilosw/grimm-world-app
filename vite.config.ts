@@ -23,7 +23,7 @@ export default defineConfig({
       exclude: ['src/**/*.test.ts', 'src/env.d.ts'],
       reporter: ['text', 'html'],
       thresholds: {
-        'src/{lib/engine/{areas,actions,decks,validate},areas,battlefield,storybook,decks,save,setup,validate}.ts':
+        'src/{lib/engine/{areas,actions,decks,validate,accepts,arrangement,behaviours,facing,layering,orientation},areas,battlefield,storybook,decks,save,setup,validate}.ts':
           {
             perFile: true,
             statements: 85,
