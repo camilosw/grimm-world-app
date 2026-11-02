@@ -1,8 +1,5 @@
 import { useRef, useState } from 'react';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { cardImage, isLandscape } from '../../cards';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { DECK_SPECS } from '../../decks';
+import { cardImage, game, isLandscape } from '../engine/game';
 import { cardLabel } from '../engine/cards';
 import type { CardDef, CardRef, Stack } from '../engine/types';
 import { landscapeClass } from './cardClasses';
@@ -92,10 +89,9 @@ export function Sidebar({
           selectedId === deck.id && 'selected',
           hoverIds.includes(deck.id) && 'drop-target',
         ].filter(Boolean);
-        // The Regions and Terrain decks lie landscape: their cards are printed sideways.
+        // Decks of cards printed sideways lie landscape, even empty.
         const landscape =
-          deck.deck === 'regions' ||
-          deck.deck === 'terrain' ||
+          (!!deck.deck && !!game().decks[deck.deck]?.landscape) ||
           (!!card && isLandscape(defs[card.id]));
         return (
           <div
@@ -128,7 +124,7 @@ export function Sidebar({
                 />
               ) : (
                 <span className="deck-empty">
-                  {(deck.deck && DECK_SPECS[deck.deck].emptyHint) ?? 'empty'}
+                  {(deck.deck && game().decks[deck.deck].emptyHint) ?? 'empty'}
                 </span>
               )}
               {deck.cards.length > 0 && (

@@ -1,10 +1,7 @@
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { AreaIcon } from '../../AreaIcon';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { RAIL_AREAS } from '../../areas';
 import { allAreas, type Area } from '../engine/areas';
 import { redo, undo } from '../engine/store';
 import type { Table } from '../engine/types';
+import { gameUI } from './gameUI';
 import type { Dialog } from './useDialogs';
 
 /** The toolbar: decks, undo and redo, Find card, Figures, Rules, Fit and the menu. */
@@ -80,9 +77,11 @@ export function AreaRail({
   shownArea: string | null;
   onShow: (area: Area) => void;
 }) {
+  const { AreaIcon, railAreas } = gameUI();
   return (
     <nav className="area-rail" aria-label="Show an area">
-      {RAIL_AREAS.map((id) => allAreas(table).find((a) => a.id === id))
+      {railAreas
+        .map((id) => allAreas(table).find((a) => a.id === id))
         .filter((a) => !!a)
         .map((area) => (
           <button

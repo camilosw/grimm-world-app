@@ -1,9 +1,8 @@
-// The external store holding the one Table, with undo/redo history and debounced autosave. Its React hooks are in
-// src/lib/ui/useStore.ts.
+// The external store holding the one Table, with undo/redo history and debounced autosave (the game's `autosave`). Its
+// React hooks are in src/lib/ui/useStore.ts.
 
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { writeGame } from '../../save';
 import { settle } from './actions';
+import { game } from './game';
 import type { Table } from './types';
 
 const HISTORY_LIMIT = 200;
@@ -21,7 +20,7 @@ function emit() {
 }
 
 function save() {
-  if (table) writeGame(table);
+  if (table) game().autosave(table);
 }
 
 /** Replace the whole table (new game / import). Clears undo history. */

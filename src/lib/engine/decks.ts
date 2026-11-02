@@ -1,8 +1,6 @@
 // What a deck is (DeckSpec) and finding its pile. The decks themselves are the game's (src/decks.ts).
 
-// oxlint-disable-next-line no-restricted-imports -- B2
-import type { DeckKind } from '../../decks';
-import type { CardDef, Stack, Table } from './types';
+import type { CardDef, DeckKind, Stack, Table } from './types';
 
 export interface DeckSpec {
   kind: DeckKind;
@@ -11,6 +9,8 @@ export interface DeckSpec {
   emptyHint?: string;
   /** What it may hold, for a deck lying in its own area on the table (shown in the area's header). */
   holdsText?: string;
+  /** Its cards lie landscape (printed sideways): the deck lies so, even empty. */
+  landscape?: boolean;
   /** Facing of cards put into this deck; left out, they keep the side they show. */
   faceUp?: boolean;
   /** Where returned cards go: on top, underneath (rulebook: used Encounter Cards), or by card number. */

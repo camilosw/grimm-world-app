@@ -1,19 +1,17 @@
 import { useCallback, useState, type RefObject } from 'react';
 import * as A from '../engine/actions';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import {
-  DECK_SPECS,
-  type DeckKind,
-  homeDeck,
-  returnsCards,
-  storySlot,
-} from '../../decks';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { intoStory } from '../../storybook';
-import { areaForCard, looseAt, placement } from '../engine/areas';
+import { areaForCard, areaOf, looseAt, placement } from '../engine/areas';
+import { game } from '../engine/game';
 import { CARD_H, CARD_W } from '../engine/geometry';
 import { update } from '../engine/store';
-import type { At, CardDef, CardRef, Table, View } from '../engine/types';
+import type {
+  At,
+  CardDef,
+  CardRef,
+  DeckKind,
+  Table,
+  View,
+} from '../engine/types';
 import type { Incoming, Selection, Zone } from './Table';
 import type { Dialog, PutUnder } from './useDialogs';
 
@@ -141,20 +139,23 @@ export function homeNames(
   const kinds = [
     ...new Set(
       cards
-        .map((c) => defs[c.id] && homeDeck(table, defs[c.id], from))
+        .map((c) => defs[c.id] && game().homeDeck(table, defs[c.id], from))
         .filter(Boolean),
     ),
   ];
-  return kinds.map((k) => DECK_SPECS[k!].label).join(', ');
+  return kinds.map((k) => game().decks[k!].label).join(', ');
 }
 
-/** Whether cards dropped with their top-left corner at `at` go into the face-down storybook (`intoStory`). */
-const onStory = (
+/**
+ * The pile cards dropped with their top-left corner at `at` go under, for the player to pick where (the face-down
+ * storybook, `GameDefinition.pickedPile`), if any.
+ */
+const pickedPile = (
   table: Table | null,
   defs: Record<string, CardDef>,
   at: { x: number; y: number },
   cardIds: string[],
-) => !!table && intoStory(table, cardIds, defs, at.x, at.y);
+) => (table ? game().pickedPile(table, cardIds, defs, at.x, at.y) : null);
 
 /** The drop zones and drops from outside the table, with the state that lights up where cards would land. */
 export function useDropRouting(g: DropGame) {
@@ -204,7 +205,7 @@ export function useDropRouting(g: DropGame) {
   };
 
   const onStoryAt = (at: { x: number; y: number }, cardIds: string[]) =>
-    onStory(table, defs, at, cardIds);
+    !!pickedPile(table, defs, at, cardIds);
 
   /**
    * Cards (by id, taken off the deck `from` if any) dragged over a drop zone (or off it: null): light it up, and the
@@ -214,7 +215,7 @@ export function useDropRouting(g: DropGame) {
     setZoneHover((prev) => (sameZone(prev, zone) ? prev : zone));
     if (zone && table) {
       const kinds = new Set(
-        cardIds.map((id) => defs[id] && homeDeck(table, defs[id], from)),
+        cardIds.map((id) => defs[id] && game().homeDeck(table, defs[id], from)),
       );
       setHomeHover(
         DECKS_IN_SIDEBAR(table)
@@ -240,12 +241,13 @@ export function useDropRouting(g: DropGame) {
         ? worldAt(clientX, clientY)
         : null;
     let next: Incoming | null = null;
-    if (at && table && onStoryAt(at, cardIds)) {
+    const picked = at && pickedPile(table, defs, at, cardIds);
+    if (table && picked) {
       // They go under one of the storybook's cards (the drop asks which), as a drag on the table does.
       next = {
-        area: { id: 'storybook', ok: true },
+        area: { id: areaOf(table, picked) ?? '', ok: true },
         spot: null,
-        dropOn: storySlot(table, 'story')?.id ?? null,
+        dropOn: picked,
       };
     } else if (at && table) {
       const target =
@@ -274,7 +276,7 @@ export function useDropRouting(g: DropGame) {
       return setAside((t) =>
         A.toTray(t, stackId, whole ? 'all' : 'top', zone.before),
       );
-    if (s.deck && !returnsCards(s.deck))
+    if (s.deck && !game().returnsCards(s.deck))
       return (
         zone.kind === 'deck' &&
         notify("Cards can't move from one deck to another")
@@ -306,7 +308,7 @@ export function useDropRouting(g: DropGame) {
         A.toTray(t, stackId, cardIds, zone.before, faceUp),
       );
     if (zone) {
-      if (!stack?.deck || returnsCards(stack.deck)) {
+      if (!stack?.deck || game().returnsCards(stack.deck)) {
         notify(
           `Back to ${homeNames(
             table,
@@ -372,7 +374,7 @@ export function useDropRouting(g: DropGame) {
     }
     if (target.deck) {
       if (
-        !heldBy(sourceId, target.deck, DECK_SPECS[target.deck].label, cardIds)
+        !heldBy(sourceId, target.deck, game().decks[target.deck].label, cardIds)
       )
         return;
       update((t) => A.putUnderDeck(t, sourceId, targetId, defs, cardIds));

@@ -1,20 +1,6 @@
 // The pure changes of a Table (Table => Table): piles, cards, decks, drops and settling. Battlefield and storybook actions
 // are the game's (src/battlefield.ts, src/storybook.ts).
 
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { ENCOUNTER_PLACES } from '../../areas';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { isLandscape } from '../../cards';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import {
-  DECK_SPECS,
-  type DeckKind,
-  homeDeck,
-  returnsCards,
-  storySlot,
-} from '../../decks';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { intoStory } from '../../storybook';
 import {
   allAreas,
   allGridPiles,
@@ -38,12 +24,14 @@ import {
   upsideDownSpot,
 } from './areas';
 import { compareCards } from './cards';
+import { game, isLandscape } from './game';
 import { deckStack } from './decks';
 import { CARD_H, CARD_W } from './geometry';
 import type {
   At,
   CardDef,
   CardRef,
+  DeckKind,
   Rotation,
   Stack,
   Table,
@@ -95,8 +83,7 @@ export function isFixed(s: Stack): boolean {
  * can't be taken, and shuffling, sorting or adding cards underneath leaves them at the bottom.
  */
 export function pinned(s: Stack): number {
-  return (s.place === 'time-passes' || s.place === 'next-chapter') &&
-    s.cards.length
+  return s.place && game().pinsBottom.includes(s.place) && s.cards.length
     ? 1
     : 0;
 }
@@ -109,7 +96,8 @@ export function pinned(s: Stack): number {
  */
 export function pinnedOnTop(s: Stack): number {
   // A save names its decks as text: one no longer made has no rules.
-  return (s.place === 'damage' || (!!s.deck && !!DECK_SPECS[s.deck]?.keeps)) &&
+  return ((!!s.place && game().pinsTop.includes(s.place)) ||
+    (!!s.deck && !!game().decks[s.deck]?.keeps)) &&
     s.cards.length
     ? 1
     : 0;
@@ -320,9 +308,9 @@ export function rotateStack(
 ): Table {
   const s = t.stacks[id];
   if (!s || turnedSpot(t, id) || upsideDownSpot(t, id)) return t;
-  const terrain = s.cards.every((c) => defs[c.id]?.type === 'terrain');
-  if (!terrain && s.cards.some((c) => isLandscape(defs[c.id]))) return t;
-  const by = terrain ? 180 : delta;
+  const around = s.cards.every((c) => game().turnsAround(defs[c.id]));
+  if (!around && s.cards.some((c) => isLandscape(defs[c.id]))) return t;
+  const by = around ? 180 : delta;
   return setStack(t, {
     ...s,
     rot: ((((s.rot + by) % 360) + 360) % 360) as Rotation,
@@ -600,8 +588,8 @@ export function dropDestination(
   pointer?: { x: number; y: number },
 ): Destination {
   const cards = movedCards(t, stackId, whole);
-  const story = storySlot(t, 'story');
-  if (story && intoStory(t, cards, defs, x, y)) return { story: story.id };
+  const story = game().pickedPile(t, cards, defs, x, y);
+  if (story) return { story };
   // A fixed pile (an Encounter Deck place) stays: its cards leave it as a new pile.
   const moving = movingPile(t, stackId, whole);
   return placement(t, cards, defs, x, y, dropOn, moving, pointer);
@@ -727,7 +715,7 @@ function insertIntoDeck(
   under = false,
 ): Table {
   if (!deck?.deck || !cards.length) return t;
-  const spec = DECK_SPECS[deck.deck];
+  const spec = game().decks[deck.deck];
   const added = cards.map((c) => ({ ...c, faceUp: spec.faceUp ?? c.faceUp }));
   if (spec.insert === 'sorted')
     return sortStack(
@@ -753,7 +741,7 @@ export function returnToDecks(
   for (const card of cards) {
     const def = defs[card.id];
     if (!def) continue;
-    const kind = homeDeck(t, def, from);
+    const kind = game().homeDeck(t, def, from);
     groups.set(kind, [...(groups.get(kind) ?? []), card]);
   }
   let next = t;
@@ -773,7 +761,7 @@ export function stackToDecks(
   defs: Record<string, CardDef>,
 ): Table {
   const s = t.stacks[id];
-  if (!s?.cards.length || (s.deck && !returnsCards(s.deck))) return t;
+  if (!s?.cards.length || (s.deck && !game().returnsCards(s.deck))) return t;
   const free = unpinned(s);
   const moved = which === 'top' ? free.slice(-1) : free;
   if (!moved.length) return t;
@@ -801,7 +789,7 @@ export function cardsToDecks(
   defs: Record<string, CardDef>,
 ): Table {
   const s = t.stacks[id];
-  if (!s || (s.deck && !returnsCards(s.deck))) return t;
+  if (!s || (s.deck && !game().returnsCards(s.deck))) return t;
   const set = new Set(indices.filter((i) => s.cards[i] && !isPinned(s, i)));
   const moved = [...set].map((i) => s.cards[i]);
   return returnToDecks(
@@ -858,7 +846,7 @@ export function notHeldBy(
 ): CardDef[] {
   return cardsOf(t, stackId, cardIds)
     .map((c) => defs[c.id])
-    .filter((d) => d && !DECK_SPECS[kind].holds(d));
+    .filter((d) => d && !game().decks[kind].holds(d));
 }
 
 /**
@@ -1035,7 +1023,7 @@ export function faceArrivals(prev: Table, t: Table): Table {
     const had = cardsOn(prev, was ? stacksOnSpot(prev, was) : []);
     for (const id of stacksOnSpot(t, spot)) turn(t.stacks[id], had, true);
   }
-  const places = new Set<string>(ENCOUNTER_PLACES.map((p) => p.place));
+  const places = new Set<string>(game().deckPlaces.map((p) => p.place));
   for (const s of Object.values(t.stacks)) {
     const was = prev.stacks[s.id];
     if (s.place && places.has(s.place) && was)

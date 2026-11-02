@@ -1,10 +1,7 @@
 import { type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import * as A from '../engine/actions';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { readSave, saveText } from '../../save';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { initialTable } from '../../setup';
+import { game } from '../engine/game';
 import { tokenSize } from '../engine/geometry';
 import { resetTable, update } from '../engine/store';
 import type { CardManifest, Table, Token, View } from '../engine/types';
@@ -144,10 +141,12 @@ export function MenuPopover({
   notify: (text: string, ok?: boolean) => void;
 }) {
   const exportSave = () => {
-    const blob = new Blob([saveText(table)], { type: 'application/json' });
+    const blob = new Blob([game().saveText(table)], {
+      type: 'application/json',
+    });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `grimm-world-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
+    a.download = `${game().id}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -155,7 +154,7 @@ export function MenuPopover({
   const importSave = (file: File) => {
     file.text().then((text) => {
       try {
-        const t = readSave(text, manifest);
+        const t = game().readSave(text, manifest);
         resetTable(t);
         setSelection(null);
         fit(t);
@@ -179,7 +178,7 @@ export function MenuPopover({
               )
             )
               return;
-            const t = initialTable(manifest);
+            const t = game().setup(manifest);
             resetTable(t);
             setSelection(null);
             setDialog(null);

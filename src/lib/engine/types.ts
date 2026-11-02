@@ -1,12 +1,26 @@
-// The table's model: cards, piles (Stack), where a pile lies (At), figures, the Table. The game's own kinds (card types, decks,
-// grids, places) are the ones still imported from src/ (tied for B2).
+// The table's model: cards, piles (Stack), where a pile lies (At), figures, the Table, and the names of the game's own
+// kinds (GameKinds), which the game fills in.
 
-// oxlint-disable-next-line no-restricted-imports -- B2
-import type { GridId } from '../../areas';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import type { DeckKind } from '../../decks';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import type { CardType, Place, StorySlot } from '../../types';
+/**
+ * The game's own kinds, which the game names by adding to this interface (declaration merging, `declare module` in its
+ * types.ts): `cardType` (`CardDef.type`), `family` (what areas, spots and grids take), `deck` (`Stack.deck`), `slot`
+ * (`Stack.slot`), `place` (`Stack.place`) and `grid`. Each it leaves out is any string.
+ */
+// oxlint-disable-next-line typescript/no-empty-object-type -- filled in by the game
+export interface GameKinds {}
+
+/** A kind the game named in `GameKinds`, else any string. */
+type Kind<K extends string> =
+  GameKinds extends Record<K, infer T extends string> ? T : string;
+
+export type CardType = Kind<'cardType'>;
+export type Family = Kind<'family'>;
+export type DeckKind = Kind<'deck'>;
+export type StorySlot = Kind<'slot'>;
+export type Place = Kind<'place'>;
+export type GridId = Kind<'grid'>;
+/** What a pile on a fixed place lies on (`At`): its `Stack.place`, `slot` or `deck`. */
+export type FixedPlace = Place | StorySlot | DeckKind;
 
 /** One physical card as described by public/cards/cards.json. */
 export interface CardDef {
@@ -65,11 +79,11 @@ export interface Stack {
  * Where a table pile lies in the game's terms: on its fixed place (`Stack.place`, `slot` or `deck`, in that order), on a
  * grid's place, on a spot (`index`: its place in the spot's row, from the first; 0 for a spot of one place; half way
  * between two places' to go between them, until `settle()` numbers the row again), loose in an area (`x, y` from the
- * area's own corner in `AREAS`, which the layout moves with it, `Table.shifts`), or loose outside the areas (`x, y` on
+ * area's own corner in the game's `areas`, which the layout moves with it, `Table.shifts`), or loose outside the areas (`x, y` on
  * the table).
  */
 export type At =
-  | { place: Place | StorySlot | DeckKind }
+  | { place: FixedPlace }
   | { grid: GridId; col: number; row: number }
   | { spot: string; index: number }
   | { area: string; x: number; y: number }

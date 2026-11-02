@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { cardImage, isLandscape } from '../../cards';
+import { cardImage, isLandscape } from '../engine/game';
 import { cardLabel } from '../engine/cards';
 import { storage } from '../engine/storage';
 import type { CardDef, CardRef, Stack } from '../engine/types';

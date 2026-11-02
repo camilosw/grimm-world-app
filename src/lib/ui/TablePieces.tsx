@@ -1,10 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { AreaIcon } from '../../AreaIcon';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { acceptsText } from '../../areas';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { cardImage, isLandscape } from '../../cards';
+import { cardImage, isLandscape } from '../engine/game';
+import { gameUI } from './gameUI';
 import { unpinned } from '../engine/actions';
 import type { Area } from '../engine/areas';
 import { cardLabel } from '../engine/cards';
@@ -86,6 +82,8 @@ interface AreaViewProps {
 }
 
 export function AreaView({ area, state, controls, onInfo }: AreaViewProps) {
+  const { AreaIcon } = gameUI();
+  const accepts = gameUI().acceptsText(area);
   return (
     <div
       className={`area area-${area.id}${area.deck ? ' area-deck' : ''}${state ? ` ${state}` : ''}`}
@@ -112,9 +110,7 @@ export function AreaView({ area, state, controls, onInfo }: AreaViewProps) {
             ⓘ
             <Hit />
           </button>
-          {acceptsText(area) !== area.label && (
-            <small>{acceptsText(area)}</small>
-          )}
+          {accepts !== area.label && <small>{accepts}</small>}
         </span>
         {controls.length > 0 && (
           <span className="area-buttons">

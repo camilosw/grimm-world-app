@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { cardImage, isLandscape } from '../../cards';
+import { cardImage, isLandscape } from '../engine/game';
 import {
   extractCard,
   inTray,

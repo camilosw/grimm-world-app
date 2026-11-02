@@ -1,9 +1,8 @@
 import { useCallback, useRef, useState, type RefObject } from 'react';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { battlefieldInUse, COMBAT_AREAS, PLAY_AREAS } from '../../areas';
 import { allAreas } from '../engine/areas';
 import { CARD_H, CARD_W, clampScale, tokenSize } from '../engine/geometry';
 import type { Table, View } from '../engine/types';
+import { gameUI } from './gameUI';
 
 /** How long the view glides to an area or a pile it is sent to (see `.world.gliding` in styles.css). */
 export const GLIDE_MS = 500;
@@ -57,11 +56,12 @@ export function useFitView(areaRef: RefObject<HTMLDivElement | null>) {
   );
 
   /**
-   * The view showing the areas used in every round (`PLAY_AREAS`), or in a combat, while Terrain Cards lie on the
-   * battlefield, those used in it (`COMBAT_AREAS`); with `whole`, everything on the table.
+   * The view showing the areas the game frames on this table (`GameUI.fitAreas`: those used in every round, or in a
+   * combat those used in it); with `whole`, everything on the table.
    */
   const fitView = useCallback(
     (t: Table, whole = false) => {
+      const fit = gameUI().fitAreas(t);
       const items = whole
         ? [
             ...t.z
@@ -75,9 +75,7 @@ export function useFitView(areaRef: RefObject<HTMLDivElement | null>) {
             })),
             ...allAreas(t),
           ]
-        : allAreas(t).filter((a) =>
-            (battlefieldInUse(t) ? COMBAT_AREAS : PLAY_AREAS).includes(a.id),
-          );
+        : allAreas(t).filter((a) => fit.includes(a.id));
       return rectView(
         Math.min(...items.map((i) => i.x)),
         Math.min(...items.map((i) => i.y)),

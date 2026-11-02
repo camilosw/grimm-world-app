@@ -1,7 +1,6 @@
-// Values kept per device in localStorage, under the game's prefix.
+// Values kept per device in localStorage, under the game's prefix (`GameDefinition.id`).
 
-/** Prefix of every key the app keeps in `localStorage`. */
-const PREFIX = 'grimm-world:';
+import { game } from './game';
 
 /** A value kept on this device. */
 export interface Stored {
@@ -12,28 +11,35 @@ export interface Stored {
   remove(): void;
 }
 
-/** A value kept in `localStorage` under the app's prefix; reading or writing it never throws. */
+/**
+ * A value kept in `localStorage` under the game's prefix ("grimm-world:" + key); reading or writing it never throws once
+ * the game is registered. The prefix is read on use, so a module may make one on import, before the game is registered.
+ */
 export function storage(key: string): Stored {
-  const name = PREFIX + key;
+  // Outside the try blocks: read before the game is registered, it throws rather than finding nothing.
+  const name = () => `${game().id}:${key}`;
   return {
     get() {
+      const n = name();
       try {
-        return localStorage.getItem(name);
+        return localStorage.getItem(n);
       } catch {
         return null;
       }
     },
     set(value) {
+      const n = name();
       try {
-        localStorage.setItem(name, value);
+        localStorage.setItem(n, value);
         return true;
       } catch {
         return false;
       }
     },
     remove() {
+      const n = name();
       try {
-        localStorage.removeItem(name);
+        localStorage.removeItem(n);
       } catch {
         // Nothing kept to remove.
       }

@@ -1,39 +1,7 @@
 // The mechanics of the play area: spots, fans, grids, frames, the layout of the areas, where a pile lies (`at`), placement
-// and drawing order. Reads the game's areas, spots and rules from src/areas.ts (tied for B2).
+// and drawing order. Reads the game's areas, spots and rules from its GameDefinition (`game()`).
 
-// oxlint-disable-next-line no-restricted-imports -- B2
-import {
-  AREAS,
-  battlefieldBoxes,
-  battlefieldSpots,
-  CARD_NAMES,
-  deckPlace,
-  ENCOUNTER_PLACES,
-  encounterPlace,
-  FAMILY_NAMES,
-  GRID_FAMILY,
-  GRID_STRIP,
-  type GridId,
-  gridLabel,
-  gridOrigin,
-  GRIDS,
-  GROWING,
-  grows,
-  mapSpots,
-  ontoPlace,
-  packedPlaces,
-  PLACE_SPOTS,
-  placeArea,
-  refusal,
-  SPOTS,
-  STORY_SLOTS,
-} from '../../areas';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { family, type Family } from '../../cards';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { DECK_SPECS, type DeckKind } from '../../decks';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import type { EncounterPlace, Place, StorySlot } from '../../types';
+import { family, game } from './game';
 import {
   AREA_HEADER,
   AREA_PAD,
@@ -54,7 +22,17 @@ import {
   tokenSize,
   type Turn,
 } from './geometry';
-import type { At, CardDef, Stack, Table } from './types';
+import type {
+  At,
+  CardDef,
+  DeckKind,
+  Family,
+  FixedPlace,
+  GridId,
+  Stack,
+  StorySlot,
+  Table,
+} from './types';
 
 /** A framed part of the table reserved for certain cards (rulebook chapters 4 and 10). */
 export interface Area {
@@ -353,7 +331,7 @@ function lying(t: Table): Lying {
       indices.set(id, at.index);
     } else if ('place' in at) {
       // A place lying on a spot of a single place, whose piles lie in `z` order: after those before it.
-      const spot = PLACE_SPOTS[at.place];
+      const spot = game().placeSpots[at.place];
       if (!spot) continue;
       indices.set(id, spots.get(spot)?.length ?? 0);
       on(spot, id);
@@ -389,7 +367,7 @@ export function spotOf(t: Table, id: string): Spot | undefined {
     : 'spot' in at
       ? at.spot
       : 'place' in at
-        ? PLACE_SPOTS[at.place]
+        ? game().placeSpots[at.place]
         : undefined;
   return spot === undefined ? undefined : spotsById(t).get(spot);
 }
@@ -418,7 +396,7 @@ function pileOn(t: Table, spot: Spot, exclude: string | null): string | null {
 export function areaOf(t: Table, id: string): string | undefined {
   const at = t.stacks[id]?.at;
   if (!at) return undefined;
-  if ('place' in at) return placeArea(at.place);
+  if ('place' in at) return game().placeArea(at.place);
   if ('grid' in at) return at.grid;
   if ('spot' in at) return spotOf(t, id)?.area;
   if ('area' in at) return at.area;
@@ -520,14 +498,14 @@ export function freeCovered(t: Table, spot: Spot): Side | null {
 /** Which side of a spot's card is covered by the card of the spot it lies under. */
 export function coveredSide(spot: Spot): Side | null {
   if (spot.underPile) return spot.underPile.side;
-  // Where they lie in `SPOTS`: moved with their area, they lie the same way side by side.
+  // Where they lie in the game's `spots`: moved with their area, they lie the same way side by side.
   // A row `after` another lies there as if that row had no cards: beside that row's covering card (`spotsOf()`).
-  const before = spot.after && SPOTS.find((s) => s.id === spot.after);
-  const cover = SPOTS.find(
+  const before = spot.after && game().spots.find((s) => s.id === spot.after);
+  const cover = game().spots.find(
     (s) => s.id === (before ? before.under : spot.under),
   );
   if (!cover) return null;
-  spot = SPOTS.find((s) => s.id === spot.id) ?? spot;
+  spot = game().spots.find((s) => s.id === spot.id) ?? spot;
   // Side by side, or one above the other (a row `after` another lies a unit beside it).
   if (Math.abs(cover.x - spot.x) > Math.abs(cover.y - spot.y))
     return cover.x > spot.x ? 'right' : 'left';
@@ -535,10 +513,7 @@ export function coveredSide(spot: Spot): Side | null {
 }
 
 /** The pile on a fixed place lying on the table (`Stack.at`): an Encounter Deck place, a table deck's, the storybook's. */
-export function placeStack(
-  t: Table,
-  place: Place | StorySlot | DeckKind,
-): Stack | undefined {
+export function placeStack(t: Table, place: FixedPlace): Stack | undefined {
   return t.z
     .map((id) => t.stacks[id])
     .find((s) => !!s.at && 'place' in s.at && s.at.place === place);
@@ -554,7 +529,7 @@ export function cellPlace(
   col: number,
   row: number,
 ): Point {
-  const o = gridOrigin(t, g);
+  const o = game().gridOrigin(t, g);
   return {
     x: o.x + col * CARD_H + (CARD_H - CARD_W) / 2,
     y: o.y + row * CARD_W - (CARD_H - CARD_W) / 2,
@@ -563,7 +538,7 @@ export function cellPlace(
 
 /** The landscape box of a grid's place (`col`, `row`). */
 function cellBox(t: Table, g: GridId, col: number, row: number): Rect {
-  const o = gridOrigin(t, g);
+  const o = game().gridOrigin(t, g);
   return { x: o.x + col * CARD_H, y: o.y + row * CARD_W, w: CARD_H, h: CARD_W };
 }
 
@@ -571,7 +546,7 @@ const cellKey = (col: number, row: number) => `${col},${row}`;
 
 /** The piles lying on the grids' places (`Stack.at`), for laying them face up (`settleSpots()`). */
 export function allGridPiles(t: Table): string[] {
-  return GRIDS.flatMap((g) => [...gridPiles(t, g).values()]);
+  return game().grids.flatMap((g) => [...gridPiles(t, g).values()]);
 }
 
 /** The piles lying on a grid's places (`Stack.at`), by "col,row". */
@@ -625,7 +600,7 @@ const SIDE_STEPS: [Side, number, number][] = [
 
 /** The strip along `side` of a card lying in `card`. */
 function stripBox(card: Rect, side: Side): Rect {
-  const s = GRID_STRIP;
+  const s = game().gridStrip;
   if (side === 'top') return { x: card.x, y: card.y - s, w: card.w, h: s };
   if (side === 'bottom')
     return { x: card.x, y: card.y + card.h, w: card.w, h: s };
@@ -677,7 +652,7 @@ export function gridPlaces(
     const [col, row] = key.split(',').map(Number);
     for (const [side, dc, dr] of SIDE_STEPS) {
       const [c, r] = [col + dc, row + dr];
-      if (!grows(g, col, side) || grid.has(cellKey(c, r))) continue;
+      if (!game().grows(g, col, side) || grid.has(cellKey(c, r))) continue;
       const cell = cellBox(t, g, c, r);
       if (others.some((o) => overlap(o, cell) > 0)) continue;
       const box = stripBox(cellBox(t, g, col, row), side);
@@ -694,14 +669,6 @@ export function gridPlaces(
   return places;
 }
 
-/** The battlefield grid's free places for a Terrain Card (`gridPlaces()`). */
-export function terrainPlaces(
-  t: Table,
-  moving: string | null = null,
-): GridPlace[] {
-  return gridPlaces(t, 'battlefield', moving);
-}
-
 /**
  * Where a grid lies: its cards, else its first place, with room for the strips of its free places beside them, on the
  * sides it grows on (`grows()`).
@@ -711,7 +678,8 @@ export function gridBox(t: Table, g: GridId): Rect {
   const boxes = (cells.length ? cells : [cellKey(0, 0)]).map((k) => {
     const [c, r] = k.split(',').map(Number);
     const b = cellBox(t, g, c, r);
-    const reach = (side: Side) => (grows(g, c, side) ? GRID_STRIP : 0);
+    const reach = (side: Side) =>
+      game().grows(g, c, side) ? game().gridStrip : 0;
     return {
       x: b.x - reach('left'),
       y: b.y - reach('top'),
@@ -753,7 +721,7 @@ function framedPlaces(t: Table, spot: Spot): Point[] {
 
 const NO_SHIFT: Point = { x: 0, y: 0 };
 
-/** How far an area and everything in it lies from its place in `AREAS` / `SPOTS`, pushed by the areas before it. */
+/** How far an area and everything in it lies from its own place (the game's `areas` / `spots`), pushed by the areas before it. */
 export function shiftOf(t: Table, area: string): Point {
   return t.shifts?.[area] ?? NO_SHIFT;
 }
@@ -763,14 +731,14 @@ const tableSpots = new WeakMap<Table, Spot[]>();
 
 /**
  * The spots as they lie on this table: moved with their areas (`Table.shifts`), the Market Prices places beside the
- * Region Cards on the Map (`mapSpots()`), and the battlefield's Enemy Card places right of its Terrain Cards
- * (`battlefieldSpots()`), as far as the rows and grids they lie beyond reach (`Stack.at`). Use these, not `SPOTS`, for
+ * Region Cards on the Map and the battlefield's Enemy Card places right of its Terrain Cards (the game's
+ * `gridSpots()`), as far as the rows and grids they lie beyond reach (`Stack.at`). Use these, not the game's `spots`, for
  * positions.
  */
 export function spotsOf(t: Table): Spot[] {
   let spots = tableSpots.get(t);
   if (!spots) {
-    spots = [...baseSpots(t), ...mapSpots(t), ...battlefieldSpots(t)];
+    spots = [...baseSpots(t), ...game().gridSpots(t)];
     tableSpots.set(t, spots);
   }
   return spots;
@@ -793,11 +761,11 @@ export function holdsOne(
   );
 }
 
-/** The spots of the areas (`SPOTS`) as they lie on this table: all of them but the grids' (Market Prices, enemies). */
+/** The spots of the areas (the game's `spots`) as they lie on this table: all of them but the grids' (Market Prices, enemies). */
 function baseSpots(t: Table): Spot[] {
   let spots = shiftedSpots.get(t);
   if (!spots) {
-    spots = SPOTS.map((s) => {
+    spots = game().spots.map((s) => {
       const d = shiftOf(t, s.area);
       return d.x || d.y ? { ...s, x: s.x + d.x, y: s.y + d.y } : s;
     });
@@ -848,13 +816,12 @@ const framesCache = new WeakMap<Table, Area[]>();
 /**
  * The areas as they lie on this table: each of fixed size at its own place moved with it (`Table.shifts`), each growing
  * one framed around its places (a fanned row as far as its next place, a grid's cards with the strips of its free
- * places) and the piles lying loose in it (`Stack.at`). Use these, not `AREAS`.
+ * places) and the piles lying loose in it (`Stack.at`). Use these, not the game's `areas`.
  */
 export function allAreas(t: Table): Area[] {
   let areas = framesCache.get(t);
   if (areas) return areas;
   const spots = spotsOf(t);
-  const field = battlefieldBoxes(t);
   const loose = new Map<string, Rect[]>();
   for (const id of t.z) {
     const at = t.stacks[id].at;
@@ -862,19 +829,19 @@ export function allAreas(t: Table): Area[] {
     const p = pointOf(t, at)!;
     loose.set(at.area, [...(loose.get(at.area) ?? []), cardRect(p.x, p.y)]);
   }
-  areas = AREAS.map((a): Area => {
-    if (!GROWING.includes(a.id)) {
+  areas = game().areas.map((a): Area => {
+    if (!game().growing.includes(a.id)) {
       const d = shiftOf(t, a.id);
       return { ...a, x: a.x + d.x, y: a.y + d.y };
     }
     return {
       ...a,
       ...frameAround([
-        ...(a.id === 'battlefield'
-          ? [field.grid, field.enemies]
-          : a.id === 'map'
-            ? [gridBox(t, 'map')]
-            : []),
+        // A grid frames its area, named after it.
+        ...game()
+          .grids.filter((g) => g === a.id)
+          .map((g) => gridBox(t, g)),
+        ...game().areaBoxes(t, a.id),
         ...spots
           .filter((s) => s.area === a.id)
           .flatMap((s) =>
@@ -891,16 +858,9 @@ export function allAreas(t: Table): Area[] {
 /** Where a table pile lying `at` lies on this table (null: on a spot no longer there, a Region Card's that has left). */
 export function pointOf(t: Table, at: At): Point | null {
   if ('place' in at) {
-    const p = at.place;
-    if (p === 'story' || p === 'story-revealed') {
-      const d = shiftOf(t, 'storybook');
-      return { x: STORY_SLOTS[p].x + d.x, y: STORY_SLOTS[p].y + d.y };
-    }
-    const spot = PLACE_SPOTS[p];
+    const spot = game().placeSpots[at.place];
     if (spot) return spotPoint(spotsById(t).get(spot)!, 0);
-    if (ENCOUNTER_PLACES.some((e) => e.place === p))
-      return encounterPlace(t, p as EncounterPlace);
-    return deckPlace(t, p as DeckKind);
+    return game().placePoint(t, at.place);
   }
   if ('grid' in at) return cellPlace(t, at.grid, at.col, at.row);
   if ('spot' in at) {
@@ -908,7 +868,7 @@ export function pointOf(t: Table, at: At): Point | null {
     return spot ? spotPoint(spot, at.index) : null;
   }
   if ('area' in at) {
-    const a = AREAS.find((a) => a.id === at.area)!;
+    const a = game().areas.find((a) => a.id === at.area)!;
     const d = shiftOf(t, a.id);
     return { x: a.x + d.x + at.x, y: a.y + d.y + at.y };
   }
@@ -927,7 +887,7 @@ export function outsideAreas(at: At): at is { x: number; y: number } {
 
 /** Lying loose in `area` with its top-left corner at (x, y): from the area's own corner, as it lies on this table. */
 function inArea(t: Table, area: string, x: number, y: number): At {
-  const a = AREAS.find((a) => a.id === area)!;
+  const a = game().areas.find((a) => a.id === area)!;
   const d = shiftOf(t, area);
   return { area, x: x - a.x - d.x, y: y - a.y - d.y };
 }
@@ -1167,7 +1127,7 @@ function arrange(
   const anchors = t.anchors && anchorsOf(t, areas);
   const places = anchors
     ? anchoredPlaces(areas, anchors)
-    : packedPlaces(t, now);
+    : game().packedPlaces(t, now);
   const delta = new Map<string, Point>();
   for (const [id, p] of places) {
     const a = now.get(id)!;
@@ -1247,10 +1207,11 @@ export function areaForCard(t: Table, x: number, y: number): Area | null {
   return (
     areas.find(
       (a) =>
-        !GROWING.includes(a.id) && inRect(a, x + CARD_W / 2, y + CARD_H / 2),
+        !game().growing.includes(a.id) &&
+        inRect(a, x + CARD_W / 2, y + CARD_H / 2),
     ) ??
     mostOverlapped(
-      areas.filter((a) => GROWING.includes(a.id)),
+      areas.filter((a) => game().growing.includes(a.id)),
       x,
       y,
     ) ??
@@ -1418,15 +1379,24 @@ export function placement(
   const target = onto ? t.stacks[onto] : null;
   const at = { x: target?.x ?? x, y: target?.y ?? y };
   const families = cardIds.map((id) => family(defs[id]));
-  const g = GRIDS.find((g) => families.includes(GRID_FAMILY[g]));
+  const g = game().grids.find((g) => families.includes(game().gridFamily[g]));
   const grid = g && ontoGrid(t, g, cardIds, families, x, y, moving, pointer);
   if (grid) return grid;
   const area = areaForCard(t, at.x, at.y);
-  // Nothing goes on top of a card on a grid; dropped on a Region Card near its Market Prices place, an Encounter Card
-  // goes there.
+  // Nothing goes on top of a card on a grid; dropped on a card near a place of that grid lying under one of its cards (a
+  // Region Card's Market Prices place), cards it takes go there.
   const under = target ? gridOf(t, target.id) : undefined;
-  const market = under === 'map' && spotAt(t, x, y, families, pointer);
-  if (under && !(market && families.every((f) => takes(market.spot, f))))
+  const beside = under && spotAt(t, x, y, families, pointer);
+  if (
+    under &&
+    !(
+      beside &&
+      beside.spot.underPile &&
+      beside.spot.area === under &&
+      families.every((f) => takes(beside.spot, f))
+    )
+  ) {
+    const label = game().areas.find((a) => a.id === under)!.label;
     return {
       at: looseAt(t, x, y),
       x,
@@ -1434,10 +1404,13 @@ export function placement(
       onto: null,
       area,
       spot: null,
-      refused: `Nothing goes on top of a ${CARD_NAMES[GRID_FAMILY[under]]} on the ${gridLabel(under)}`,
+      refused: `Nothing goes on top of a ${game().cardNames[game().gridFamily[under]]} on the ${label}`,
     };
+  }
   if (area?.deck) return intoDeck(t, area, area.deck, cardIds, defs);
-  if (area?.id === 'encounter') return ontoPlace(t, area, cardIds, defs, at);
+  const places = area ? deckPlacesIn(area.id) : [];
+  if (area && places.length)
+    return ontoPlace(t, area, places, cardIds, defs, at);
   const own = spotsOf(t).find((s) => s.attracts && families.includes(s.family));
   if (own) {
     const area = allAreas(t).find((a) => a.id === own.area)!;
@@ -1470,7 +1443,7 @@ export function placement(
       onto,
       area,
       spot: null,
-      refused: refusal(area, cardIds, defs),
+      refused: game().refusal(area, cardIds, defs),
     };
   let { spot } = taken;
   const { place } = taken;
@@ -1492,7 +1465,7 @@ export function placement(
     ? `Only the ${spot.label} goes on its place`
     : `Only ${familyNames(spot)} go on the ${spot.label} place`;
   // A spot takes its cards even in an area that doesn't (the Encounter Card in the Storybook area).
-  const refused = fits ? null : (refusal(area, cardIds, defs) ?? other);
+  const refused = fits ? null : (game().refusal(area, cardIds, defs) ?? other);
   if (!spot.fan)
     return {
       ...place,
@@ -1556,8 +1529,8 @@ function ontoGrid(
     .map((p) => ({ p, d: distanceTo(p.box, c) }))
     .sort((a, b) => a.d - b.d)[0];
   if (!inRect(area, c.x, c.y) && !(near && near.d < GRID_REACH)) return null;
-  const names = FAMILY_NAMES[GRID_FAMILY[g]];
-  const refused = !families.every((f) => f === GRID_FAMILY[g])
+  const names = game().familyNames[game().gridFamily[g]];
+  const refused = !families.every((f) => f === game().gridFamily[g])
     ? `Only ${names} go on the ${area.label}'s places`
     : cardIds.length > 1
       ? `Put ${names} on the ${area.label} one at a time`
@@ -1579,10 +1552,10 @@ function intoDeck(
   cardIds: string[],
   defs: Record<string, CardDef>,
 ): Placement {
-  const spec = DECK_SPECS[kind];
+  const spec = game().decks[kind];
   const onto = placeStack(t, kind)?.id ?? null;
   const bad = cardIds.map((id) => defs[id]).find((d) => d && !spec.holds(d));
-  const p = deckPlace(t, kind);
+  const p = game().placePoint(t, kind);
   return {
     ...p,
     at: looseAt(t, p.x, p.y),
@@ -1592,6 +1565,35 @@ function intoDeck(
     refused: bad
       ? `${bad.code ?? bad.name ?? 'This card'} can't go into the ${spec.label}`
       : null,
+  };
+}
+
+/** The places of a deck's piles lying in an area (`GameDefinition.deckPlaces`): the Encounter Deck area's. */
+export function deckPlacesIn(area: string) {
+  return game().deckPlaces.filter((p) => game().placeArea(p.place) === area);
+}
+
+/** Cards dropped in an area of a deck's places (`deckPlacesIn()`) go onto the place nearest to where they are dropped. */
+function ontoPlace(
+  t: Table,
+  area: Area,
+  places: { place: FixedPlace }[],
+  cardIds: string[],
+  defs: Record<string, CardDef>,
+  at: Point,
+): Placement {
+  const far = (p: Point) => Math.hypot(p.x - at.x, p.y - at.y);
+  const nearest = places
+    .map(({ place }) => ({ place, ...game().placePoint(t, place) }))
+    .reduce((a, p) => (far(p) < far(a) ? p : a));
+  return {
+    at: looseAt(t, nearest.x, nearest.y),
+    x: nearest.x,
+    y: nearest.y,
+    onto: placeStack(t, nearest.place)?.id ?? null,
+    area,
+    spot: null,
+    refused: game().refusal(area, cardIds, defs),
   };
 }
 
@@ -1618,20 +1620,20 @@ function oneEach(spot: Spot, cardIds: string[]): string | null {
 /** The names of the card families a spot takes, e.g. "Encounter Cards and Lost Pages Cards". */
 function familyNames(spot: Spot): string {
   return [spot.family, ...(spot.also ?? [])]
-    .map((f) => FAMILY_NAMES[f])
+    .map((f) => game().familyNames[f])
     .join(' and ');
 }
 
 function full(spot: Spot): string {
-  const area = AREAS.find((a) => a.id === spot.area)!;
+  const area = game().areas.find((a) => a.id === spot.area)!;
   // Several places for the family: they are all taken.
-  const max = SPOTS.filter(
-    (s) => s.area === spot.area && s.family === spot.family,
-  ).reduce((n, s) => n + fanMax(s), 0);
+  const max = game()
+    .spots.filter((s) => s.area === spot.area && s.family === spot.family)
+    .reduce((n, s) => n + fanMax(s), 0);
   // A place cards don't find on their own: that one is taken.
   if (!spot.attracts && fanMax(spot) > 1 && fanMax(spot) < Infinity)
     return `The ${spot.label} place in the ${area.label} area holds at most ${fanMax(spot)} cards`;
   if (max === 1 || !spot.attracts)
     return `There is already a card on the ${spot.label} place in the ${area.label} area`;
-  return `The ${area.label} area holds at most ${max} ${FAMILY_NAMES[spot.family]}`;
+  return `The ${area.label} area holds at most ${max} ${game().familyNames[spot.family]}`;
 }

@@ -1,5 +1,5 @@
 import type { DeckKind } from './decks';
-import type { CardDef } from './lib/engine/types';
+import type { CardDef, Stack } from './lib/engine/types';
 
 /** public/rules/rules.json, made by scripts/split_rules.py. */
 export interface RulesManifest {
@@ -120,4 +120,15 @@ export function cardRule(def: CardDef | undefined): string | null {
     default:
       return null;
   }
+}
+
+/** The rulebook section explaining a pile: its deck's, the Encounter Deck's for its places, else its top card's. */
+export function pileRule(
+  stack: Stack,
+  defs: Record<string, CardDef>,
+): string | null {
+  const top = stack.cards.at(-1);
+  if (stack.deck) return DECK_RULES[stack.deck];
+  if (stack.place && stack.place !== 'damage') return DECK_RULES.encounter;
+  return cardRule(top && defs[top.id]);
 }

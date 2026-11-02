@@ -1,10 +1,8 @@
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { deckPlace, ENCOUNTER_PLACES, encounterPlace } from '../../areas';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { DECK_SPECS } from '../../decks';
 import { type DraggedPile, movingPile } from '../engine/actions';
+import { game } from '../engine/game';
 import {
   allAreas,
+  deckPlacesIn,
   fanHasPlace,
   fanRow,
   freeCovered,
@@ -22,21 +20,13 @@ import { cardBox } from '../engine/geometry';
 import type { Table } from '../engine/types';
 import type { Incoming, TableControl } from './Table';
 import { Hit } from './TablePieces';
+import { gameUI } from './gameUI';
 
 // The empty card places drawn on the table, under the piles: the grids' free places, the spots' and the fixed places'
 // (Encounter Deck places, the decks lying on the table), each lit up while cards dragged over it would go there.
 
 /** Below this breadth (world units) a covered place's label is set smaller to fit (Market Prices showing only their price strip). */
 const NARROW_SPOT = 70;
-
-/** What the first place of an empty grid says. */
-const GRID_START = {
-  map: { label: 'Region Card', hint: 'start the map here' },
-  battlefield: {
-    label: 'Terrain Card',
-    hint: 'build the battlefield from here',
-  },
-};
 
 /** Position and size of a table rectangle as an absolutely placed element's style. */
 const rectStyle = (r: { x: number; y: number; w: number; h: number }) => ({
@@ -165,7 +155,7 @@ export function Placeholders({
     <>
       {/* The grids' free places (the Map's, the battlefield's): the first one, then a strip on each free side of their cards. */}
       {/* While a battlefield is typed, only its first place: there are no cards to lay beside yet. */}
-      {(['map', 'battlefield'] as const).flatMap((g) => {
+      {game().grids.flatMap((g) => {
         const typed =
           faded.size > 0 && gridCells(shown, g).some((c) => faded.has(c.id));
         return gridPlaces(
@@ -186,8 +176,8 @@ export function Placeholders({
                 <span>+</span>
               ) : (
                 <span>
-                  {GRID_START[g].label}
-                  <small>{GRID_START[g].hint}</small>
+                  {gameUI().gridStart[g].label}
+                  <small>{gameUI().gridStart[g].hint}</small>
                   {controls
                     .filter((c) => 'grid' in c.at && c.at.grid === g)
                     .map((c) => (
@@ -210,10 +200,11 @@ export function Placeholders({
       })}
       {spots.flatMap(placeholders)}
       {allAreas(shown).flatMap((area) => {
-        // The Encounter Deck area's places, shown while empty (their piles cover them).
-        if (area.id === 'encounter')
-          return ENCOUNTER_PLACES.map(({ place, label, hint }) => {
-            const at = encounterPlace(shown, place);
+        // The places of a deck's piles (the Encounter Deck area's), shown while empty (their piles cover them).
+        const places = deckPlacesIn(area.id);
+        if (places.length)
+          return places.map(({ place, label, hint }) => {
+            const at = game().placePoint(shown, place);
             const s = placeStack(shown, place);
             return (
               <div
@@ -230,8 +221,8 @@ export function Placeholders({
           });
         // The place of a deck lying on the table, shown while it is empty (its pile covers it).
         if (!area.deck) return [];
-        const spec = DECK_SPECS[area.deck];
-        const at = deckPlace(shown, area.deck);
+        const spec = game().decks[area.deck];
+        const at = game().placePoint(shown, area.deck);
         return [
           <div
             key={`deck-${area.id}`}

@@ -10,9 +10,6 @@ import {
   crowd,
   gridBox,
   gridPiles,
-  looseAt,
-  type Placement,
-  placeStack,
   shiftOf,
   type Spot,
 } from './lib/engine/areas';
@@ -679,6 +676,12 @@ export const ENCOUNTER_PLACES: {
   { place: 'used', label: 'Used Cards', hint: 'Encounter Cards' },
 ];
 
+/** The places whose bottom card stays there for good: the 'Time Passes' and 'Next Chapter' cards' (`pinned()`). */
+export const PINNED_BOTTOM: Place[] = ['time-passes', 'next-chapter'];
+
+/** The places whose top card stays there for good: the Damage Card's, the cards under it (`pinnedOnTop()`). */
+export const PINNED_TOP: Place[] = ['damage'];
+
 /** Where an Encounter Deck place lies on this table: its pile, or its placeholder. */
 export function encounterPlace(t: Table, place: EncounterPlace): Point {
   const i = ENCOUNTER_PLACES.findIndex((p) => p.place === place);
@@ -687,6 +690,23 @@ export function encounterPlace(t: Table, place: EncounterPlace): Point {
     x: encounter.x + AREA_PAD + i * (CARD_W + PLACE_GAP) + d.x,
     y: encounter.y + AREA_HEADER + d.y,
   };
+}
+
+/**
+ * Where a fixed place not lying on a spot lies on this table (`GameDefinition.placePoint`): the storybook's, the
+ * Encounter Deck area's, a table deck's.
+ */
+export function placePoint(
+  t: Table,
+  place: Place | StorySlot | DeckKind,
+): Point {
+  if (place === 'story' || place === 'story-revealed') {
+    const d = shiftOf(t, 'storybook');
+    return { x: STORY_SLOTS[place].x + d.x, y: STORY_SLOTS[place].y + d.y };
+  }
+  if (ENCOUNTER_PLACES.some((e) => e.place === place))
+    return encounterPlace(t, place as EncounterPlace);
+  return deckPlace(t, place as DeckKind);
 }
 
 /** Place of a table deck in its area (`TABLE_DECKS`), as it lies on this table: where its pile lies, or its placeholder. */
@@ -770,6 +790,16 @@ export function battlefieldBoxes(t: Table): { grid: Rect; enemies: Rect } {
     h: Math.max(grid.h, ENEMY_BLOCK.h),
   };
   return { grid, enemies };
+}
+
+/** Further boxes a growing area is framed around (`GameDefinition.areaBoxes`): the battlefield's Enemy Cards' place. */
+export function areaBoxes(t: Table, area: string): Rect[] {
+  return area === 'battlefield' ? [battlefieldBoxes(t).enemies] : [];
+}
+
+/** The spots beside the grids' cards on this table (`GameDefinition.gridSpots`): Market Prices and Enemy Cards. */
+export function gridSpots(t: Table): Spot[] {
+  return [...mapSpots(t), ...battlefieldSpots(t)];
 }
 
 const marketCache = new WeakMap<Table, Spot[]>();
@@ -1047,30 +1077,6 @@ export const CARD_NAMES: Partial<Record<Family, string>> = {
   region: 'Region Card',
   terrain: 'Terrain Card',
 };
-
-/** Cards dropped in the Encounter Deck area go onto the place nearest to where they are dropped, if they are Encounter Cards. */
-export function ontoPlace(
-  t: Table,
-  area: Area,
-  cardIds: string[],
-  defs: Record<string, CardDef>,
-  at: Point,
-): Placement {
-  const far = (p: Point) => Math.hypot(p.x - at.x, p.y - at.y);
-  const nearest = ENCOUNTER_PLACES.map(({ place }) => ({
-    place,
-    ...encounterPlace(t, place),
-  })).reduce((a, p) => (far(p) < far(a) ? p : a));
-  return {
-    at: looseAt(t, nearest.x, nearest.y),
-    x: nearest.x,
-    y: nearest.y,
-    onto: placeStack(t, nearest.place)?.id ?? null,
-    area,
-    spot: null,
-    refused: refusal(area, cardIds, defs),
-  };
-}
 
 /** The area buttons along the left edge of the screen, in the order the areas lie (`packedPlaces()`). */
 export const RAIL_AREAS = [

@@ -1,8 +1,5 @@
 import * as A from '../engine/actions';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { isLandscape } from '../../cards';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { cardRule, DECK_RULES } from '../../rules';
+import { game, isLandscape } from '../engine/game';
 import { facedSpot, onGrid, turnedSpot, upsideDownSpot } from '../engine/areas';
 import { update } from '../engine/store';
 import type {
@@ -13,6 +10,7 @@ import type {
   Table,
   Token,
 } from '../engine/types';
+import { gameUI } from './gameUI';
 import type { Dialog, PutUnder } from './useDialogs';
 
 /** What the action bar needs of the app. */
@@ -61,7 +59,6 @@ export function PileBar({
   const isPlace = !!stack.place;
   // The Damage Card stays on top of its place for good, the Enemy, Training and Banned Cards cards on top of their decks:
   // nothing is drawn from them, nor their top card moved under the rest.
-  const isDamage = stack.place === 'damage';
   const topPinned = A.pinnedOnTop(stack) > 0;
   const free = A.unpinned(stack).length;
   // A card lying turned on its place stays as it lies (Market Prices face up, Encounter Bar face down) and can't be rotated.
@@ -129,7 +126,7 @@ export function PileBar({
             ↻ Rotate
           </button>
         )}
-      {!aside && stack.cards.every((c) => defs[c.id]?.type === 'terrain') && (
+      {!aside && stack.cards.every((c) => game().turnsAround(defs[c.id])) && (
         <button onClick={() => act((t, id) => A.rotateStack(t, id, 180, defs))}>
           ↻ Turn around
         </button>
@@ -175,17 +172,7 @@ export function PileBar({
           ✎ Name
         </button>
       )}
-      <button
-        onClick={() =>
-          openRules(
-            stack.deck
-              ? DECK_RULES[stack.deck]
-              : isPlace && !isDamage
-                ? DECK_RULES.encounter
-                : cardRule(topCard && defs[topCard.id]),
-          )
-        }
-      >
+      <button onClick={() => openRules(gameUI().rule(stack, defs))}>
         📖 Rules
       </button>
     </footer>

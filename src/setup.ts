@@ -13,9 +13,14 @@ import { deckStack } from './lib/engine/decks';
 import type { CardDef, CardManifest, CardRef, Table } from './lib/engine/types';
 import type { EncounterPlace } from './types';
 
+/** Whether a card is used in play: all of them except the title card. */
+export function isPlayable(def: CardDef): boolean {
+  return def.type !== 'title';
+}
+
 /** Every card used in play: all of them except the title card. */
 export function playableCards(manifest: CardManifest): CardDef[] {
-  return manifest.cards.filter((c) => c.type !== 'title');
+  return manifest.cards.filter(isPlayable);
 }
 
 /** Starting contents of each deck, bottom → top (rulebook chapter 6.1). */

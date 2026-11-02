@@ -61,6 +61,7 @@ export const DECKS: DeckSpec[] = [
   {
     kind: 'regions',
     label: 'Regions',
+    landscape: true,
     faceUp: false,
     insert: 'sorted',
     holds: (d) => d.type === 'region',
@@ -68,6 +69,7 @@ export const DECKS: DeckSpec[] = [
   {
     kind: 'terrain',
     label: 'Terrain',
+    landscape: true,
     faceUp: false,
     insert: 'sorted',
     holds: (d) => d.type === 'terrain',

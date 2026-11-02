@@ -1,8 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { ENCOUNTER_PLACES, type GridId } from '../../areas';
-// oxlint-disable-next-line no-restricted-imports -- B2
-import { cardImage, isLandscape } from '../../cards';
+import { cardImage, game, isLandscape } from '../engine/game';
 import {
   type Destination,
   dragged,
@@ -28,7 +25,13 @@ import {
   stacksOnSpot,
 } from '../engine/areas';
 import { CARD_H, CARD_W } from '../engine/geometry';
-import type { At, CardDef, Table as TableState, View } from '../engine/types';
+import type {
+  At,
+  CardDef,
+  GridId,
+  Table as TableState,
+  View,
+} from '../engine/types';
 import { landscapeClass } from './cardClasses';
 import { CardGhost } from './CardGhost';
 import type { Point, Target } from './tableGestures';
@@ -449,7 +452,7 @@ export function TableView(props: Props) {
               sliding={sliding.has(id)}
               previewed={faded.has(id)}
               fixed={!!s.deck && !s.place}
-              countless={ENCOUNTER_PLACES.some((p) => p.place === s.place)}
+              countless={game().deckPlaces.some((p) => p.place === s.place)}
               uncounted={pinnedOnTop(s)}
               shuffle={props.shuffled?.id === id ? props.shuffled.n : null}
               dealt={
@@ -478,7 +481,7 @@ export function TableView(props: Props) {
             lifted
             covered={null}
             sliding={false}
-            countless={ENCOUNTER_PLACES.some(
+            countless={game().deckPlaces.some(
               (p) => p.place === table.stacks[dragStack.id].place,
             )}
           />

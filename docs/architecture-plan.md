@@ -23,7 +23,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | A4.2 Hooks out of App.tsx                | Sonnet                                                                                              | ✅ Done        |
 | A5. Documentation                        | Sonnet                                                                                              | 🔁 Ongoing     |
 | B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | ✅ Done        |
-| B2. Injected `GameDefinition`            | Opus                                                                                                | ⬜ Not started |
+| B2. Injected `GameDefinition`            | Opus                                                                                                | ✅ Done        |
 | B3. Composable place behaviours          | Opus                                                                                                | ⬜ Not started |
 | B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ⬜ Not started |
 | B5. Refusals as codes                    | Sonnet, once Opus has fixed the list of codes                                                       | ⬜ Not started |
@@ -505,6 +505,49 @@ const store = createStore(engine); // instead of the singleton
 
 The per-table caches (`WeakMap<Table, …>`) move inside `createEngine`, and `defs` goes in the engine's context instead of
 being passed from function to function.
+
+Outcome (November 2026, on top of B1; `CLAUDE.md` describes it under **The import rule**):
+
+- `grep -rn -- '-- B2' src/lib` is empty: `src/lib/` imports nothing of the game, and lint now has no exception to the
+  rule. Nothing changes for the player: the tests and the save snapshots are unchanged, and a new game lays out the
+  same areas, piles and card places, to the pixel, as before at the four sizes.
+- **The game is registered, not bound.** `src/lib/engine/game.ts` holds `GameDefinition` and `setGame()` / `game()`;
+  the engine reads the game from there at call time. `createEngine(game)` / `createStore(engine)` as sketched would
+  have turned about 2,700 lines of free functions (`placement`, `settle`, `spotsOf`, the actions…) into members of an
+  object and changed every call site in the game and the UI, and the game's own data functions (`mapSpots`,
+  `packedPlaces`, `placePoint`…) call engine functions, which a bound engine would have had to hand back to them. A
+  registered game keeps every call as it was and lifts every import; binding can still come if a second game ever has
+  to live beside this one in one page (B7 will tell). For the same reason the per-table caches stay `WeakMap`s keyed by
+  the `Table` (a table belongs to one game), `defs` is still passed from function to function, and the store stays one
+  module (its autosave is the game's, `autosave`).
+- **Kinds by type.** `GameKinds` (`src/lib/engine/types.ts`) names the game's `CardType`, `Family`, `DeckKind`,
+  `StorySlot`, `Place` and `GridId`; `src/types.ts` fills it in by declaration merging (through a `Kinds` alias:
+  inside the augmentation the names would be the engine's own), and each kind left out is any string. So neither side
+  lost its unions, and `src/lib/` needs no type parameter on `Table`.
+- **What the definition holds**, beside the sketch's `id`, `family`, `orientation` (`isLandscape`, `turnsAround`),
+  `decks`, `areas`, `spots` and `setup`: what the engine imported from the game, as data or as the game's own
+  functions (`growing`, `gridSpots`, `areaBoxes`, `packedPlaces`, the grids, `placeSpots`, `placeArea`,
+  `placePoint`, `deckPlaces`, `pinsBottom` / `pinsTop`, `pickedPile` for the storybook's chapter picker, the
+  texts and `refusal`, `homeDeck`, `returnsCards`, `playable`, `cardImage`), and saves as `readSave`, `saveText`,
+  `autosave` and `problems` (the game's own checks of `tableProblems()`: time cards, Damage Card, the removed hand)
+  rather than `migrations`: the envelope and the migrations stay in `src/save.ts` until a second game needs them.
+- **The UI's part** is `GameUI` (`src/lib/ui/gameUI.ts`, `setGameUI()` / `gameUI()`): `AreaIcon`, `railAreas`,
+  `fitAreas`, `acceptsText`, `gridStart` and `rule`, kept apart since the engine knows no React. `src/game.ts` builds
+  both from the game's modules and `registerGame()` hands them over: in `src/register.ts`, which `main.tsx` imports
+  first (the code review found a module reading a value kept on the device on import, before the game was
+  registered: that read must throw, not find nothing), and in the tests' setup.
+- Grimm literals made generic on the way, where the code was being changed anyway: the pinned places, Terrain Cards
+  turning around, `ontoPlace()` (now the engine's, for any area of a deck's places), the Encounter Deck places'
+  placeholders and face-down arrivals, the grids' frames (`allAreas()`), a drop on a grid's card going to a spot of that
+  grid lying under a card (`underPile`, was: on the Map), `pointOf()`'s storybook places, the Regions and Terrain decks lying
+  landscape (`DeckSpec.landscape`), the grids' first places' texts, and `storage()`'s prefix (`id`, read on use, as
+  modules make their keys on import). `terrainPlaces()`, unused, went.
+- Left for B3/B4, unmarked: the storybook's slots in `src/lib/` (`'story'`, `'story-revealed'`, the `'storybook'`
+  deck and `Destination`'s `{ story }`, in `dragged()`, `putUnderDeck()`, `putUnderPile()`, `putUnderTarget()`,
+  `SlotView` and `TableView`'s drop), which B3's fixed places and B4's slots will take over.
+- Tests: `src/game.test.ts` checks Grimm World's definition (where its places lie, what Fit frames, the battlefield's
+  boxes and refusals, the texts, the rulebook links, the chapter picker's drops, the game's own problems, the storage
+  prefix), and keeps `src/areas.ts` above its coverage threshold now that `ontoPlace()` left it.
 
 ### B3. Composable place behaviours
 

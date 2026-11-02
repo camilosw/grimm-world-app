@@ -37,3 +37,8 @@ export function cardImage(
 export function isLandscape(def: CardDef | undefined): boolean {
   return def?.type === 'region' || def?.type === 'terrain';
 }
+
+/** Terrain Cards turn around, their triangles pointing up or down; Region Cards never rotate. */
+export function turnsAround(def: CardDef | undefined): boolean {
+  return def?.type === 'terrain';
+}
