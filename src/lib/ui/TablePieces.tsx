@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import { cardImage, isLandscape } from '../engine/game';
+import { cardImage, game, isLandscape } from '../engine/game';
 import { gameUI } from './gameUI';
 import { unpinned } from '../engine/actions';
 import type { Area } from '../engine/areas';
@@ -17,9 +17,10 @@ import { landscapeClass, turnedClass } from './cardClasses';
 import type { Dealt, TableControl } from './Table';
 import { useFlip } from './useFlip';
 
-// The pieces the table is drawn with: its areas, piles, storybook places, figures and the buttons drawn on it.
+// The pieces the table is drawn with: its areas, piles, fixed places whose taps the game handles, figures and the
+// buttons drawn on it.
 
-/** One of the storybook's two fixed places. */
+/** A fixed place whose taps the game handles (`Stack.slot`, `GameDefinition.slots`: the storybook's two). */
 export function SlotView({
   stack,
   defs,
@@ -53,16 +54,12 @@ export function SlotView({
         >
           <img
             src={cardImage(top.id, top.faceUp, size)}
-            alt={top.faceUp ? cardLabel(defs[top.id]) : 'Storybook'}
+            alt={top.faceUp ? cardLabel(defs[top.id]) : (stack.label ?? 'Card')}
             draggable={false}
           />
         </div>
       ) : (
-        <div className="slot-empty">
-          {stack.slot === 'story'
-            ? 'The story is over'
-            : 'Tap the storybook to turn over its next card'}
-        </div>
+        <div className="slot-empty">{game().slots[stack.slot!]?.empty}</div>
       )}
       {stack.cards.length > 1 && (
         <div className="slot-count">{stack.cards.length}</div>
@@ -133,7 +130,7 @@ export function AreaView({ area, state, controls, onInfo }: AreaViewProps) {
   );
 }
 
-/** A button drawn on the table below a box of it (below an Encounter Deck place, a deck's place, the storybook). */
+/** A button drawn on the table below a box of it (the game's: below an Encounter Deck place, a deck's place, the storybook). */
 export function PlaceButton({
   control,
   box,

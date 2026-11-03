@@ -9,6 +9,7 @@ import {
   moveArea,
   moveStack,
   pinnedOnTop,
+  sealed,
   settleSpots,
   stackTargetAt,
   unpinned,
@@ -101,7 +102,7 @@ interface Props {
    * the table yet).
    */
   preview?: { table: TableState; faded: string[] } | null;
-  /** A tap on the background, a figure or a pile (a storybook place too). */
+  /** A tap on the background, a figure or a pile (a fixed place whose taps the game handles too, `Stack.slot`). */
   onTap: (target: Target) => void;
   onDoubleTap: (target: Target) => void;
   onLongPress: (target: Target) => void;
@@ -241,9 +242,9 @@ export function TableView(props: Props) {
         dropOn,
         pointer,
       );
-      if ('story' in dest) {
-        dropOn = dest.story;
-        const lit = areaOf(table, dest.story);
+      if ('pick' in dest) {
+        dropOn = dest.pick;
+        const lit = areaOf(table, dest.pick);
         area = lit ? { id: lit, ok: true } : null;
       } else {
         dropOn = dest.onto;
@@ -264,20 +265,16 @@ export function TableView(props: Props) {
     if (target.kind !== 'stack') return;
     const { id: stackId, whole } = target;
     if (zone) return props.onDrop({ kind: 'zone', zone, stackId, whole });
-    // Held over the face-down storybook while dragged, it goes in there.
-    const dest =
-      dropOn && table.stacks[dropOn]?.slot === 'story'
-        ? { story: dropOn }
-        : dropDestination(
-            table,
-            defs,
-            stackId,
-            whole,
-            x,
-            y,
-            dropOn,
-            drag.pointer,
-          );
+    const dest = dropDestination(
+      table,
+      defs,
+      stackId,
+      whole,
+      x,
+      y,
+      dropOn,
+      drag.pointer,
+    );
     props.onDrop({ kind: 'table', stackId, whole, dest });
   }
 
@@ -287,14 +284,14 @@ export function TableView(props: Props) {
     targetAt,
     ctx: {
       grab,
-      // Not while a tap picks a target, nor on the storybook.
+      // Not while a tap picks a target, nor on a fixed place whose taps the game handles (the storybook).
       doubleTaps: (target) =>
         target.kind === 'stack' &&
         !props.picking &&
         !table.stacks[target.id]?.slot,
-      // The face-down storybook can't be looked at.
+      // A sealed place (the face-down storybook) can't be looked at.
       longPresses: (target) =>
-        target.kind === 'stack' && table.stacks[target.id]?.slot !== 'story',
+        target.kind === 'stack' && !sealed(table.stacks[target.id]),
     },
     onTap: (target) => {
       if (target.kind !== 'area') props.onTap(target);

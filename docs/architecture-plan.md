@@ -25,7 +25,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | B1. Folders and boundary                 | Sonnet (moving code); Opus sets the import rule and reviews                                         | ✅ Done        |
 | B2. Injected `GameDefinition`            | Opus                                                                                                | ✅ Done        |
 | B3. Composable place behaviours          | Opus                                                                                                | ✅ Done        |
-| B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ⬜ Not started |
+| B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ✅ Done        |
 | B5. Refusals as codes                    | Sonnet, once Opus has fixed the list of codes                                                       | ⬜ Not started |
 | B6. Generic cards, images and content    | Opus for `CardDef`; Sonnet for the pipeline configuration and the content provider                  | ⬜ Not started |
 | B7. A minimal second game                | Opus                                                                                                | ⬜ Not started |
@@ -597,6 +597,37 @@ Outcome (November 2026, on top of B2; `CLAUDE.md` describes the axes under **Rul
   declares its own. This makes keyboard shortcuts and tests easier.
 - What is specific to an area (Shuffle below a place, Browse, the Battlefield bar) is drawn in _slots_ provided by the
   game.
+
+Outcome (November 2026, on top of B3; `CLAUDE.md` describes it under **Generic UI** and **The import rule**):
+
+- **Commands.** `src/lib/ui/commands.ts`: a `Command<C>` is `{ id, icon, label, enabled(c), on?(c), run(c) }`, where
+  `c` is the selection with what the command needs (`PileContext`: the table, `defs`, the pile, whether it is set aside,
+  and `app`, a `PileApp` of the app's helpers — Browse, Put under, the dialogs, `dropAt`, the shuffle animation,
+  `notify`, `openRules`, `homeNames`; `FigureContext`: the table and the figure). `enabled` and `on` read the table
+  only, so tests ask them directly; `run` changes the table through `update()` or asks the app. `PILE_COMMANDS` (the 17
+  pile actions the bar had, each with the conditions it had) and `FIGURE_COMMANDS` are the generic ones;
+  `GameUI.pileCommands` / `figureCommands` are the game's bar, in order, from those and its own (Grimm World lists the
+  generic ones, as the bar had them: it has no action of its own on a pile yet). `ActionBar.tsx` is now a
+  `CommandBar` drawing the commands `enabled` for the selection. Keyboard shortcuts were left out: they would be a
+  player-visible change (a `keys` field on `Command` and one listener in `App`).
+- **Slots.** The area's buttons were already the game's since A4.1: `useTableEvents.ts` hands `TableView` its
+  `controls` (`TableControl`: below a box, in an area's header, in a grid's first place) and `App` draws the
+  Battlefield bar inside `.table-area`; nothing more was needed there. What B2 and B3 left in `src/lib/` went into the
+  game's definition: `slots: Record<StorySlot, SlotSpec>` replaces `slotGives` and `sealedSlots` (`gives`, `sealed`,
+  the `refusal` of "Put under…" on a place that isn't sealed, the `empty` text `SlotView` showed for the storybook),
+  `Destination`'s `{ story }` is `{ pick }` and the chapter picker's `Dialog` is `pick`. `TableView` no longer checks
+  for the storybook on a drop (`dropDestination()` already says where it goes), a long press looks at any pile but a
+  sealed one, "Put under…" on a fixed place reads its `SlotSpec` and the deck of its pile, and Find says "in the" the
+  fixed place's area. `src/lib/` has no storybook literal left but in comments giving examples
+  (a few of the game's words remain in UI texts: the Find dialog's placeholder, "the Hand"; B5 and B6 will take those).
+- **Nothing changed for the player**: the tests and the save snapshots are unchanged, and on the 0.5.5 save with an
+  area moved the table drawn and the action bar of each of its piles are the same HTML as on `main`; so are the
+  storybook's places, its reveal, Find's "in the Storybook", "Put under…" on both storybook places and a drag onto the
+  storybook (the chapter picker). The bar still offers Turn around on an empty fixed place (every card of none turns
+  around), as before.
+- Tests: `src/lib/ui/commands.test.ts` (the bar of a sidebar deck, a loose card, the Damage Card, a Terrain Card on the
+  battlefield and a pile in the Hand; the labels and Browse pressed; every command offered does something); `commands.ts`
+  has the coverage thresholds of the rules modules.
 
 ### B5. Refusals as codes
 

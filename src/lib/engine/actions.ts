@@ -540,8 +540,8 @@ export function movingPile(
 
 /**
  * What a drag starting on a table pile moves, or null when nothing leaves it (the table is panned instead). A fixed
- * table place's pile (`Stack.slot`) gives its top card only, if the game says so (`slotGives`: a revealed card that isn't
- * a storybook card, a Y-card for the Encounter Bar); a time card alone on its place stays there.
+ * table place's pile (`Stack.slot`) gives its top card only, if the game says so (`SlotSpec.gives`: a revealed card that
+ * isn't a storybook card, a Y-card for the Encounter Bar); a time card alone on its place stays there.
  */
 export function dragged(
   t: Table,
@@ -552,17 +552,17 @@ export function dragged(
   let moved = pile;
   if (s?.slot) {
     const top = s.cards.at(-1);
-    if (!top || !game().slotGives(s.slot, defs[top.id])) return null;
+    if (!top || !game().slots[s.slot]?.gives(defs[top.id])) return null;
     moved = { id: pile.id, whole: false };
   }
   return movedCards(t, moved.id, moved.whole).length ? moved : null;
 }
 
 /**
- * Where a dragged pile (or its top card) goes: under one of the face-down storybook's cards, `story` (the player then
- * picks the chapter), or where `placement()` puts it.
+ * Where a dragged pile (or its top card) goes: under one of the cards of pile `pick`, which the player then picks (the
+ * face-down storybook's, under a chapter; `GameDefinition.pickedPile`), or where `placement()` puts it.
  */
-export type Destination = { story: string } | Placement;
+export type Destination = { pick: string } | Placement;
 
 /**
  * Where a table pile (or its top card, `whole` false) dragged with its top-left corner to (x, y), over pile `dropOn`
@@ -580,8 +580,8 @@ export function dropDestination(
   pointer?: { x: number; y: number },
 ): Destination {
   const cards = movedCards(t, stackId, whole);
-  const story = game().pickedPile(t, cards, defs, x, y);
-  if (story) return { story };
+  const pick = game().pickedPile(t, cards, defs, x, y);
+  if (pick) return { pick };
   // A fixed pile (an Encounter Deck place) stays: its cards leave it as a new pile.
   const moving = movingPile(t, stackId, whole);
   return placement(t, cards, defs, x, y, dropOn, moving, pointer);
@@ -842,8 +842,8 @@ export function notHeldBy(
 }
 
 /** Whether a pile lies on a fixed table place whose cards only the game's own actions move (the face-down storybook). */
-function sealed(s: Stack | undefined): boolean {
-  return !!s?.slot && game().sealedSlots.includes(s.slot);
+export function sealed(s: Stack | undefined): boolean {
+  return !!s?.slot && !!game().slots[s.slot]?.sealed;
 }
 
 /**

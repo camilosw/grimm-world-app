@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { cardImage, isLandscape } from '../engine/game';
+import { cardImage, game, isLandscape } from '../engine/game';
+import { allAreas } from '../engine/areas';
 import {
   extractCard,
   inTray,
@@ -17,7 +18,7 @@ import {
 } from '../engine/cards';
 import { storage } from '../engine/storage';
 import { update } from '../engine/store';
-import type { At, CardDef, CardRef, Table } from '../engine/types';
+import type { At, CardDef, CardRef, FixedPlace, Table } from '../engine/types';
 import { landscapeClass } from './cardClasses';
 import { CardGhost } from './CardGhost';
 import { useDragOut } from './useDragOut';
@@ -544,6 +545,12 @@ interface FindProps {
   onClose: () => void;
 }
 
+/** The name of the area a fixed place lies in ("Storybook"), for "in the …". */
+const slotArea = (t: Table, slot: FixedPlace) => {
+  const id = game().placeArea(slot);
+  return allAreas(t).find((a) => a.id === id)?.label ?? 'table';
+};
+
 /** Search every card on the table, e.g. "Take card Y003 and resolve it". */
 export function FindDialog({
   table,
@@ -576,8 +583,8 @@ export function FindDialog({
           const where = locateCard(table, def.id);
           if (!where) return null;
           const { stack, index } = where;
-          // Storybook cards stay in the storybook; a deck is a pile even with one card left. A card set aside can be
-          // taken onto the table too.
+          // Cards of a fixed place whose taps the game handles stay there (the storybook's); a deck is a pile even with
+          // one card left. A card set aside can be taken onto the table too.
           const aside = inTray(table, stack.id);
           const inPile =
             (stack.cards.length > 1 || !!stack.deck || aside) && !stack.slot;
@@ -593,7 +600,7 @@ export function FindDialog({
                 <span>{cardLabel(def)}</span>
                 <span className="muted">
                   {stack.slot
-                    ? 'in the Storybook'
+                    ? `in the ${slotArea(table, stack.slot)}`
                     : aside
                       ? 'in the Hand'
                       : inPile

@@ -32,11 +32,12 @@ import {
 import { cardImage, family, isLandscape, turnsAround } from './cards';
 import { DECK_SPECS, homeDeck, returnsCards, storySlot } from './decks';
 import { type GameDefinition, setGame } from './lib/engine/game';
+import { FIGURE_COMMANDS, PILE_COMMANDS } from './lib/ui/commands';
 import { type GameUI, setGameUI } from './lib/ui/gameUI';
 import { pileRule } from './rules';
 import { readSave, saveText, writeGame } from './save';
 import { initialTable, isPlayable } from './setup';
-import { intoStory } from './storybook';
+import { intoStory, STORY_SLOT_SPECS } from './storybook';
 import { gameProblems } from './validate';
 
 export const grimmWorld: GameDefinition = {
@@ -70,11 +71,7 @@ export const grimmWorld: GameDefinition = {
   placeArea,
   placePoint,
   deckPlaces: ENCOUNTER_PLACES,
-  // Only a revealed card that isn't a storybook card leaves the storybook (a Y-card, for the Encounter Bar).
-  slotGives: (slot, top) =>
-    slot === 'story-revealed' && top?.type !== 'storybook',
-  // The face-down storybook's cards move between its chapters only (`putUnderChapter`).
-  sealedSlots: ['story'],
+  slots: STORY_SLOT_SPECS,
   pinsBottom: PINNED_BOTTOM,
   pinsTop: PINNED_TOP,
   // Cards the storybook may hold, dropped on it, go under one of its chapters (the chapter picker).
@@ -107,6 +104,26 @@ export const grimmWorldUI: GameUI = {
     },
   },
   rule: pileRule,
+  pileCommands: [
+    PILE_COMMANDS.draw,
+    PILE_COMMANDS.flip,
+    PILE_COMMANDS.topToBottom,
+    PILE_COMMANDS.browse,
+    PILE_COMMANDS.shuffle,
+    PILE_COMMANDS.sort,
+    PILE_COMMANDS.view,
+    PILE_COMMANDS.rotate,
+    PILE_COMMANDS.turnAround,
+    PILE_COMMANDS.putUnder,
+    PILE_COMMANDS.turnOver,
+    PILE_COMMANDS.front,
+    PILE_COMMANDS.back,
+    PILE_COMMANDS.toTable,
+    PILE_COMMANDS.returnToDeck,
+    PILE_COMMANDS.name,
+    PILE_COMMANDS.rules,
+  ],
+  figureCommands: [FIGURE_COMMANDS.remove],
 };
 
 /** Hand Grimm World over to the engine and the UI, before anything is laid out or drawn. */

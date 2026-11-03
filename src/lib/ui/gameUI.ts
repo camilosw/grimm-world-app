@@ -1,9 +1,10 @@
 // What the game adds to the generic UI (GameUI): its area icons, the area rail, the areas Fit frames, the area headers'
-// texts and the rulebook links. The game registers it with `setGameUI()` beside its GameDefinition (`setGame()`).
+// texts, the rulebook links and the action bar's commands. The game registers it with `setGameUI()` beside its GameDefinition (`setGame()`).
 
 import type { ComponentType } from 'react';
 import type { Area } from '../engine/areas';
 import type { CardDef, GridId, Stack, Table } from '../engine/types';
+import type { FigureCommand, PileCommand } from './commands';
 
 export interface GameUI {
   /** An area's icon, in its header and on the area rail. */
@@ -18,6 +19,10 @@ export interface GameUI {
   gridStart: Record<GridId, { label: string; hint: string }>;
   /** The rulebook section explaining a pile (its deck, its place or its top card), if any. */
   rule(stack: Stack, defs: Record<string, CardDef>): string | null;
+  /** The action bar's commands for a selected pile, in this order (`PILE_COMMANDS` and the game's own). */
+  pileCommands: PileCommand[];
+  /** The action bar's commands for a selected figure, in this order (`FIGURE_COMMANDS` and the game's own). */
+  figureCommands: FigureCommand[];
 }
 
 let current: GameUI | undefined;

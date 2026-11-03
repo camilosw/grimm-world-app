@@ -222,7 +222,7 @@ export default function App() {
     browse: setBrowseId,
     inspect: (card) => setDialog({ kind: 'inspect', card }),
     pickChapter: (stackId, cardIds) =>
-      setDialog({ kind: 'chapter', stackId, cardIds }),
+      setDialog({ kind: 'pick', stackId, cardIds }),
     putUnderTarget: drops.putUnderTarget,
     notify,
     shuffle,
@@ -415,7 +415,7 @@ export default function App() {
           homeNames={drops.homeNamesOf}
         />
       )}
-      {selectedToken && <FigureBar token={selectedToken} />}
+      {selectedToken && <FigureBar table={table} token={selectedToken} />}
 
       {dialog?.kind === 'inspect' && (
         <CardViewer
@@ -454,7 +454,7 @@ export default function App() {
           onClose={() => setDialog(null)}
         />
       )}
-      {dialog?.kind === 'chapter' && (
+      {dialog?.kind === 'pick' && (
         <ChapterDialog
           cards={
             dialog.cardIds ??

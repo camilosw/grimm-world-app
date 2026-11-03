@@ -1,4 +1,5 @@
-// Grimm World's storybook: revealing its cards, putting cards under its chapters, and its progress.
+// Grimm World's storybook: its two fixed places, revealing its cards, putting cards under its chapters, and its
+// progress.
 
 import { refusal } from './areas';
 import { family } from './cards';
@@ -6,10 +7,27 @@ import { DECK_SPECS, storySlot } from './decks';
 import { addStack, notHeldBy, setStack, takeCards } from './lib/engine/actions';
 import { areaForCard, spotsOf } from './lib/engine/areas';
 import { spotPlace } from './lib/engine/arrangement';
+import type { SlotSpec } from './lib/engine/game';
 import { CARD_H, CARD_W } from './lib/engine/geometry';
-import type { At, CardDef, Table } from './lib/engine/types';
+import type { At, CardDef, StorySlot, Table } from './lib/engine/types';
 
 // ---------- storybook ----------
+
+/** The storybook's two fixed places: the face-down deck (`story`) and its revealed cards (`story-revealed`). */
+export const STORY_SLOT_SPECS: Record<StorySlot, SlotSpec> = {
+  story: {
+    gives: () => false,
+    // Its cards move between its chapters only (`putUnderChapter`, the chapter picker).
+    sealed: true,
+    empty: 'The story is over',
+  },
+  'story-revealed': {
+    // Only a revealed card that isn't a storybook card leaves the storybook (a Y-card, for the Encounter Bar).
+    gives: (top) => top?.type !== 'storybook',
+    refusal: 'Put cards under the storybook itself (the right-hand card)',
+    empty: 'Tap the storybook to turn over its next card',
+  },
+};
 
 /**
  * Turn over the top card of the storybook onto the revealed pile. A sub-chapter card (Y-card) on top isn't turned over:

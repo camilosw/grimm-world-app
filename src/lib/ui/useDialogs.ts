@@ -8,7 +8,8 @@ export type Dialog =
   | { kind: 'menu' }
   | { kind: 'about' }
   | { kind: 'tokens' }
-  | { kind: 'chapter'; stackId: string; cardIds?: string[] }
+  /** The game's picker for cards of a pile (all its cards, if none given) going under a card of `GameDefinition.pickedPile` or of a sealed place (Grimm World's chapter picker). */
+  | { kind: 'pick'; stackId: string; cardIds?: string[] }
   | null;
 
 /** Cards waiting in "Put under…" mode: a whole table pile, or cards picked in the Browse panel. */

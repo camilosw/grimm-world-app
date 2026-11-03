@@ -92,12 +92,15 @@ describe("Grimm World's definition", () => {
   it('lets only a revealed card that is no storybook card be dragged off the storybook', () => {
     const [y] = cardsOf('lost-pages', 1);
     const [chapter] = cardsOf('storybook', 1);
-    expect(grimmWorld.slotGives('story-revealed', defs[y])).toBe(true);
-    expect(grimmWorld.slotGives('story-revealed', defs[chapter])).toBe(false);
+    const { story, 'story-revealed': revealed } = grimmWorld.slots;
+    expect(revealed.gives(defs[y])).toBe(true);
+    expect(revealed.gives(defs[chapter])).toBe(false);
     // A card the card set doesn't know: not a storybook card.
-    expect(grimmWorld.slotGives('story-revealed', undefined)).toBe(true);
-    expect(grimmWorld.slotGives('story', defs[y])).toBe(false);
-    expect(grimmWorld.sealedSlots).toEqual(['story']);
+    expect(revealed.gives(undefined)).toBe(true);
+    expect(story.gives(defs[y])).toBe(false);
+    // Only the face-down storybook's cards are moved by the game alone, between its chapters.
+    expect(story.sealed).toBe(true);
+    expect(revealed.sealed).toBeFalsy();
   });
 
   it('finds time cards and the Damage Card off their places', () => {

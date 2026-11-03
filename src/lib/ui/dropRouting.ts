@@ -204,7 +204,8 @@ export function useDropRouting(g: DropGame) {
     return p.refused ? null : p;
   };
 
-  const onStoryAt = (at: { x: number; y: number }, cardIds: string[]) =>
+  /** Cards dropped at `at` go under a card the player picks (`pickedPile`). */
+  const pickedAt = (at: { x: number; y: number }, cardIds: string[]) =>
     !!pickedPile(table, defs, at, cardIds);
 
   /**
@@ -243,7 +244,7 @@ export function useDropRouting(g: DropGame) {
     let next: Incoming | null = null;
     const picked = at && pickedPile(table, defs, at, cardIds);
     if (table && picked) {
-      // They go under one of the storybook's cards (the drop asks which), as a drag on the table does.
+      // They go under one of the pile's cards (the drop asks which: the storybook's chapter), as a drag on the table does.
       next = {
         area: { id: areaOf(table, picked) ?? '', ok: true },
         spot: null,
@@ -326,8 +327,8 @@ export function useDropRouting(g: DropGame) {
     }
     const at = worldAt(clientX, clientY);
     if (!at) return;
-    if (onStoryAt(at, cardIds))
-      return g.setDialog({ kind: 'chapter', stackId, cardIds });
+    if (pickedAt(at, cardIds))
+      return g.setDialog({ kind: 'pick', stackId, cardIds });
     const target =
       A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ??
       null;
@@ -361,15 +362,15 @@ export function useDropRouting(g: DropGame) {
     if (!table || !source) return;
     const { stackId: sourceId, cardIds, faceUp = true } = source;
     const target = table.stacks[targetId];
-    // Cards picked out of the storybook may go under another of its chapters.
-    if (sourceId === targetId && !(target.slot === 'story' && cardIds)) return;
-    if (target.slot === 'story-revealed')
-      return notify(
-        'Put cards under the storybook itself (the right-hand card)',
-      );
-    if (target.slot === 'story') {
-      if (heldBy(sourceId, 'storybook', 'Storybook', cardIds))
-        g.setDialog({ kind: 'chapter', stackId: sourceId, cardIds });
+    const slot = target.slot && game().slots[target.slot];
+    // Cards picked out of a sealed place (the storybook) may go under another of its cards (chapters).
+    if (sourceId === targetId && !(slot && slot.sealed && cardIds)) return;
+    // Under a sealed place's card the player picks, if its deck holds them; nothing goes under other fixed places.
+    if (slot) {
+      if (!slot.sealed) return notify(slot.refusal ?? "Cards can't go there");
+      const kind = target.deck;
+      if (!kind || heldBy(sourceId, kind, game().decks[kind].label, cardIds))
+        g.setDialog({ kind: 'pick', stackId: sourceId, cardIds });
       return;
     }
     if (target.deck) {
@@ -411,9 +412,9 @@ export function useDropRouting(g: DropGame) {
     const at = worldAt(clientX, clientY);
     const card = table?.stacks[deckId]?.cards.at(-1);
     if (!at || !table || !card) return;
-    if (onStoryAt(at, [card.id]))
+    if (pickedAt(at, [card.id]))
       return g.setDialog({
-        kind: 'chapter',
+        kind: 'pick',
         stackId: deckId,
         cardIds: [card.id],
       });
@@ -442,8 +443,7 @@ export function useDropRouting(g: DropGame) {
     const at = worldAt(clientX, clientY);
     if (!at) return;
     const cardIds = s.cards.map((c) => c.id);
-    if (onStoryAt(at, cardIds))
-      return g.setDialog({ kind: 'chapter', stackId });
+    if (pickedAt(at, cardIds)) return g.setDialog({ kind: 'pick', stackId });
     const target =
       A.stackTargetAt(table, at.x + CARD_W / 2, at.y + CARD_H / 2, null)?.id ??
       null;

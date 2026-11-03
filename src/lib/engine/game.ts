@@ -17,6 +17,27 @@ import type {
   Table,
 } from './types';
 
+/**
+ * A fixed table place whose taps the game handles (`Stack.slot`): the table draws it as a card place with a pile, and
+ * the game says what leaves it and what goes under it.
+ */
+export interface SlotSpec {
+  /**
+   * Whether a drag on its pile takes the top card `top` off it (the revealed storybook's, but for a storybook card);
+   * else nothing leaves it by a drag (`dragged()`).
+   */
+  gives(top: CardDef | undefined): boolean;
+  /**
+   * Only the game's own actions move its cards (the face-down storybook): "Put under…" takes none of them, its top card
+   * isn't looked at, and cards put under it go where the player picks in it (`Dialog`'s `pick`), if its deck holds them.
+   */
+  sealed?: boolean;
+  /** Why "Put under…" puts nothing under it, if it isn't sealed. */
+  refusal?: string;
+  /** What its place says while empty. */
+  empty: string;
+}
+
 export interface GameDefinition {
   /** Prefix of what the game keeps on the device (`storage()`). */
   id: string;
@@ -85,13 +106,8 @@ export interface GameDefinition {
    * their piles telling nothing of their size; cards dropped in their area go onto the nearest (`placement()`).
    */
   deckPlaces: { place: Place; label: string; hint?: string }[];
-  /**
-   * Whether a drag on the pile of a fixed table place (`Stack.slot`) takes its top card `top` off it (the revealed
-   * storybook's, but for a storybook card); else nothing leaves it by a drag (`dragged()`).
-   */
-  slotGives(slot: StorySlot, top: CardDef | undefined): boolean;
-  /** Fixed table places (`Stack.slot`) whose cards only the game's own actions move: "Put under…" takes none of them. */
-  sealedSlots: StorySlot[];
+  /** The fixed table places whose taps the game handles (`Stack.slot`: the storybook's two), and how each behaves. */
+  slots: Record<StorySlot, SlotSpec>;
   /** Fixed places whose bottom card stays there for good (`pinned()`). */
   pinsBottom: Place[];
   /** Fixed places whose top card stays there for good (`pinnedOnTop()`), besides a deck's `DeckSpec.keeps`. */

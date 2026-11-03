@@ -120,11 +120,7 @@ function play(t: Table, m: Move): Table {
         over,
       );
       // Held over the face-down storybook, it goes in there (the chapter picker).
-      if (
-        'story' in held ||
-        (held.onto && t.stacks[held.onto]?.slot === 'story')
-      )
-        return t;
+      if ('pick' in held) return t;
       const onto = held.onto;
       const dest = A.dropDestination(
         t,
@@ -135,7 +131,7 @@ function play(t: Table, m: Move): Table {
         y,
         onto,
       );
-      if ('story' in dest || dest.refused || dest.onto === pile.id) return t;
+      if ('pick' in dest || dest.refused || dest.onto === pile.id) return t;
       return update((t) => A.dropOnTable(t, pile.id, target.whole, dest, defs));
     }
     // The top card of a sidebar deck dragged onto the table (`dropFromDeck`), or a set-aside pile (`dropFromTray`).

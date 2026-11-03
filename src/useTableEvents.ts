@@ -154,7 +154,7 @@ export function useTableEvents(g: TableGame) {
       return g.dropOnZone(drop.zone, drop.stackId, drop.whole);
     const { stackId, whole, dest } = drop;
     // Into the storybook: the player picks under which chapter.
-    if ('story' in dest) {
+    if ('pick' in dest) {
       const top = table.stacks[stackId]?.cards.at(-1);
       return g.pickChapter(stackId, whole ? undefined : top && [top.id]);
     }

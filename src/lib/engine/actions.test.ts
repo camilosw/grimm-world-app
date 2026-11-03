@@ -345,7 +345,7 @@ describe('dragging a table pile', () => {
   it('sends Y-cards dropped on the storybook under one of its chapters, other drops where placement() says', () => {
     expect(
       dropDestination(t1, defs, pile, true, story.x, story.y, null),
-    ).toEqual({ story: story.id });
+    ).toEqual({ pick: story.id });
     // Over the storybook's pile alone doesn't decide: `intoStory` does, as for cards it can't take.
     expect(
       dropDestination(t1, defs, pile, true, -2000, -3000, story.id),
