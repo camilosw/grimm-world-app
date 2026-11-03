@@ -26,7 +26,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | B2. Injected `GameDefinition`            | Opus                                                                                                | ✅ Done        |
 | B3. Composable place behaviours          | Opus                                                                                                | ✅ Done        |
 | B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ✅ Done        |
-| B5. Refusals as codes                    | Sonnet, once Opus has fixed the list of codes                                                       | ⬜ Not started |
+| B5. Refusals as codes                    | Sonnet, once Opus has fixed the list of codes                                                       | ✅ Done        |
 | B6. Generic cards, images and content    | Opus for `CardDef`; Sonnet for the pipeline configuration and the content provider                  | ⬜ Not started |
 | B7. A minimal second game                | Opus                                                                                                | ⬜ Not started |
 | B8. Library repo                         | Sonnet                                                                                              | ⬜ Not started |
@@ -619,7 +619,8 @@ Outcome (November 2026, on top of B3; `CLAUDE.md` describes it under **Generic U
   for the storybook on a drop (`dropDestination()` already says where it goes), a long press looks at any pile but a
   sealed one, "Put under…" on a fixed place reads its `SlotSpec` and the deck of its pile, and Find says "in the" the
   fixed place's area. `src/lib/` has no storybook literal left but in comments giving examples
-  (a few of the game's words remain in UI texts: the Find dialog's placeholder, "the Hand"; B5 and B6 will take those).
+  (a few of the game's words remain in UI texts: the Find dialog's placeholder, "the Hand"; B6 will take those, as B5
+  turned only the refusals into codes).
 - **Nothing changed for the player**: the tests and the save snapshots are unchanged, and on the 0.5.5 save with an
   area moved the table drawn and the action bar of each of its piles are the same HTML as on `main`; so are the
   storybook's places, its reveal, Find's "in the Storybook", "Put under…" on both storybook places and a drag onto the
@@ -633,6 +634,32 @@ Outcome (November 2026, on top of B3; `CLAUDE.md` describes it under **Generic U
 
 `placement()` and `refusal()` return codes with data (`{ code: 'only-family', spot, families }`) and the game supplies
 the text. This opens the door to translating the app.
+
+Outcome (November 2026, on top of B4; `CLAUDE.md` describes it under **Rules: engine mechanics and game data**):
+
+- **The codes.** `Refusal` (`src/lib/engine/refusals.ts`) is a union of 16 codes, each with the data its words need:
+  on a grid, `onto-grid-card`, `grid-family`, `grid-one-at-a-time`, `grid-no-free-place` (`grid`); on a spot,
+  `spot-alone`, `spot-own-card`, `spot-family`, `spot-one-at-a-time`, `spot-taken` (`spot`), `spot-holds-at-most`
+  (`spot`, `max`) and `area-holds-at-most` (`area`, `family`, `max`); in an area, `area-family` (`area`, `family`: the
+  game's `refusal()`, which says where the family belongs); in a deck, `deck-holds-not` (`deck`, `card`); and the
+  drops and "Put under…" of the UI, `deck-to-deck`, `stays-on-place` (`spot`) and `slot-takes-nothing` (`slot`). Spots
+  and areas go as the objects (a grid's spots, the Market Prices, aren't in `GameDefinition.spots`), decks and grids
+  by their kind. Every code was one text before, and the families a spot takes are worked out of the spot by the
+  text, not carried.
+- **Who says what.** `Placement.refused`, the `refuse` hooks (`PlaceBehaviour`), `mixedRefusal()`, `refusedBy()`,
+  `freeDropAt()` and `GameDefinition.refusal()` return a `Refusal`; `useDropRouting` tells the player one through
+  `refuse()`, in the words of `GameUI.refusalText` (the game's `refusalText()`, `src/refusals.ts`, an exhaustive
+  `switch`), and so does `onDrop` in `useTableEvents.ts`. `GameDefinition.familyNames` and `cardNames`, which only the
+  refusals' texts used, went; so did `SlotSpec.refusal` (`slot-takes-nothing`). `src/lib/` holds no refusal text.
+- Left as texts: the successes (`Back to …`, "Areas packed together again"), the Find dialog's placeholder and "the
+  Hand" (B6), and the game's own refusals, already the game's (turning a card on a grid or on a spot facing its cards,
+  the Battlefield bar). Translating them is the same step, once a game asks for another language.
+- **Nothing changed for the player**: the tests' texts are unchanged (each engine test now checks the code too, and
+  the text through `say()`); on every save fixture, every card type alone, two of a type and mixed pairs, dropped at
+  25 points of every area, onto every table pile and put near the middle of the screen (`freeDropAt`), 160 518
+  placements, 118 883 of them refused, gave the same text as on `main`; and in the browser a Region Card dropped in
+  the Storage area, an X-card in the Enemy Deck's and a deck dropped on another say what they said.
+- Tests: `src/refusals.test.ts` (the words of each code, including those only the UI gives).
 
 ### B6. Generic cards, images and content
 
@@ -658,3 +685,6 @@ of their own, published as a package that this repo and the new game's repo depe
   move with an area only by lying over it. The 1-unit offsets between rows on one line (`Spot.after`) only matter to
   the frozen migrations now and could go with a layout change.
 - Which solitaire serves as B7's throwaway test.
+- `Refusal` (B5) is a closed union in `src/lib/`: a refusal of a game's own (a rule the engine doesn't know) needs a
+  code added there. If B7 or a later game wants one, open it as `GameKinds` does (a game's codes merged in), with the
+  game's `refusalText` covering them.

@@ -5,6 +5,7 @@
 import type { Area, Spot } from './areas';
 import type { DeckSpec } from './decks';
 import type { Point, Rect, Side } from './geometry';
+import type { Refusal } from './refusals';
 import type {
   CardDef,
   CardManifest,
@@ -32,8 +33,6 @@ export interface SlotSpec {
    * isn't looked at, and cards put under it go where the player picks in it (`Dialog`'s `pick`), if its deck holds them.
    */
   sealed?: boolean;
-  /** Why "Put under…" puts nothing under it, if it isn't sealed. */
-  refusal?: string;
   /** What its place says while empty. */
   empty: string;
 }
@@ -124,18 +123,17 @@ export interface GameDefinition {
     y: number,
   ): string | null;
 
-  // ---------- texts ----------
+  // ---------- rules ----------
 
-  /** A family's cards, for refusals: "Region Cards". */
-  familyNames: Record<Family, string>;
-  /** A card of a grid's family, as named on the table: "Region Card". */
-  cardNames: Partial<Record<Family, string>>;
-  /** Why these cards may not be put in `area` (null: they may; space outside the areas takes anything). */
+  /**
+   * Why these cards may not be put in `area` (null: they may; space outside the areas takes anything), as a code the
+   * game words (`GameUI.refusalText`).
+   */
   refusal(
     area: Area | null,
     cardIds: string[],
     defs: Record<string, CardDef>,
-  ): string | null;
+  ): Refusal | null;
 
   // ---------- saves ----------
 

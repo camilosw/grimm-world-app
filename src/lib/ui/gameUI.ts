@@ -1,8 +1,9 @@
 // What the game adds to the generic UI (GameUI): its area icons, the area rail, the areas Fit frames, the area headers'
-// texts, the rulebook links and the action bar's commands. The game registers it with `setGameUI()` beside its GameDefinition (`setGame()`).
+// texts, the words of the refusals, the rulebook links and the action bar's commands. The game registers it with `setGameUI()` beside its GameDefinition (`setGame()`).
 
 import type { ComponentType } from 'react';
 import type { Area } from '../engine/areas';
+import type { Refusal } from '../engine/refusals';
 import type { CardDef, GridId, Stack, Table } from '../engine/types';
 import type { FigureCommand, PileCommand } from './commands';
 
@@ -15,6 +16,8 @@ export interface GameUI {
   fitAreas(t: Table): string[];
   /** What an area takes, in its header (left out when it is the area's label). */
   acceptsText(area: Area): string;
+  /** A refusal in words, told to the player ("Region Cards belong in the Map area"). */
+  refusalText(r: Refusal): string;
   /** What the first place of an empty grid says. */
   gridStart: Record<GridId, { label: string; hint: string }>;
   /** The rulebook section explaining a pile (its deck, its place or its top card), if any. */

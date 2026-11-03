@@ -29,6 +29,7 @@ import {
   withinRow,
 } from './arrangement';
 import { layerBehaviours, refusedOnto } from './behaviours';
+import type { Refusal } from './refusals';
 import type { Facing } from './facing';
 import { family, game } from './game';
 import {
@@ -944,7 +945,7 @@ export interface Placement {
   /** The spot they go to, if any. */
   spot: Spot | null;
   /** Why they can't go there (null = allowed). */
-  refused: string | null;
+  refused: Refusal | null;
 }
 
 /**
@@ -985,7 +986,6 @@ export function placement(
       families.every((f) => takes(beside.spot, f))
     )
   ) {
-    const label = game().areas.find((a) => a.id === under)!.label;
     return {
       at: looseAt(t, x, y),
       x,
@@ -993,7 +993,7 @@ export function placement(
       onto: null,
       area,
       spot: null,
-      refused: `Nothing goes on top of a ${game().cardNames[game().gridFamily[under]]} on the ${label}`,
+      refused: { code: 'onto-grid-card', grid: under },
     };
   }
   if (area?.deck) return intoDeck(t, area, area.deck, cardIds, defs);
@@ -1010,8 +1010,7 @@ export function placement(
       area,
       spot: own,
       refused:
-        mixedRefusal(own, area, families) ??
-        refusedOnto(t, own, cardIds, moving),
+        mixedRefusal(own, families) ?? refusedOnto(t, own, cardIds, moving),
     };
   }
   // Nothing stacks onto a card in a fanned row (or on a grid), so dropped on one, the cards go to the place they are
@@ -1095,14 +1094,15 @@ function ontoGrid(
     .map((p) => ({ p, d: distanceTo(p.box, c) }))
     .sort((a, b) => a.d - b.d)[0];
   if (!inRect(area, c.x, c.y) && !(near && near.d < GRID_REACH)) return null;
-  const names = game().familyNames[game().gridFamily[g]];
-  const refused = !families.every((f) => f === game().gridFamily[g])
-    ? `Only ${names} go on the ${area.label}'s places`
+  const refused: Refusal | null = !families.every(
+    (f) => f === game().gridFamily[g],
+  )
+    ? { code: 'grid-family', grid: g }
     : cardIds.length > 1
-      ? `Put ${names} on the ${area.label} one at a time`
+      ? { code: 'grid-one-at-a-time', grid: g }
       : near
         ? null
-        : `There is no free place beside the ${area.label}'s cards`;
+        : { code: 'grid-no-free-place', grid: g };
   const place = near?.p ?? { x, y };
   const at: At = near
     ? { grid: g, col: near.p.col, row: near.p.row }
@@ -1128,9 +1128,7 @@ function intoDeck(
     onto,
     area,
     spot: null,
-    refused: bad
-      ? `${bad.code ?? bad.name ?? 'This card'} can't go into the ${spec.label}`
-      : null,
+    refused: bad ? { code: 'deck-holds-not', deck: kind, card: bad } : null,
   };
 }
 

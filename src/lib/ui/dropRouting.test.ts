@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DECK_SPECS } from '../../decks';
-import { cardsOf, defs, newGame } from '../../test/play';
+import { cardsOf, defs, newGame, say } from '../../test/play';
 import { addStack, settle } from '../engine/actions';
 import { allAreas, areaForCard, looseAt, spotsOf } from '../engine/areas';
 import { CARD_H, CARD_W } from '../engine/geometry';
@@ -61,7 +61,11 @@ describe('freeDropAt', () => {
       FAR.y,
     );
     expect(at).toBeNull();
-    expect(refused).toMatch(/lies alone on its place/);
+    expect(refused).toMatchObject({
+      code: 'spot-alone',
+      spot: { id: 'character' },
+    });
+    expect(say(refused)).toMatch(/lies alone on its place/);
   });
 
   describe('with the middle of the screen in a table deck area', () => {

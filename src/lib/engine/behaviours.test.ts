@@ -6,6 +6,7 @@ import {
   drop,
   newGame,
   pileOf,
+  say,
   spot,
 } from '../../test/play';
 import {
@@ -110,7 +111,13 @@ describe('place behaviours', () => {
     const [other] = cardsOf('hitpoints', 2).filter((c) => c !== hp);
     const spent = spot(t2, 'hp-1-spent');
     const refused = placement(t2, [other], defs, spent.x, spent.y, null);
-    expect(refused.refused).toMatch(/already a card on the Hit Point Card/);
+    expect(refused.refused).toMatchObject({
+      code: 'spot-taken',
+      spot: { id: 'hp-1-spent' },
+    });
+    expect(say(refused.refused)).toMatch(
+      /already a card on the Hit Point Card/,
+    );
     expect(enemy.pile?.one).toBe(true);
   });
 

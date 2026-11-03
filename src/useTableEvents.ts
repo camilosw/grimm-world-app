@@ -17,6 +17,7 @@ import { deckStack } from './lib/engine/decks';
 import { CARD_H, CARD_W } from './lib/engine/geometry';
 import { update } from './lib/engine/store';
 import type { CardDef, CardRef, Table } from './lib/engine/types';
+import { gameUI } from './lib/ui/gameUI';
 import type { Selection, TableControl, TableDrop, Zone } from './lib/ui/Table';
 import type { Target } from './lib/ui/tableGestures';
 import { AREA_RULES } from './rules';
@@ -158,7 +159,7 @@ export function useTableEvents(g: TableGame) {
       const top = table.stacks[stackId]?.cards.at(-1);
       return g.pickChapter(stackId, whole ? undefined : top && [top.id]);
     }
-    if (dest.refused) return g.notify(dest.refused);
+    if (dest.refused) return g.notify(gameUI().refusalText(dest.refused));
     const onto = dest.onto;
     // Put back where it came from (a card dropped back on its deck).
     if (onto === stackId) return;

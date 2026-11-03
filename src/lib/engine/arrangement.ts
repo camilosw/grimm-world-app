@@ -11,12 +11,12 @@ import {
   stacksOnSpot,
 } from './areas';
 import { addStack, setStack } from './actions';
-import { familyNames } from './accepts';
 import type { PlaceBehaviour } from './behaviours';
 import { game } from './game';
 import { CARD_H, CARD_W, type Point, type Side, OPPOSITE } from './geometry';
 import { coveredSide } from './layering';
 import { lyingSize } from './orientation';
+import type { Refusal } from './refusals';
 import type { Table } from './types';
 
 /** One pile on the spot's place (cards dropped on it go on top of it, or under it). */
@@ -403,18 +403,17 @@ function refusal(
   spot: Spot,
   cardIds: string[],
   moving: string | null,
-): string | null {
+): Refusal | null {
   if (!spot.fan)
     return spot.pile?.one && holdsOne(t, spot, moving) ? full(spot) : null;
   // A fanned spot takes one card per place, not a pile (unless it spreads a pile out on its row, as the hand does).
   if (!spot.fan.takesPiles && cardIds.length > 1)
-    return `Put ${familyNames(spot)} on the ${spot.label} place one at a time`;
+    return { code: 'spot-one-at-a-time', spot };
   const others = fanRow(t, spot).filter((id) => id !== moving);
   return others.length >= fanMax(spot) ? full(spot) : null;
 }
 
-function full(spot: Spot): string {
-  const area = game().areas.find((a) => a.id === spot.area)!;
+function full(spot: Spot): Refusal {
   const family = spot.accepts.family;
   // Several places for the family: they are all taken.
   const max = game()
@@ -423,10 +422,10 @@ function full(spot: Spot): string {
   // A place cards don't find on their own: that one is taken.
   const attracts = !!spot.accepts.attracts;
   if (!attracts && fanMax(spot) > 1 && fanMax(spot) < Infinity)
-    return `The ${spot.label} place in the ${area.label} area holds at most ${fanMax(spot)} cards`;
-  if (max === 1 || !attracts)
-    return `There is already a card on the ${spot.label} place in the ${area.label} area`;
-  return `The ${area.label} area holds at most ${max} ${game().familyNames[family]}`;
+    return { code: 'spot-holds-at-most', spot, max: fanMax(spot) };
+  if (max === 1 || !attracts) return { code: 'spot-taken', spot };
+  const area = game().areas.find((a) => a.id === spot.area)!;
+  return { code: 'area-holds-at-most', area, family, max };
 }
 
 const arrangement: PlaceBehaviour = {

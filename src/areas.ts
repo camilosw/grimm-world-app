@@ -28,6 +28,7 @@ import {
   type Side,
 } from './lib/engine/geometry';
 import type { CardDef, Table } from './lib/engine/types';
+import type { Refusal } from './lib/engine/refusals';
 import type { EncounterPlace, Place, StorySlot } from './types';
 
 /**
@@ -959,7 +960,7 @@ export function packedPlaces(
 }
 
 /** The one area for card families that have a dedicated place. */
-const HOME_AREA: Partial<Record<Family, string>> = {
+export const HOME_AREA: Partial<Record<Family, string>> = {
   region: 'map',
   character: 'character',
   alignment: 'character',
@@ -1008,15 +1009,12 @@ export function refusal(
   area: Area | null,
   cardIds: string[],
   defs: Record<string, CardDef>,
-): string | null {
+): Refusal | null {
   if (!area) return null;
   for (const id of cardIds) {
     const f = family(defs[id]);
-    if (!f || area.accepts.includes(f)) continue;
-    const home = HOME_AREA[f];
-    if (!home)
-      return `${FAMILY_NAMES[f]} don't belong in the ${area.label} area`;
-    return `${FAMILY_NAMES[f]} belong in ${home === 'battlefield' ? 'the Battlefield' : `the ${AREAS.find((a) => a.id === home)?.label} area`}`;
+    if (f && !area.accepts.includes(f))
+      return { code: 'area-family', area, family: f };
   }
   return null;
 }

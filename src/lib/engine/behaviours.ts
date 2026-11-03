@@ -8,6 +8,7 @@ import { ARRANGEMENT } from './arrangement';
 import { FACING } from './facing';
 import { LAYERING } from './layering';
 import { ORIENTATION } from './orientation';
+import type { Refusal } from './refusals';
 import type { Table } from './types';
 
 /** A spot behaviour's hooks: each leaves what isn't its own as it is (returns its input). */
@@ -27,7 +28,7 @@ export interface PlaceBehaviour {
     spot: Spot,
     cardIds: string[],
     moving: string | null,
-  ): string | null;
+  ): Refusal | null;
 }
 
 let all: PlaceBehaviour[] | undefined;
@@ -83,7 +84,7 @@ export function refusedOnto(
   spot: Spot,
   cardIds: string[],
   moving: string | null,
-): string | null {
+): Refusal | null {
   for (const b of behaviours()) {
     const why = b.refuse?.(t, spot, cardIds, moving);
     if (why) return why;

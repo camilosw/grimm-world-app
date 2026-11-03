@@ -4,6 +4,7 @@
 import { type Area, type Spot, spotsOf } from './areas';
 import { game } from './game';
 import type { Point } from './geometry';
+import type { Refusal } from './refusals';
 import type { CardDef, Family, Table } from './types';
 
 /** The cards a spot takes, and where from. */
@@ -23,13 +24,6 @@ export function takes(spot: Spot, f: Family | undefined): boolean {
   return f === a.family || (!!f && !!a.also?.includes(f));
 }
 
-/** The names of the card families a spot takes, e.g. "Encounter Cards and Lost Pages Cards". */
-export function familyNames(spot: Spot): string {
-  return [spot.accepts.family, ...(spot.accepts.also ?? [])]
-    .map((f) => game().familyNames[f])
-    .join(' and ');
-}
-
 /** The spot pulling cards of one of these families from anywhere on the table, if any. */
 export function attractor(
   t: Table,
@@ -43,12 +37,11 @@ export function attractor(
 /** Why cards of these families can't all go to the spot attracting one of them: it takes its card alone. */
 export function mixedRefusal(
   own: Spot,
-  area: Area,
   families: (Family | undefined)[],
-): string | null {
+): Refusal | null {
   return families.every((f) => f === own.accepts.family)
     ? null
-    : `The ${own.label} lies alone on its place in the ${area.label} area`;
+    : { code: 'spot-alone', spot: own };
 }
 
 /** The spot taking cards of these families dropped anywhere in `area`, if any. */
@@ -76,12 +69,12 @@ export function refusedBy(
   cardIds: string[],
   defs: Record<string, CardDef>,
   families: (Family | undefined)[],
-): string | null {
+): Refusal | null {
   if (families.every((f) => takes(spot, f))) return null;
   return (
-    game().refusal(area, cardIds, defs) ??
-    (spot.accepts.attracts
-      ? `Only the ${spot.label} goes on its place`
-      : `Only ${familyNames(spot)} go on the ${spot.label} place`)
+    game().refusal(area, cardIds, defs) ?? {
+      code: spot.accepts.attracts ? 'spot-own-card' : 'spot-family',
+      spot,
+    }
   );
 }

@@ -10,6 +10,7 @@ import {
   misplaced,
   newGame,
   pileOf,
+  say,
   spot,
 } from '../../test/play';
 import {
@@ -46,7 +47,7 @@ import type { Table } from './types';
 const t0 = newGame();
 const [y1, y2, y3] = cardsOf('lost-pages', 3);
 const [b1, b2, b3, b4] = cardsOf('encounter-b', 4);
-const [r1, r2] = cardsOf('region', 2);
+const [r1, r2, r3] = cardsOf('region', 3);
 const [x1] = cardsOf('encounter-x', 1);
 const [terrain] = cardsOf('terrain', 1);
 const money = cardsOf('money', 4);
@@ -90,7 +91,11 @@ describe('placement', () => {
 
   it('refuses such a card in a pile with others', () => {
     const p = placement(t0, [martha, y1], defs, FAR.x, FAR.y, null);
-    expect(p.refused).toMatch(/lies alone on its place/);
+    expect(p.refused).toMatchObject({
+      code: 'spot-alone',
+      spot: { id: 'character' },
+    });
+    expect(say(p.refused)).toMatch(/lies alone on its place/);
   });
 
   it('lays up to three Money Cards in their row, and refuses a fourth', () => {
@@ -98,7 +103,13 @@ describe('placement', () => {
     const row = spotPlaces(spot(t, 'money'), 3);
     expect(money.slice(0, 3).map((id) => at(t, pileOf(t, id)))).toEqual(row);
     const [, p] = drop(t, [money[3]], FAR.x, FAR.y);
-    expect(p.refused).toMatch(/holds at most 3 Money Cards/);
+    expect(p.refused).toMatchObject({
+      code: 'area-holds-at-most',
+      area: { id: 'storage' },
+      family: 'money',
+      max: 3,
+    });
+    expect(say(p.refused)).toBe('The Storage area holds at most 3 Money Cards');
   });
 
   it('lays cards dropped on a fanned row one per place, in the order dropped', () => {
@@ -125,15 +136,24 @@ describe('placement', () => {
   it('refuses a pile on a row taking one card per place', () => {
     const goods = spot(t0, 'goods');
     const p = placement(t0, [b1, b2], defs, goods.x, goods.y, null);
-    expect(p.refused).toMatch(/one at a time/);
+    expect(p.refused).toMatchObject({
+      code: 'spot-one-at-a-time',
+      spot: { id: 'goods' },
+    });
+    expect(say(p.refused)).toMatch(/one at a time/);
   });
 
   it('refuses cards an area does not take, saying where they belong', () => {
     const goods = spot(t0, 'goods');
     const p = placement(t0, [r1], defs, goods.x, goods.y, null);
-    expect(p.refused).toBe('Region Cards belong in the Map area');
+    expect(p.refused).toMatchObject({
+      code: 'area-family',
+      area: { id: 'storage' },
+      family: 'region',
+    });
+    expect(say(p.refused)).toBe('Region Cards belong in the Map area');
     const map = inArea(t0, 'map');
-    expect(placement(t0, [y1], defs, map.x, map.y, null).refused).toBe(
+    expect(say(placement(t0, [y1], defs, map.x, map.y, null).refused)).toBe(
       "Lost Pages Cards don't belong in the Map area",
     );
   });
@@ -180,8 +200,11 @@ describe('placement', () => {
     const [t, p] = drop(t0, [r1], map.x, map.y);
     expect({ x: p.x, y: p.y }).toEqual(cellPlace(t0, 'map', 0, 0));
     expect(t.stacks[pileOf(t, r1)].cards[0].faceUp).toBe(true);
-    expect(placement(t, [r2, y1], defs, map.x, map.y, null).refused).toMatch(
-      /Only Region Cards go on the Map's places/,
+    const mixed = placement(t, [r2, y1], defs, map.x, map.y, null);
+    expect(mixed.refused).toEqual({ code: 'grid-family', grid: 'map' });
+    expect(say(mixed.refused)).toBe("Only Region Cards go on the Map's places");
+    expect(say(placement(t, [r2, r3], defs, map.x, map.y, null).refused)).toBe(
+      'Put Region Cards on the Map one at a time',
     );
     const right = gridPlaces(t, 'map').find((g) => g.side === 'right')!;
     const [t2] = drop(t, [r2], right.box.x, right.box.y - 50);
@@ -193,7 +216,10 @@ describe('placement', () => {
     const [t] = drop(t0, [r1], map.x, map.y);
     const region = pileOf(t, r1);
     const p = placement(t, [y1], defs, map.x, map.y, region);
-    expect(p.refused).toBe('Nothing goes on top of a Region Card on the Map');
+    expect(p.refused).toEqual({ code: 'onto-grid-card', grid: 'map' });
+    expect(say(p.refused)).toBe(
+      'Nothing goes on top of a Region Card on the Map',
+    );
   });
 
   it('puts an Encounter Card dropped on a Region Card near its strip on its Market Prices place', () => {
@@ -227,9 +253,13 @@ describe('placement', () => {
       defs[y1].code,
       'Y013',
     ]);
-    expect(placement(t0, [x1], defs, enemy.x, enemy.y, null).refused).toBe(
-      `${defs[x1].code} can't go into the Enemy Deck`,
-    );
+    const refused = placement(t0, [x1], defs, enemy.x, enemy.y, null).refused;
+    expect(refused).toEqual({
+      code: 'deck-holds-not',
+      deck: 'enemy',
+      card: defs[x1],
+    });
+    expect(say(refused)).toBe(`${defs[x1].code} can't go into the Enemy Deck`);
   });
 
   it('puts Encounter Cards dropped in the Encounter Deck area on the nearest place', () => {
@@ -240,7 +270,7 @@ describe('placement', () => {
       onto: placeStack(t0, 'used')!.id,
       refused: null,
     });
-    expect(placement(t0, [y1], defs, used.x, used.y, null).refused).toBe(
+    expect(say(placement(t0, [y1], defs, used.x, used.y, null).refused)).toBe(
       "Lost Pages Cards don't belong in the Encounter Deck area",
     );
   });

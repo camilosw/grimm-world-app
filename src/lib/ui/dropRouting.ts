@@ -3,6 +3,7 @@ import * as A from '../engine/actions';
 import { areaForCard, areaOf, looseAt, placement } from '../engine/areas';
 import { game } from '../engine/game';
 import { CARD_H, CARD_W } from '../engine/geometry';
+import type { Refusal } from '../engine/refusals';
 import { update } from '../engine/store';
 import type {
   At,
@@ -12,6 +13,7 @@ import type {
   Table,
   View,
 } from '../engine/types';
+import { gameUI } from './gameUI';
 import type { Incoming, Selection, Zone } from './Table';
 import type { Dialog, PutUnder } from './useDialogs';
 
@@ -94,7 +96,7 @@ export function freeDropAt(
   cardIds: string[],
   cx: number,
   cy: number,
-): { at: At | null; refused?: string } {
+): { at: At | null; refused?: Refusal } {
   // Cards with a place of their own (Character, Alignment, Money Cards) always go there. Dropped in a table deck's
   // area they would go into that deck instead: none is put there on its own.
   const centered = placement(table, cardIds, defs, cx, cy, null);
@@ -160,6 +162,11 @@ const pickedPile = (
 /** The drop zones and drops from outside the table, with the state that lights up where cards would land. */
 export function useDropRouting(g: DropGame) {
   const { table, defs, areaRef, view, notify } = g;
+  /** Tell the player why cards can't go there, in the game's words. */
+  const refuse = useCallback(
+    (r: Refusal) => notify(gameUI().refusalText(r)),
+    [notify],
+  );
   const [zoneHover, setZoneHover] = useState<Zone | null>(null);
   /** Sidebar decks a dragged card would go back to. */
   const [homeHover, setHomeHover] = useState<string[]>([]);
@@ -185,10 +192,10 @@ export function useDropRouting(g: DropGame) {
       const cy = (el.clientHeight / 2 - view.y) / view.scale - CARD_H / 2;
       if (!table) return { x: cx, y: cy };
       const { at, refused } = freeDropAt(table, defs, cardIds, cx, cy);
-      if (refused) notify(refused);
+      if (refused) refuse(refused);
       return at;
     },
-    [view, table, defs, areaRef, notify],
+    [view, table, defs, areaRef, refuse],
   );
 
   /** Where cards dropped at (x, y) or onto `targetId` really go, or null (and tell the player why) if they can't. */
@@ -200,7 +207,7 @@ export function useDropRouting(g: DropGame) {
   ) => {
     if (!table) return null;
     const p = placement(table, cardIds, defs, x, y, targetId);
-    if (p.refused) notify(p.refused);
+    if (p.refused) refuse(p.refused);
     return p.refused ? null : p;
   };
 
@@ -278,10 +285,7 @@ export function useDropRouting(g: DropGame) {
         A.toTray(t, stackId, whole ? 'all' : 'top', zone.before),
       );
     if (s.deck && !game().returnsCards(s.deck))
-      return (
-        zone.kind === 'deck' &&
-        notify("Cards can't move from one deck to another")
-      );
+      return zone.kind === 'deck' && refuse({ code: 'deck-to-deck' });
     // A deck's card on top for good (Y013, Y012, Y011) keeps the cards under it.
     if (!whole && A.pinnedOnTop(s)) return;
     const moved = whole ? A.unpinned(s) : A.unpinned(s).slice(-1);
@@ -322,7 +326,7 @@ export function useDropRouting(g: DropGame) {
         return update((t) => A.cardsToDecks(t, stackId, indices, defs));
       }
       if (zone.kind === 'deck' && zone.id !== stackId)
-        notify("Cards can't move from one deck to another");
+        refuse({ code: 'deck-to-deck' });
       return;
     }
     const at = worldAt(clientX, clientY);
@@ -340,19 +344,11 @@ export function useDropRouting(g: DropGame) {
   };
 
   /** Tell the player which card a deck refuses, if any; true when they may all go in. */
-  const heldBy = (
-    stackId: string,
-    kind: DeckKind,
-    label: string,
-    cardIds?: string[],
-  ) => {
+  const heldBy = (stackId: string, kind: DeckKind, cardIds?: string[]) => {
     if (!table) return false;
-    const refused = A.notHeldBy(table, stackId, kind, defs, cardIds);
-    if (refused.length)
-      notify(
-        `${refused[0].code ?? refused[0].name ?? 'This card'} can't go into the ${label}`,
-      );
-    return !refused.length;
+    const [card] = A.notHeldBy(table, stackId, kind, defs, cardIds);
+    if (card) refuse({ code: 'deck-holds-not', deck: kind, card });
+    return !card;
   };
 
   /** Put the cards waiting in "Put under…" mode under a table pile or a deck. */
@@ -367,17 +363,15 @@ export function useDropRouting(g: DropGame) {
     if (sourceId === targetId && !(slot && slot.sealed && cardIds)) return;
     // Under a sealed place's card the player picks, if its deck holds them; nothing goes under other fixed places.
     if (slot) {
-      if (!slot.sealed) return notify(slot.refusal ?? "Cards can't go there");
+      if (!slot.sealed)
+        return refuse({ code: 'slot-takes-nothing', slot: target.slot! });
       const kind = target.deck;
-      if (!kind || heldBy(sourceId, kind, game().decks[kind].label, cardIds))
+      if (!kind || heldBy(sourceId, kind, cardIds))
         g.setDialog({ kind: 'pick', stackId: sourceId, cardIds });
       return;
     }
     if (target.deck) {
-      if (
-        !heldBy(sourceId, target.deck, game().decks[target.deck].label, cardIds)
-      )
-        return;
+      if (!heldBy(sourceId, target.deck, cardIds)) return;
       update((t) => A.putUnderDeck(t, sourceId, targetId, defs, cardIds));
     } else if (A.inTray(table, targetId)) {
       // Set aside, the pile belongs to no area.
@@ -391,7 +385,7 @@ export function useDropRouting(g: DropGame) {
       const p = placeAt(cards, target.x, target.y, targetId);
       if (!p) return;
       if (p.onto !== targetId)
-        return notify(`The ${p.spot?.label ?? 'card'} stays on its place`);
+        return refuse({ code: 'stays-on-place', spot: p.spot });
       update((t) =>
         cardIds
           ? A.putUnderPile(t, sourceId, cardIds, targetId, faceUp)
@@ -407,7 +401,7 @@ export function useDropRouting(g: DropGame) {
     if (zone?.kind === 'tray')
       return setAside((t) => A.toTray(t, deckId, 'top', zone.before));
     if (zone?.kind === 'deck' && zone.id !== deckId)
-      return notify("Cards can't move from one deck to another");
+      return refuse({ code: 'deck-to-deck' });
     if (zone) return;
     const at = worldAt(clientX, clientY);
     const card = table?.stacks[deckId]?.cards.at(-1);

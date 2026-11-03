@@ -15,7 +15,9 @@ import {
   spotsOf,
 } from '../lib/engine/areas';
 import { spotPlaces } from '../lib/engine/arrangement';
+import type { Refusal } from '../lib/engine/refusals';
 import type { At, CardDef, Table } from '../lib/engine/types';
+import { refusalText } from '../refusals';
 import { initialTable } from '../setup';
 import type { EncounterPlace } from '../types';
 import { realManifest } from './fixtures';
@@ -102,11 +104,15 @@ export function drop(
   return [next, p];
 }
 
+/** A refusal as the player is told it (null: none). */
+export const say = (r: Refusal | null | undefined) =>
+  r ? refusalText(r) : null;
+
 /** Drop cards one by one, each where the first was dropped; fails on a refusal. */
 export function dropEach(t: Table, cardIds: string[], x: number, y: number) {
   return cardIds.reduce((t, id) => {
     const [next, p] = drop(t, [id], x, y);
-    if (p.refused) throw new Error(p.refused);
+    if (p.refused) throw new Error(refusalText(p.refused));
     return next;
   }, t);
 }

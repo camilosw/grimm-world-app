@@ -24,7 +24,6 @@ export const STORY_SLOT_SPECS: Record<StorySlot, SlotSpec> = {
   'story-revealed': {
     // Only a revealed card that isn't a storybook card leaves the storybook (a Y-card, for the Encounter Bar).
     gives: (top) => top?.type !== 'storybook',
-    refusal: 'Put cards under the storybook itself (the right-hand card)',
     empty: 'Tap the storybook to turn over its next card',
   },
 };

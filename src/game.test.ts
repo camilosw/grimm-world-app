@@ -55,7 +55,8 @@ describe("Grimm World's definition", () => {
     )!;
     const enemy = spotsOf(t).find((s) => s.area === 'battlefield')!;
     const [, p] = drop(t, cardsOf('lost-pages', 1), enemy.x, enemy.y, pile);
-    expect(p.refused).toBe(
+    expect(p.refused).toEqual({ code: 'onto-grid-card', grid: 'battlefield' });
+    expect(grimmWorldUI.refusalText(p.refused!)).toBe(
       'Nothing goes on top of a Terrain Card on the Battlefield',
     );
   });

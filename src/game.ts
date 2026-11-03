@@ -7,10 +7,8 @@ import {
   AREAS,
   areaBoxes,
   battlefieldInUse,
-  CARD_NAMES,
   COMBAT_AREAS,
   ENCOUNTER_PLACES,
-  FAMILY_NAMES,
   GRID_FAMILY,
   GRID_STRIP,
   gridOrigin,
@@ -35,6 +33,7 @@ import { type GameDefinition, setGame } from './lib/engine/game';
 import { FIGURE_COMMANDS, PILE_COMMANDS } from './lib/ui/commands';
 import { type GameUI, setGameUI } from './lib/ui/gameUI';
 import { pileRule } from './rules';
+import { refusalText } from './refusals';
 import { readSave, saveText, writeGame } from './save';
 import { initialTable, isPlayable } from './setup';
 import { intoStory, STORY_SLOT_SPECS } from './storybook';
@@ -80,8 +79,6 @@ export const grimmWorld: GameDefinition = {
       ? (storySlot(t, 'story')?.id ?? null)
       : null,
 
-  familyNames: FAMILY_NAMES,
-  cardNames: CARD_NAMES,
   refusal,
 
   readSave,
@@ -96,6 +93,7 @@ export const grimmWorldUI: GameUI = {
   // The areas used in every round, or in a combat, while Terrain Cards lie on the battlefield, those used in it.
   fitAreas: (t) => (battlefieldInUse(t) ? COMBAT_AREAS : PLAY_AREAS),
   acceptsText,
+  refusalText,
   gridStart: {
     map: { label: 'Region Card', hint: 'start the map here' },
     battlefield: {
