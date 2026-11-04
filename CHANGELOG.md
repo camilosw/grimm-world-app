@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.5.6](https://github.com/camilosw/grimm-world-app/compare/v0.5.5...v0.5.6) (2026-11-04)
+
+### Features
+
+* **encounter-bar:** keep the Encounter Bar in card number order ([7ee0367](https://github.com/camilosw/grimm-world-app/commit/7ee03674670792104462a98ee64ef0b4968cd12d))
+* **tray:** banish a card set aside in the Hand ([0a40172](https://github.com/camilosw/grimm-world-app/commit/0a401722076a4332f8e6fc89673929bfb3fbd4d3))
+
+### Bug Fixes
+
+* **figures:** make the Player marker smaller and easier to see on the Map ([0908993](https://github.com/camilosw/grimm-world-app/commit/0908993dba7105539eb54e67d3ddbf577f0eee7d))
+* **save:** lay a battlefield built before v0.3.0 back onto the battlefield ([07c75d9](https://github.com/camilosw/grimm-world-app/commit/07c75d99bed77bd75e8058f6caf1139183e96958))
+
 ## [0.5.5](https://github.com/camilosw/grimm-world-app/compare/v0.5.4...v0.5.5) (2026-10-25)
 
 ### Features
