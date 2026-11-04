@@ -1,6 +1,6 @@
 ---
 name: dev-worktree
-description: Workflow for every feature or fix the user asks for in grimm-world — start a git worktree off local main, run a Vite dev server for it on a free port and give the user its URL, then after the approved commit land it on main, stop that dev server and remove the worktree. Use whenever the user asks for a feature, fix, change or improvement to the app.
+description: Workflow for every feature or fix the user asks for in grimm-world — start a git worktree off local main, run a Vite dev server for it on a free port and give the user its URL, have the finished change reviewed by a Sonnet agent with the code-review skill, then after the approved commit land it on main, stop that dev server and remove the worktree. Use whenever the user asks for a feature, fix, change or improvement to the app.
 ---
 
 # Feature / fix in a worktree with its own dev server
@@ -72,9 +72,30 @@ new port (unless that port was used before).
 ## 3. Do the work
 
 Work and verify in the worktree as usual (CLAUDE.md: `npm run typecheck`,
-`npm run lint`, `npm run test:run`, `playwright-cli` against `http://localhost:<port>/`). When done,
-summarise the change, remind the user of the URL, and **leave it uncommitted**:
-never commit without the user's approval.
+`npm run lint`, `npm run test:run`, `playwright-cli` against `http://localhost:<port>/`).
+
+### Code review by a Sonnet agent
+
+Once the change is done and verified, have it reviewed by a new agent: call
+`Agent` with `model: "sonnet"` (`subagent_type` left out: general-purpose),
+`description: "Review <name> diff"` and a prompt along these lines (the agent
+starts cold, so give it the path and what changed):
+
+> Work in `$ROOT/.claude/worktrees/<name>` (cd there first; never touch
+> `$ROOT` itself). Its uncommitted changes against `main` are: <one or two
+> sentences on what changed and why>. Run `git add -N .` so new files show in
+> the diff, then invoke the `code-review` skill (Skill tool) on that diff.
+> Report its findings — file, line, the defect and how it fails — and change
+> nothing: no edits, no `--fix`, no commit.
+
+The agent runs in the background; wait for its notification (don't predict its
+result). Then check each finding yourself against the code: fix the real ones
+(and verify again: typecheck, lint, tests), and tell the user which you fixed
+and which you judged not to be problems, and why. Don't pass a `max` or `ultra`
+level to `code-review` unless the user asks for one.
+
+When done, summarise the change and the review, remind the user of the URL,
+and **leave it uncommitted**: never commit without the user's approval.
 
 ## 4. After the user approves the commit
 
