@@ -182,10 +182,10 @@ export function MenuPopover({
             setDialog(null);
           }}
         >
-          ⭳ Export save
+          ⤓ Export save
         </button>
         <label className="button">
-          ⭱ Import save
+          ⤒ Import save
           <input
             type="file"
             accept="application/json,.json"
