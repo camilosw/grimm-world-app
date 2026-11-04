@@ -61,7 +61,7 @@ export const CARD_H = 350;
 
 /** A figure's size in table units: the Player marker (the only cube) is a small one. */
 export const tokenSize = (k: Pick<Token, 'shape'>) =>
-  k.shape === 'cube' ? 30 : 70;
+  k.shape === 'cube' ? 20 : 70;
 
 export const clampScale = (s: number) => Math.min(4, Math.max(0.08, s));
 

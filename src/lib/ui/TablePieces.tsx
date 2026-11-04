@@ -359,6 +359,8 @@ export function TokenView({
         height: tokenSize(token),
         background: token.color,
       }}
-    />
+    >
+      <Hit />
+    </div>
   );
 }

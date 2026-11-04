@@ -1,6 +1,6 @@
 import type { Family } from '../cards';
 import type { DeckKind } from '../decks';
-import { CARD_H, CARD_W, cardBox, tokenSize } from '../lib/engine/geometry';
+import { CARD_H, CARD_W, cardBox } from '../lib/engine/geometry';
 import type { At, Stack } from '../lib/engine/types';
 import type { EncounterPlace } from '../types';
 import { addStack, isFixed, setStack } from './piles';
@@ -15,6 +15,10 @@ import type { OldTable } from './table';
 type Point = { x: number; y: number };
 type Rect = { x: number; y: number; w: number; h: number };
 type Side = 'left' | 'right' | 'top' | 'bottom';
+
+/** A figure's size as it was then: the Player marker (the only cube) 30 units, the others 70. */
+export const tokenSize = (k: { shape: string }) =>
+  k.shape === 'cube' ? 30 : 70;
 
 /** A framed part of the table (`AREAS`), at its own place. */
 export interface Area extends Rect {

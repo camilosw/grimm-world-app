@@ -7,7 +7,7 @@ import {
   storySlot,
 } from '../decks';
 import { deckStack } from '../lib/engine/decks';
-import { CARD_H, CARD_W, tokenSize } from '../lib/engine/geometry';
+import { CARD_H, CARD_W } from '../lib/engine/geometry';
 import type { CardDef, CardRef, Stack } from '../lib/engine/types';
 import type { EncounterPlace } from '../types';
 import {
@@ -32,6 +32,7 @@ import {
   STORY_SLOTS,
   TABLE_DECKS,
   terrainPlace,
+  tokenSize,
 } from './layout';
 import {
   addStack,
