@@ -3,6 +3,7 @@ import { grimmWorldUI } from '../../game';
 import { setGameUI } from './gameUI';
 import { toTray } from '../engine/actions';
 import { cellPlace, placeStack } from '../engine/areas';
+import { CARD_H, CARD_W } from '../engine/geometry';
 import { deckStack } from '../engine/decks';
 import { getTable, resetTable } from '../engine/store';
 import type { Stack, Table } from '../engine/types';
@@ -10,6 +11,8 @@ import { apply, cardsOf, defs, drop, newGame, pileOf } from '../../test/play';
 import {
   commandLabel,
   FIGURE_COMMANDS,
+  FOCUS_MARGIN,
+  focusedRect,
   offered,
   type PileApp,
   PILE_COMMANDS,
@@ -27,6 +30,7 @@ const app = (over: Partial<PileApp> = {}): PileApp => ({
   notify: vi.fn(),
   openContent: vi.fn(),
   homeNames: () => 'Lost Pages',
+  focusRect: vi.fn(),
   ...over,
 });
 
@@ -74,6 +78,7 @@ describe('the action bar', () => {
     const [t, s] = withLooseCard();
     expect(bar(t, s)).toEqual([
       'flip',
+      'focus',
       'view',
       'rotate',
       'put-under',
@@ -140,6 +145,35 @@ describe('the action bar', () => {
     expect(c.app.openContent).toHaveBeenCalledWith(
       grimmWorldUI.content?.pileSection(deck, defs),
     );
+  });
+
+  it('focuses on a pile lying on the table, its card as drawn there with room around it', () => {
+    const [t, s] = withLooseCard();
+    const c = context(t, s);
+    PILE_COMMANDS.focus.run(c);
+    const m = FOCUS_MARGIN;
+    expect(c.app.focusRect).toHaveBeenCalledWith({
+      x: s.x - m,
+      y: s.y - m,
+      w: CARD_W + 2 * m,
+      h: CARD_H + 2 * m,
+    });
+    // A pile lying a quarter turned lies across, and so does a Region Card, which is landscape.
+    expect(focusedRect(context(t, { ...s, rot: 90 }))).toMatchObject({
+      w: CARD_H + 2 * m,
+      h: CARD_W + 2 * m,
+    });
+    let onMap = newGame();
+    const [region] = cardsOf('region', 1);
+    const first = cellPlace(onMap, 'map', 0, 0);
+    [onMap] = drop(onMap, [region], first.x, first.y);
+    const r = focusedRect(context(onMap, onMap.stacks[pileOf(onMap, region)]));
+    expect([r.w, r.h]).toEqual([CARD_H + 2 * m, CARD_W + 2 * m]);
+    // Decks lying on the table too, but not those in the sidebar nor a pile in the Hand.
+    expect(bar(onMap, deckStack(onMap, 'quest')!)).toContain('focus');
+    expect(bar(onMap, deckStack(onMap, 'lost-pages')!)).not.toContain('focus');
+    const aside = apply(t, (t) => toTray(t, s.id, 'all'));
+    expect(bar(aside, aside.stacks[aside.tray![0]])).not.toContain('focus');
   });
 
   it('offers no content to a game without any', () => {

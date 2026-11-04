@@ -127,6 +127,7 @@ export const grimmWorldUI: GameUI = {
     PILE_COMMANDS.browse,
     PILE_COMMANDS.shuffle,
     PILE_COMMANDS.sort,
+    PILE_COMMANDS.focus,
     PILE_COMMANDS.view,
     PILE_COMMANDS.rotate,
     PILE_COMMANDS.turnAround,

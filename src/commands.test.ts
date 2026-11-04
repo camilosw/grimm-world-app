@@ -23,6 +23,7 @@ const context = (table: Table, stack: Stack): PileContext => ({
     notify: vi.fn(),
     openContent: vi.fn(),
     homeNames: () => 'Lost Pages',
+    focusRect: vi.fn(),
   },
 });
 

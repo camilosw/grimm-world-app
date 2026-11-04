@@ -6,6 +6,7 @@ import * as A from '../engine/actions';
 import { onGrid } from '../engine/areas';
 import { facedSpot } from '../engine/facing';
 import { game, isLandscape } from '../engine/game';
+import { cardRect, type Rect } from '../engine/geometry';
 import { turnedSpot, upsideDownSpot } from '../engine/orientation';
 import { update } from '../engine/store';
 import type {
@@ -47,6 +48,8 @@ export interface PileApp {
   openContent: (section?: string | null) => void;
   /** The decks cards go back to, by name. */
   homeNames: (cards: CardRef[]) => string;
+  /** Glide the view to show this table rectangle as large as the screen allows. */
+  focusRect: (rect: Rect) => void;
 }
 
 /** The selected pile, and the app. */
@@ -85,6 +88,27 @@ const count = (c: PileContext) => c.stack.cards.length;
 const topCard = (c: PileContext) => c.stack.cards.at(-1);
 /** A pile lying loose on the table (not a deck, a fixed place, nor set aside). */
 const loose = (c: PileContext) => !isDeck(c) && !isPlace(c) && !c.aside;
+
+/** Room left around a focused pile, in table units: a glimpse of what lies beside it. */
+export const FOCUS_MARGIN = 40;
+
+/**
+ * Where the top card of a pile lying on the table is drawn, with `FOCUS_MARGIN` around it: landscape for a landscape
+ * card or one on a turned place (Market Prices, the Encounter Bar), and across when the pile lies a quarter turned.
+ */
+export function focusedRect(c: PileContext): Rect {
+  const top = topCard(c);
+  const landscape =
+    (!!top && isLandscape(c.defs[top.id])) || !!turnedSpot(c.table, c.stack.id);
+  const across = c.stack.rot % 180 === 90;
+  const r = cardRect(c.stack.x, c.stack.y, landscape !== across);
+  return {
+    x: r.x - FOCUS_MARGIN,
+    y: r.y - FOCUS_MARGIN,
+    w: r.w + FOCUS_MARGIN * 2,
+    h: r.h + FOCUS_MARGIN * 2,
+  };
+}
 
 /** The actions on a pile, as the game's bar may offer them. */
 export const PILE_COMMANDS = {
@@ -145,6 +169,14 @@ export const PILE_COMMANDS = {
     label: 'Sort',
     enabled: (c) => free(c) > 1,
     run: (c) => act(c, (t, id) => A.sortStack(t, id, c.defs)),
+  },
+  focus: {
+    id: 'focus',
+    icon: '⌖',
+    label: 'Focus',
+    // A pile lying on the table (decks on their places too), not one in the sidebar or the Hand.
+    enabled: (c) => c.table.z.includes(c.stack.id),
+    run: (c) => c.app.focusRect(focusedRect(c)),
   },
   view: {
     id: 'view',

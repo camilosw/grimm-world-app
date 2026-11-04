@@ -11,7 +11,10 @@ export const GLIDE_MS = 500;
 export function useFitView(areaRef: RefObject<HTMLDivElement | null>) {
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 0.5 });
 
-  /** The view in which the given table rectangle fills the screen, but `inset` pixels at its top and bottom. */
+  /**
+   * The view in which the given table rectangle fills the screen, but `inset` pixels at its top and bottom, zoomed in
+   * at most to `maxScale` (1: a card as large as its size in table units).
+   */
   const rectView = useCallback(
     (
       minX: number,
@@ -19,6 +22,7 @@ export function useFitView(areaRef: RefObject<HTMLDivElement | null>) {
       maxX: number,
       maxY: number,
       inset = { top: 0, bottom: 0 },
+      maxScale = 1,
     ): View | null => {
       const el = areaRef.current;
       if (!el) return null;
@@ -26,7 +30,7 @@ export function useFitView(areaRef: RefObject<HTMLDivElement | null>) {
       const h = el.clientHeight - inset.top - inset.bottom;
       const scale = clampScale(
         Math.min(
-          1,
+          maxScale,
           (el.clientWidth - pad * 2) / (maxX - minX),
           (h - pad * 2) / (maxY - minY),
         ),

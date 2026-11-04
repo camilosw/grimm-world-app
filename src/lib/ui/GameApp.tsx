@@ -13,7 +13,7 @@ import {
 import * as A from '../engine/actions';
 import { allAreas, type Area } from '../engine/areas';
 import { game, setCardSet } from '../engine/game';
-import { CARD_H, CARD_W, type Point } from '../engine/geometry';
+import { CARD_H, CARD_W, type Point, type Rect } from '../engine/geometry';
 import { loadGame } from '../engine/saves';
 import { redo, resetTable, undo, update } from '../engine/store';
 import type { CardDef, CardManifest, Table, View } from '../engine/types';
@@ -87,6 +87,9 @@ export interface GameLayer {
 
 /** A layer adding nothing. */
 const noLayer = (): GameLayer => ({});
+
+/** How far Focus zooms in at most: the large card images (three times a card's table size) still sharp. */
+const FOCUS_SCALE = 3;
 
 export function GameApp({
   loadCards,
@@ -192,6 +195,12 @@ export function GameApp({
     setDialog(null);
     setShownArea(area.id);
     glideTo(rectView(area.x, area.y, area.x + area.w, area.y + area.h));
+  };
+
+  /** Glide to a pile focused on (`PILE_COMMANDS.focus`): its card as large as the screen allows, and sharp. */
+  const focusRect = (r: Rect) => {
+    setShownArea(null);
+    glideTo(rectView(r.x, r.y, r.x + r.w, r.y + r.h, undefined, FOCUS_SCALE));
   };
 
   const showStack = (stackId: string) => {
@@ -486,6 +495,7 @@ export function GameApp({
           notify={notify}
           openContent={openContent}
           homeNames={drops.homeNamesOf}
+          focusRect={focusRect}
         />
       )}
       {selectedToken && <FigureBar table={table} token={selectedToken} />}

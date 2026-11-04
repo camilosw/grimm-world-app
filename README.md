@@ -383,7 +383,8 @@ long-press reads it; **⊘ Banish** puts the selected card (or all of a pile) un
 Pile and deck actions: **Draw** (top card face up onto the table), **Top → bottom** (after reading a Fate Number),
 **Browse** (see below), **Shuffle**, **Sort** (by card number), **Put under…** (slide cards under another pile or a
 deck, e.g. X-cards under the Encounter Deck), **Rotate**, **Front/Back** (overlap order, e.g. tucking the Alignment card under the Character card), **Return to
-deck** and **Name**.
+deck** and **Name**. **⌖ Focus** zooms the table to the selected card or pile (one lying on the table, decks on their
+places too), as large as the screen allows; pan or zoom out, or **⤢ Fit**, to see the rest again.
 
 **📖 Rules** opens the rulebook beside the table and the toolbar, from the top of the screen (over both in portrait): the
 real pages, a contents list, search (e.g. "fate number", "banish"; in the panel's top bar, or on a row of its own below
