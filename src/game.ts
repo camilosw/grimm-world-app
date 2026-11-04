@@ -2,6 +2,7 @@
 // modules, and `registerGame()`, which hands both over (main.tsx, and the tests' setup).
 
 import { AreaIcon } from './AreaIcon';
+import { banish } from './commands';
 import {
   acceptsText,
   AREAS,
@@ -134,6 +135,7 @@ export const grimmWorldUI: GameUI = {
     PILE_COMMANDS.front,
     PILE_COMMANDS.back,
     PILE_COMMANDS.toTable,
+    banish,
     PILE_COMMANDS.returnToDeck,
     PILE_COMMANDS.name,
     PILE_COMMANDS.content,

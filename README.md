@@ -363,7 +363,7 @@ you can also reorder them. **›** minimizes it to a narrow bar showing how many
 dropped on the bar, which opens it, and a tap opens it too. To take a card out, drag it onto the table (where the same area rules
 apply as for any drop), onto the left sidebar (back to its deck) or onto the storybook; or tap it and use **⤴ To
 table**. Tap selects a card (for **Flip**, **Browse**, **Put under…**, **Return to deck**…), double-tap flips it,
-long-press reads it. When the last card leaves, it is minimized again. **Find card** finds cards in the Hand too.
+long-press reads it; **⊘ Banish** puts the selected card (or all of a pile) under the Banned Cards card, out of the game. When the last card leaves, it is minimized again. **Find card** finds cards in the Hand too.
 
 **Table**
 
