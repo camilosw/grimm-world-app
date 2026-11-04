@@ -1,5 +1,7 @@
-// Grimm World's card families and card images (sizes and labels are in src/lib/engine/).
+// Grimm World's card families, how its cards lie, and loading its card set (images, sizes and labels are in
+// src/lib/engine/).
 
+import { readManifest } from './lib/engine/cards';
 import type { CardDef, CardManifest } from './lib/engine/types';
 import type { CardType } from './types';
 
@@ -19,15 +21,7 @@ export async function loadManifest(): Promise<CardManifest> {
     throw new Error(
       `Could not load ${BASE}/cards.json — run "uv run scripts/split_cards.py" first.`,
     );
-  return res.json();
-}
-
-export function cardImage(
-  id: string,
-  faceUp: boolean,
-  size: 'sm' | 'lg',
-): string {
-  return `${BASE}/${size}/${id}-${faceUp ? 'front' : 'back'}.webp`;
+  return readManifest(await res.json(), BASE);
 }
 
 /**

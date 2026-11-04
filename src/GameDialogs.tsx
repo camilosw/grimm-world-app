@@ -1,16 +1,23 @@
 // Grimm World's own dialogs: About, and the chapter picker for the storybook (built on the dialogs of src/lib/ui/).
 
-import { cardImage } from './cards';
+import { cardImage } from './lib/engine/cards';
 import type { CardDef } from './lib/engine/types';
 import { Modal, Thumb } from './lib/ui/dialogs';
 
 /** Who made the game, and which version of the app this is. */
-export function AboutDialog({ onClose }: { onClose: () => void }) {
+export function AboutDialog({
+  title,
+  onClose,
+}: {
+  /** The title card. */
+  title: CardDef | undefined;
+  onClose: () => void;
+}) {
   return (
     <Modal title="About" onClose={onClose}>
       <div className="about">
         <img
-          src={cardImage('001', true, 'sm')}
+          src={cardImage(title, true, 'sm')}
           alt="Grimm World"
           draggable={false}
         />
@@ -75,7 +82,7 @@ export function ChapterDialog({
     <Modal title="Put under which chapter?" onClose={onClose}>
       <div className="chapter-cards">
         {cards.map((id) => (
-          <Thumb key={id} id={id} faceUp={false} def={defs[id]} />
+          <Thumb key={id} faceUp={false} def={defs[id]} />
         ))}
       </div>
       <div className="chapter-grid">

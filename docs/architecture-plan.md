@@ -27,7 +27,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | B3. Composable place behaviours          | Opus                                                                                                | ✅ Done        |
 | B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ✅ Done        |
 | B5. Refusals as codes                    | Sonnet, once Opus has fixed the list of codes                                                       | ✅ Done        |
-| B6. Generic cards, images and content    | Opus for `CardDef`; Sonnet for the pipeline configuration and the content provider                  | ⬜ Not started |
+| B6. Generic cards, images and content    | Opus for `CardDef`; Sonnet for the pipeline configuration and the content provider                  | ✅ Done        |
 | B7. A minimal second game                | Opus                                                                                                | ⬜ Not started |
 | B8. Library repo                         | Sonnet                                                                                              | ⬜ Not started |
 
@@ -666,6 +666,41 @@ Outcome (November 2026, on top of B4; `CLAUDE.md` describes it under **Rules: en
 - `CardDef` with `faces` (front and back URLs), size and free-form `attrs`; `sheet/row/col` stay in the pipeline.
 - The Python scripts read the grid, the card size and the mirroring of backs from a per-game configuration file.
 - The rules panel and the booklets become an optional content provider.
+
+Outcome (November 2026, on top of B5; `CLAUDE.md` describes it under **Card data pipeline**, **Content** and **The
+import rule**):
+
+- **`CardDef`.** A card is `{ id, type?, code?, name?, faces, attrs? }` (`src/lib/engine/types.ts`): `faces` holds the
+  images of its front and back (`FaceImages`: `lg`, and `sm` if there is a smaller one), `attrs` whatever else a game
+  reads of it (the search looks through it; Grimm World has none). `type`, `code` and `name` stay as fields: every card
+  game has a kind, a printed number and a name, and the engine already reads them (labels, order, search, a deck's own
+  card). `sheet`, `row` and `col` stay in the pipeline's `cards.json`; `readManifest()` (`src/lib/engine/cards.ts`)
+  reads that file into `CardDef`s, faces resolved against where it was loaded from, leaving the rest out, and throws for
+  a card without faces. `cardImage(def, faceUp, size)` is the engine's, reading `faces`; `GameDefinition.cardImage`
+  went. `CardManifest` is `{ cards }`: `cardSize` and `source` were never read.
+- **Size: left as it is.** The card is the table's unit (`CARD_W × CARD_H`, a poker card's 5 : 7), which the game's
+  data modules read on their top level (`box()`), and a card printed sideways is `isLandscape()`. A size per card, or per
+  game, would reach every box of the layout for no game asking for it; B7 will say whether one does.
+- **The pipeline.** `split_cards.py` reads the sheets' layout from the game's configuration file, `pipeline.toml`
+  (`[cards]`: PDF, output, page width, card size in mm, grid, `mirror_backs`, image sizes), writes each card's `faces`
+  and keeps the labels a later script added to `cards.json` when it was cut from the same PDF the same way (`source`,
+  and the `layout` it now records; else they would name other cards), and, with `--sheets`, the other sheets' cards,
+  which it used to drop. `index_cards.py`, `split_rules.py` and `split_booklets.py` stay Grimm World's: OCR of its card numbers
+  and its two rule PDFs. The images split again are the same bytes; the service worker's `CACHE` went up for the new
+  `cards.json`.
+- **Content.** `GameUI.content` is an optional `ContentProvider` (`src/lib/ui/content.ts`: `label`, `icon`, `load()`,
+  `Panel`, and the sections of a pile, a card and an area), with `useContent` for the panel's state; `GameUI.rule` and
+  the game's `useRulesPanel` went. Without one, the toolbar's button, the area headers' ⓘ, the action bar's command
+  (`PILE_COMMANDS.content`, was `rules`) and the card viewer's button are left out. Grimm World's is `RULES_CONTENT`
+  (`src/rulesContent.ts`): the rulebook with the booklets beside it, as before.
+- **The game's last words in `src/lib/`** went into `GameUI.texts`: the Hand's name (`tray`), the Find dialog's
+  placeholder and the Name dialog's example.
+- **Nothing changed for the player**: the tests and the save snapshots are unchanged; in the browser the table's cards,
+  the About dialog's title card, the rulebook opened from an area's ⓘ at its section, the action bar's Rules, the Find
+  dialog's placeholder and the Hand are as on `main`.
+- Tests: `src/cards.test.ts` (`readManifest`, `cardImage`, the search through `attrs`), `src/lib/ui/content.test.tsx`
+  (the toolbar with, without and with another game's content, loading it once, a failed load, the Hand named by the
+  game), and `commands.test.ts` (no content command for a game without content).
 
 ### B7. A minimal second game
 

@@ -1,17 +1,18 @@
 import { allAreas, type Area } from '../engine/areas';
 import { redo, undo } from '../engine/store';
 import type { Table } from '../engine/types';
+import { content } from './content';
 import { gameUI } from './gameUI';
 import type { Dialog } from './useDialogs';
 
-/** The toolbar: decks, undo and redo, Find card, Figures, Rules, Fit and the menu. */
+/** The toolbar: decks, undo and redo, Find card, Figures, the game's content (Rules), Fit and the menu. */
 export function Toolbar({
   sidebarOpen,
   toggleSidebar,
   history,
-  rulesOpen,
-  setRulesOpen,
-  openRules,
+  contentOpen,
+  setContentOpen,
+  openContent,
   setDialog,
   onFit,
 }: {
@@ -19,13 +20,14 @@ export function Toolbar({
   toggleSidebar: () => void;
   /** Bit 1: undo possible; bit 2: redo possible. */
   history: number;
-  rulesOpen: boolean;
-  setRulesOpen: (open: boolean) => void;
-  openRules: () => void;
+  contentOpen: boolean;
+  setContentOpen: (open: boolean) => void;
+  openContent: () => void;
   setDialog: (dialog: Dialog) => void;
   /** Fit the play areas, again for the whole table. */
   onFit: () => void;
 }) {
+  const provider = content();
   return (
     <header className="toolbar">
       <button
@@ -48,12 +50,14 @@ export function Toolbar({
       <button onClick={() => setDialog({ kind: 'tokens' })}>
         ● <span>Figures</span>
       </button>
-      <button
-        onClick={() => (rulesOpen ? setRulesOpen(false) : openRules())}
-        className={rulesOpen ? 'on' : ''}
-      >
-        📖 <span>Rules</span>
-      </button>
+      {provider && (
+        <button
+          onClick={() => (contentOpen ? setContentOpen(false) : openContent())}
+          className={contentOpen ? 'on' : ''}
+        >
+          {provider.icon} <span>{provider.label}</span>
+        </button>
+      )}
       <button
         onClick={onFit}
         aria-label="Fit the play areas, again for the whole table"

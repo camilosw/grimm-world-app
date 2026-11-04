@@ -16,8 +16,11 @@ uv run scripts/split_rules.py      # ~15 s: rulebook pages → public/rules/ (pa
 uv run scripts/split_booklets.py   # ~1 min: rule booklets → public/booklets/ (page images, OCR search text)
 ```
 
+- `split_cards.py` reads how the cards lie on the sheets (grid, card size, mirrored backs, image sizes) from
+  `pipeline.toml`.
 - `lg` images are 750 × 1050 (300 dpi, full quality); `sm` images are 300 × 420 (table preview).
-- Card ids `001`–`540` follow sheet order (sheet 1 = 001–009, row by row).
+- Card ids `001`–`540` follow sheet order (sheet 1 = 001–009, row by row). Each card in `cards.json` names its images
+  (`faces`); splitting again keeps the labels `index_cards.py` added.
 - `index_cards.py` writes `type`, `code` and `name` into `cards.json`. The app uses them to build the starting piles
   (rulebook chapter 6.1) and to search for cards. If a number was misread, fix it with
   `--override 123=Y456` or by editing `cards.json`.

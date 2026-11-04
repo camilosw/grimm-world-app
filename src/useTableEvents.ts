@@ -17,10 +17,10 @@ import { deckStack } from './lib/engine/decks';
 import { CARD_H, CARD_W } from './lib/engine/geometry';
 import { update } from './lib/engine/store';
 import type { CardDef, CardRef, Table } from './lib/engine/types';
+import { content } from './lib/ui/content';
 import { gameUI } from './lib/ui/gameUI';
 import type { Selection, TableControl, TableDrop, Zone } from './lib/ui/Table';
 import type { Target } from './lib/ui/tableGestures';
-import { AREA_RULES } from './rules';
 import { revealStory, storyToBar, unrevealStory } from './storybook';
 
 // The game layer of the table: what Grimm World makes of the generic events of `TableView` (a tap, a drop…) and the
@@ -49,7 +49,8 @@ export interface TableGame {
   /** Show a card just dealt travelling there from `from`. */
   deal: (cardId: string, from: { x: number; y: number }) => void;
   typeBattlefield: () => void;
-  openRules: (section?: string | null) => void;
+  /** Open the rules (`GameUI.content`) at a section. */
+  openContent: (section?: string | null) => void;
   hoverZone: (zone: Zone | null, cardIds: string[], from?: DeckKind) => void;
   dropOnZone: (zone: Zone, stackId: string, whole: boolean) => void;
 }
@@ -252,6 +253,7 @@ export function useTableEvents(g: TableGame) {
     onZoneHover,
     onDrop,
     controls,
-    onAreaInfo: (areaId: string) => g.openRules(AREA_RULES[areaId]),
+    onAreaInfo: (areaId: string) =>
+      g.openContent(content()?.areaSection(areaId)),
   };
 }

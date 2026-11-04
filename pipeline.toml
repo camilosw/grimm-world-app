@@ -1,0 +1,21 @@
+# How scripts/split_cards.py cuts this game's print-and-play card sheets into card images (`uv run
+# scripts/split_cards.py`; `--config` names another file). Paths are relative to this file.
+
+[cards]
+# The card sheets: each page one image (the embedded JPEG is cropped, not re-rendered), a page of fronts followed by
+# the page of their backs.
+pdf = "game-files/GrimmWorld_ENG_BaseGame_9_Cards_A4.pdf"
+# Where the images and cards.json go.
+out = "public/cards"
+# Width of a page, in mm (A4), which gives the scale of the page's image.
+page_width_mm = 210.0
+# Size of a card, in mm (poker size).
+card_mm = [63.5, 88.9]
+# The grid of cards on a page, centred, with no gutter.
+rows = 3
+cols = 3
+# Whether the backs are mirrored left to right (long-edge duplex): the back of the card at (row, col) lies at
+# (row, cols - 1 - col) on the next page.
+mirror_backs = true
+# Size of each image written per side, in pixels: lg to look at a card, sm for the table and lists.
+sizes = { lg = [750, 1050], sm = [300, 420] }

@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
-import { cardImage, isLandscape } from '../engine/game';
-import { cardLabel } from '../engine/cards';
+import { isLandscape } from '../engine/game';
+import { cardImage, cardLabel } from '../engine/cards';
 import { storage } from '../engine/storage';
 import type { CardDef, CardRef, Stack } from '../engine/types';
 import { landscapeClass } from './cardClasses';
 import { CardGhost } from './CardGhost';
+import { gameUI } from './gameUI';
 import { type DragOut, useDragOut } from './useDragOut';
 import { useFlip } from './useFlip';
 
@@ -38,7 +39,7 @@ interface Props {
 }
 
 /**
- * The Hand, the right sidebar: cards set aside (the setup cards, say) to keep at hand while moving about the table.
+ * The right sidebar, named by the game (`GameUI.texts.tray`: the Hand): cards set aside (the setup cards, say) to keep at hand while moving about the table.
  * Always there, minimized to a narrow bar while empty; cards dropped on the bar open it. Its width follows its left
  * edge, dragged, and the cards fill it.
  */
@@ -107,23 +108,26 @@ export function Tray({
     },
   };
 
+  const name = gameUI().texts.tray;
   if (collapsed)
     return (
       <aside
         className={`tray collapsed${hover ? ' drop-hint' : ''}`}
         data-tray
-        aria-label="Hand"
+        aria-label={name}
       >
         <button
           className="tray-open"
           onClick={() => onCollapse(false)}
           aria-label={
-            count ? `Show the ${count} cards in the Hand` : 'Show the Hand'
+            count
+              ? `Show the ${count} cards in the ${name}`
+              : `Show the ${name}`
           }
         >
           <span aria-hidden>‹</span>
           {count > 0 && <span className="tray-count">{count}</span>}
-          <span className="tray-title">Hand</span>
+          <span className="tray-title">{name}</span>
         </button>
       </aside>
     );
@@ -135,7 +139,7 @@ export function Tray({
       ref={panelRef}
       className={`tray${hover ? ' drop-hint' : ''}`}
       data-tray
-      aria-label="Hand"
+      aria-label={name}
       style={{ '--tray-width': `${width}px` } as React.CSSProperties}
     >
       <hr
@@ -147,7 +151,7 @@ export function Tray({
       />
       <header className="tray-bar">
         <h2>
-          Hand <span className="muted">{count}</span>
+          {name} <span className="muted">{count}</span>
         </h2>
         <button
           className="icon"
@@ -178,7 +182,7 @@ export function Tray({
       </div>
       {dragged && drag && (
         <CardGhost
-          src={cardImage(dragged.id, dragged.faceUp, 'sm')}
+          src={cardImage(defs[dragged.id], dragged.faceUp, 'sm')}
           x={drag.x}
           y={drag.y}
           count={draggedPile?.cards.length}
@@ -228,7 +232,7 @@ function TrayPile({
         className={`tray-card${landscapeClass(landscape, faceUp)}`}
       >
         <img
-          src={cardImage(top.id, faceUp, size)}
+          src={cardImage(defs[top.id], faceUp, size)}
           alt={cardLabel(defs[top.id])}
           draggable={false}
         />

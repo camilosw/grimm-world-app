@@ -15,16 +15,21 @@ const files = import.meta.glob<string>('./saves/*.json', {
   eager: true,
 });
 
+/** The images of a card's two sides, as the card pipeline names them. */
+export function faces(id: string): CardDef['faces'] {
+  const side = (s: string) => ({
+    lg: `/cards/lg/${id}-${s}.webp`,
+    sm: `/cards/sm/${id}-${s}.webp`,
+  });
+  return { front: side('front'), back: side('back') };
+}
+
 /** The real card set (number, type and name of each card, as the saves of released versions use it). */
 export function realManifest(): CardManifest {
-  const cards: Omit<CardDef, 'sheet' | 'row' | 'col'>[] = JSON.parse(
+  const cards: Omit<CardDef, 'faces'>[] = JSON.parse(
     files['./saves/cards.json'],
   );
-  return {
-    source: 'test',
-    cardSize: { width: 750, height: 1050 },
-    cards: cards.map((c) => ({ sheet: 0, row: 0, col: 0, ...c })),
-  };
+  return { cards: cards.map((c) => ({ ...c, faces: faces(c.id) })) };
 }
 
 /**
@@ -39,10 +44,10 @@ export const SAVES: Record<string, string> = Object.fromEntries(
 
 let nextCard = 1;
 
-/** A card as cards.json describes it. */
+/** A card of the card set. */
 export function card(code: string, type: CardDef['type']): CardDef {
   const id = String(nextCard++).padStart(3, '0');
-  return { id, sheet: 1, row: 0, col: 0, type, code };
+  return { id, type, code, faces: faces(id) };
 }
 
 /** Cards as a pile holds them, bottom → top. */

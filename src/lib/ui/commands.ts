@@ -16,7 +16,7 @@ import type {
   Table,
   Token,
 } from '../engine/types';
-import { gameUI } from './gameUI';
+import { content } from './content';
 import type { Dialog, PutUnder } from './useDialogs';
 
 /** An action of the action bar, on what is selected (`C`: the selection and what the action needs of the app). */
@@ -43,7 +43,8 @@ export interface PileApp {
   dropAt: (cardIds?: string[]) => At | null;
   shuffle: (stackId: string) => void;
   notify: (text: string, ok?: boolean) => void;
-  openRules: (section?: string | null) => void;
+  /** Open the game's content (`GameUI.content`) at a section. */
+  openContent: (section?: string | null) => void;
   /** The decks cards go back to, by name. */
   homeNames: (cards: CardRef[]) => string;
 }
@@ -229,12 +230,15 @@ export const PILE_COMMANDS = {
     enabled: (c) => !isDeck(c) && !isPlace(c),
     run: (c) => c.app.setDialog({ kind: 'rename', stackId: c.stack.id }),
   },
-  rules: {
-    id: 'rules',
-    icon: '📖',
-    label: 'Rules',
-    enabled: () => true,
-    run: (c) => c.app.openRules(gameUI().rule(c.stack, c.defs)),
+  /** The game's content (the rules), at the section explaining the pile; offered only if the game has content. */
+  content: {
+    id: 'content',
+    get icon() {
+      return content()?.icon ?? '';
+    },
+    label: () => content()?.label ?? '',
+    enabled: () => !!content(),
+    run: (c) => c.app.openContent(content()?.pileSection(c.stack, c.defs)),
   },
 } satisfies Record<string, PileCommand>;
 

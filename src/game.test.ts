@@ -73,7 +73,8 @@ describe("Grimm World's definition", () => {
 
   it('links a pile to the rulebook by its deck, its place or its top card', () => {
     const t = newGame();
-    const rule = (id: string) => grimmWorldUI.rule(t.stacks[id], defs);
+    const rule = (id: string) =>
+      grimmWorldUI.content?.pileSection(t.stacks[id], defs);
     expect(rule(placeStack(t, 'quest')!.id)).toBe('6.2.1');
     expect(rule(placeStack(t, 'used')!.id)).toBe('5.1');
     expect(rule(placeStack(t, 'damage')!.id)).toBe('4.7.9');

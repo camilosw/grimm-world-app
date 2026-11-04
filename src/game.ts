@@ -27,12 +27,12 @@ import {
   refusal,
   SPOTS,
 } from './areas';
-import { cardImage, family, isLandscape, turnsAround } from './cards';
+import { family, isLandscape, turnsAround } from './cards';
 import { DECK_SPECS, homeDeck, returnsCards, storySlot } from './decks';
 import { type GameDefinition, setGame } from './lib/engine/game';
 import { FIGURE_COMMANDS, PILE_COMMANDS } from './lib/ui/commands';
 import { type GameUI, setGameUI } from './lib/ui/gameUI';
-import { pileRule } from './rules';
+import { RULES_CONTENT } from './rulesContent';
 import { refusalText } from './refusals';
 import { readSave, saveText, writeGame } from './save';
 import { initialTable, isPlayable } from './setup';
@@ -45,7 +45,6 @@ export const grimmWorld: GameDefinition = {
   family,
   isLandscape,
   turnsAround,
-  cardImage,
   playable: isPlayable,
   setup: initialTable,
 
@@ -101,7 +100,12 @@ export const grimmWorldUI: GameUI = {
       hint: 'build the battlefield from here',
     },
   },
-  rule: pileRule,
+  texts: {
+    tray: 'Hand',
+    findPlaceholder: 'Card numbers or names, e.g. Y003, B12, Chapter 3',
+    nameExample: 'Encounter Deck',
+  },
+  content: RULES_CONTENT,
   pileCommands: [
     PILE_COMMANDS.draw,
     PILE_COMMANDS.flip,
@@ -119,7 +123,7 @@ export const grimmWorldUI: GameUI = {
     PILE_COMMANDS.toTable,
     PILE_COMMANDS.returnToDeck,
     PILE_COMMANDS.name,
-    PILE_COMMANDS.rules,
+    PILE_COMMANDS.content,
   ],
   figureCommands: [FIGURE_COMMANDS.remove],
 };

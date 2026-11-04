@@ -10,6 +10,7 @@ import { redo, resetTable, undo, update } from './lib/engine/store';
 import type { CardDef, CardManifest } from './lib/engine/types';
 import { FigureBar, PileBar } from './lib/ui/ActionBar';
 import { isCompact, useCompact } from './lib/ui/compact';
+import { content, useContent } from './lib/ui/content';
 import {
   BrowsePanel,
   CardViewer,
@@ -28,13 +29,10 @@ import { useNotice } from './lib/ui/useNotice';
 import { usePanel } from './lib/ui/usePanel';
 import { useHistory, useTable } from './lib/ui/useStore';
 import { useTransient } from './lib/ui/useTransient';
-import { cardRule } from './rules';
-import { RulesPanel } from './RulesPanel';
 import { loadGame } from './save';
 import { playableCards } from './setup';
 import { putUnderChapter, storyProgress } from './storybook';
 import { useBattlefieldBar } from './useBattlefieldBar';
-import { useRulesPanel } from './useRulesPanel';
 import { useTableEvents } from './useTableEvents';
 
 export default function App() {
@@ -83,8 +81,14 @@ export default function App() {
     trayHeld.current = trayCount > 0;
   }, [loaded, trayCount, setTrayOpen]);
   const { notice, notify } = useNotice();
-  const { rules, rulesOpen, setRulesOpen, rulesTarget, openRules } =
-    useRulesPanel(notify);
+  const {
+    loadedContent,
+    contentOpen,
+    setContentOpen,
+    contentTarget,
+    openContent,
+  } = useContent(notify);
+  const provider = content();
   const { shuffled, dealt, shuffle, deal } = useTransient();
 
   const defs = useMemo<Record<string, CardDef>>(
@@ -228,7 +232,7 @@ export default function App() {
     shuffle,
     deal,
     typeBattlefield,
-    openRules,
+    openContent,
     hoverZone: drops.hoverZone,
     dropOnZone: drops.dropOnZone,
   });
@@ -243,16 +247,16 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* The rules panel lies beside the toolbar and the table, from the top of the screen. */}
+      {/* The content panel (the rules) lies beside the toolbar and the table, from the top of the screen. */}
       <div className="workspace">
         <div className="workspace-left">
           <Toolbar
             sidebarOpen={sidebarOpen}
             toggleSidebar={toggleSidebar}
             history={history}
-            rulesOpen={rulesOpen}
-            setRulesOpen={setRulesOpen}
-            openRules={openRules}
+            contentOpen={contentOpen}
+            setContentOpen={setContentOpen}
+            openContent={openContent}
             setDialog={setDialog}
             onFit={() => toggleFit(table)}
           />
@@ -357,11 +361,11 @@ export default function App() {
             />
           </div>
         </div>
-        {rulesOpen && rules && (
-          <RulesPanel
-            rules={rules}
-            target={rulesTarget}
-            onClose={() => setRulesOpen(false)}
+        {contentOpen && loadedContent && provider && (
+          <provider.Panel
+            content={loadedContent.content}
+            target={contentTarget}
+            onClose={() => setContentOpen(false)}
           />
         )}
       </div>
@@ -411,7 +415,7 @@ export default function App() {
           dropAt={drops.dropAt}
           shuffle={shuffle}
           notify={notify}
-          openRules={openRules}
+          openContent={openContent}
           homeNames={drops.homeNamesOf}
         />
       )}
@@ -422,11 +426,11 @@ export default function App() {
           card={dialog.card}
           def={defs[dialog.card.id]}
           onClose={() => setDialog(null)}
-          onRules={
-            cardRule(defs[dialog.card.id])
+          onContent={
+            provider?.cardSection(defs[dialog.card.id])
               ? () => {
                   setDialog(null);
-                  openRules(cardRule(defs[dialog.card.id]));
+                  openContent(provider.cardSection(defs[dialog.card.id]));
                 }
               : undefined
           }
@@ -443,7 +447,12 @@ export default function App() {
         />
       )}
       {dialog?.kind === 'about' && (
-        <AboutDialog onClose={() => setDialog(null)} />
+        <AboutDialog
+          title={
+            manifest.cards.find((c) => c.type === 'title') ?? manifest.cards[0]
+          }
+          onClose={() => setDialog(null)}
+        />
       )}
       {dialog?.kind === 'rename' && (
         <RenameDialog

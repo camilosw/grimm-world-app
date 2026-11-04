@@ -22,21 +22,30 @@ export type GridId = Kind<'grid'>;
 /** What a pile on a fixed place lies on (`At`): its `Stack.place`, `slot` or `deck`. */
 export type FixedPlace = Place | StorySlot | DeckKind;
 
-/** One physical card as described by public/cards/cards.json. */
+/** The images of one side of a card: full size, and smaller for the table and lists (left out: the full one). */
+export interface FaceImages {
+  lg: string;
+  sm?: string;
+}
+
+/**
+ * One card of the card set (`CardManifest`): its kind, number and name, the images of its two sides, and whatever else
+ * the game reads of it. Where the card was printed (sheet, row, column) is the pipeline's business, not the app's.
+ */
 export interface CardDef {
   id: string;
-  sheet: number;
-  row: number;
-  col: number;
   type?: CardType;
   /** Printed card number, e.g. "Y003", "B23", "T07". */
   code?: string;
   name?: string;
+  /** The images of its front and back (URLs). */
+  faces: { front: FaceImages; back: FaceImages };
+  /** Further facts the game reads of the card, which the search also looks through. */
+  attrs?: Record<string, string>;
 }
 
+/** The card set the game is played with (`readManifest()`). */
 export interface CardManifest {
-  source: string;
-  cardSize: { width: number; height: number };
   cards: CardDef[];
 }
 

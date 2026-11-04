@@ -1,11 +1,13 @@
 // What the game adds to the generic UI (GameUI): its area icons, the area rail, the areas Fit frames, the area headers'
-// texts, the words of the refusals, the rulebook links and the action bar's commands. The game registers it with `setGameUI()` beside its GameDefinition (`setGame()`).
+// texts, the words of the refusals and its other words, its reading matter (the rules) and the action bar's commands.
+// The game registers it with `setGameUI()` beside its GameDefinition (`setGame()`).
 
 import type { ComponentType } from 'react';
 import type { Area } from '../engine/areas';
 import type { Refusal } from '../engine/refusals';
-import type { CardDef, GridId, Stack, Table } from '../engine/types';
+import type { GridId, Table } from '../engine/types';
 import type { FigureCommand, PileCommand } from './commands';
+import type { ContentProvider } from './content';
 
 export interface GameUI {
   /** An area's icon, in its header and on the area rail. */
@@ -20,8 +22,17 @@ export interface GameUI {
   refusalText(r: Refusal): string;
   /** What the first place of an empty grid says. */
   gridStart: Record<GridId, { label: string; hint: string }>;
-  /** The rulebook section explaining a pile (its deck, its place or its top card), if any. */
-  rule(stack: Stack, defs: Record<string, CardDef>): string | null;
+  /** The game's words in the generic UI. */
+  texts: {
+    /** The right sidebar of cards set aside ("Hand"). */
+    tray: string;
+    /** What the Find dialog asks for ("Card numbers or names, e.g. …"). */
+    findPlaceholder: string;
+    /** An example of a pile's name, in the Name dialog ("e.g. …"). */
+    nameExample: string;
+  };
+  /** Reading matter beside the table (the rulebook), if the game has any. */
+  content?: ContentProvider;
   /** The action bar's commands for a selected pile, in this order (`PILE_COMMANDS` and the game's own). */
   pileCommands: PileCommand[];
   /** The action bar's commands for a selected figure, in this order (`FIGURE_COMMANDS` and the game's own). */

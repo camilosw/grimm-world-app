@@ -12,7 +12,7 @@ export function CardGhost({
   count = 1,
   frame = '',
 }: {
-  src: string;
+  src: string | undefined;
   x: number;
   y: number;
   count?: number;

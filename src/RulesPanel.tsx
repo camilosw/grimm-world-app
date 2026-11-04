@@ -7,6 +7,7 @@ import {
 } from './booklets';
 import { BookletScroll, BookletShelf, BookletSpread } from './Booklets';
 import { storage } from './lib/engine/storage';
+import type { ContentPanelProps } from './lib/ui/content';
 import {
   rulePageImage,
   type RuleSection,
@@ -574,4 +575,15 @@ function search(
     }
   }
   return { sections, pages, booklets: bookletHits };
+}
+
+/** The rulebook panel as the content panel shows it, given the rulebook `loadRules()` loaded. */
+export function RulesContent({ content, target, onClose }: ContentPanelProps) {
+  return (
+    <RulesPanel
+      rules={content as RulesManifest}
+      target={target}
+      onClose={onClose}
+    />
+  );
 }

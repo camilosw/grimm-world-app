@@ -49,8 +49,6 @@ export interface GameDefinition {
   isLandscape(def: CardDef | undefined): boolean;
   /** Whether a landscape card turns around (by 180°, `rotateStack()`); other landscape cards never rotate. */
   turnsAround(def: CardDef | undefined): boolean;
-  /** The image of a card's side. */
-  cardImage(id: string, faceUp: boolean, size: 'sm' | 'lg'): string;
   /** Whether a card of the card set is played with (others lie nowhere). */
   playable(def: CardDef): boolean;
   /** The table of a new game. */
@@ -168,13 +166,4 @@ export function family(def: CardDef | undefined): Family | undefined {
 /** Whether a card lies landscape (`GameDefinition.isLandscape`). */
 export function isLandscape(def: CardDef | undefined): boolean {
   return game().isLandscape(def);
-}
-
-/** The image of a card's side (`GameDefinition.cardImage`). */
-export function cardImage(
-  id: string,
-  faceUp: boolean,
-  size: 'sm' | 'lg',
-): string {
-  return game().cardImage(id, faceUp, size);
 }

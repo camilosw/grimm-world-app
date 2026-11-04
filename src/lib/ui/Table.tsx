@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import { cardImage, game, isLandscape } from '../engine/game';
+import { game, isLandscape } from '../engine/game';
+import { cardImage } from '../engine/cards';
 import {
   type Destination,
   dragged,
@@ -518,7 +519,7 @@ export function TableView(props: Props) {
       </div>
       {ghost && drag && (
         <CardGhost
-          src={cardImage(ghost.id, ghost.faceUp, 'sm')}
+          src={cardImage(defs[ghost.id], ghost.faceUp, 'sm')}
           x={drag.clientX}
           y={drag.clientY}
           frame={landscapeClass(isLandscape(defs[ghost.id]), ghost.faceUp)}

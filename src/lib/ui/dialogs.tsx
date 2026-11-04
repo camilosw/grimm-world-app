@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { cardImage, game, isLandscape } from '../engine/game';
+import { game, isLandscape } from '../engine/game';
 import { allAreas } from '../engine/areas';
 import {
   extractCard,
@@ -11,6 +11,7 @@ import {
   shuffled,
 } from '../engine/actions';
 import {
+  cardImage,
   cardLabel,
   compareCards,
   matchesQuery,
@@ -21,6 +22,8 @@ import { update } from '../engine/store';
 import type { At, CardDef, CardRef, FixedPlace, Table } from '../engine/types';
 import { landscapeClass } from './cardClasses';
 import { CardGhost } from './CardGhost';
+import { content } from './content';
+import { gameUI } from './gameUI';
 import { useDragOut } from './useDragOut';
 import { useFlip } from './useFlip';
 
@@ -60,17 +63,15 @@ export function Modal({
 
 /** A card's picture in a list; a Region Card lies landscape. */
 export function Thumb({
-  id,
   faceUp,
   def,
 }: {
-  id: string;
   faceUp: boolean;
-  def?: CardDef;
+  def: CardDef | undefined;
 }) {
   const img = (
     <img
-      src={cardImage(id, faceUp, 'sm')}
+      src={cardImage(def, faceUp, 'sm')}
       alt={cardLabel(def)}
       loading="lazy"
       draggable={false}
@@ -88,12 +89,13 @@ export function CardViewer({
   card,
   def,
   onClose,
-  onRules,
+  onContent,
 }: {
   card: CardRef;
   def?: CardDef;
   onClose: () => void;
-  onRules?: () => void;
+  /** Open the game's content (the rules) at the section explaining the card; left out when there is none. */
+  onContent?: () => void;
 }) {
   const [faceUp, setFaceUp] = useState(card.faceUp);
   const [rot, setRot] = useState(0);
@@ -120,7 +122,7 @@ export function CardViewer({
           onClick={flip}
         >
           <img
-            src={cardImage(card.id, shownFace, 'lg')}
+            src={cardImage(def, shownFace, 'lg')}
             alt={cardLabel(def)}
             draggable={false}
           />
@@ -129,7 +131,7 @@ export function CardViewer({
         // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- a tap shortcut for the Other side button
         <img
           ref={imgRef}
-          src={cardImage(card.id, shownFace, 'lg')}
+          src={cardImage(def, shownFace, 'lg')}
           alt={cardLabel(def)}
           style={{ rotate: `${rot}deg` }}
           className={rot % 180 ? 'sideways' : ''}
@@ -145,7 +147,11 @@ export function CardViewer({
             ↻ Rotate
           </button>
         )}
-        {onRules && <button onClick={onRules}>📖 Rules</button>}
+        {onContent && (
+          <button onClick={onContent}>
+            {content()?.icon} {content()?.label}
+          </button>
+        )}
         <button onClick={onClose}>✕ Close</button>
       </div>
     </div>
@@ -477,7 +483,7 @@ export function BrowsePanel({
               // Taps come through the pointer events; a click without a pointer (detail 0) is the keyboard's.
               onClick={(e) => e.detail === 0 && togglePick(card.id)}
             >
-              <Thumb id={card.id} faceUp={fronts} def={def} />
+              <Thumb faceUp={fronts} def={def} />
               {chosen.includes(card.id) && (
                 <span className="pick-badge">
                   {chosen.length > 1
@@ -516,7 +522,7 @@ export function BrowsePanel({
       </div>
       {grip.drag && (
         <CardGhost
-          src={cardImage(grip.drag.item, fronts, 'sm')}
+          src={cardImage(defs[grip.drag.item], fronts, 'sm')}
           x={grip.drag.x}
           y={grip.drag.y}
           count={dragged.size}
@@ -525,7 +531,7 @@ export function BrowsePanel({
       )}
       {groupGrip.drag && groupTop && (
         <CardGhost
-          src={cardImage(groupTop, groupFaceUp, 'sm')}
+          src={cardImage(defs[groupTop], groupFaceUp, 'sm')}
           x={groupGrip.drag.x}
           y={groupGrip.drag.y}
           count={groupDragged.length}
@@ -573,7 +579,7 @@ export function FindDialog({
         <input
           type="search"
           autoFocus
-          placeholder="Card numbers or names, e.g. Y003, B12, Chapter 3"
+          placeholder={gameUI().texts.findPlaceholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -594,7 +600,7 @@ export function FindDialog({
                 className="thumb"
                 onClick={() => onInspect({ id: def.id, faceUp: true })}
               >
-                <Thumb id={def.id} faceUp def={def} />
+                <Thumb faceUp def={def} />
               </button>
               <div className="grid-caption">
                 <span>{cardLabel(def)}</span>
@@ -602,7 +608,7 @@ export function FindDialog({
                   {stack.slot
                     ? `in the ${slotArea(table, stack.slot)}`
                     : aside
-                      ? 'in the Hand'
+                      ? `in the ${gameUI().texts.tray}`
                       : inPile
                         ? `in ${stack.label ?? 'pile'}`
                         : 'on table'}
@@ -674,7 +680,7 @@ export function RenameDialog({
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="e.g. Encounter Deck"
+          placeholder={`e.g. ${gameUI().texts.nameExample}`}
         />
         <button className="primary" type="submit">
           Save

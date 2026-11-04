@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { grimmWorldUI } from '../../game';
+import { setGameUI } from './gameUI';
 import { toTray } from '../engine/actions';
 import { cellPlace, placeStack } from '../engine/areas';
 import { deckStack } from '../engine/decks';
@@ -24,7 +25,7 @@ const app = (over: Partial<PileApp> = {}): PileApp => ({
   dropAt: () => ({ x: 0, y: 0 }),
   shuffle: vi.fn(),
   notify: vi.fn(),
-  openRules: vi.fn(),
+  openContent: vi.fn(),
   homeNames: () => 'Lost Pages',
   ...over,
 });
@@ -65,7 +66,7 @@ describe('the action bar', () => {
       'sort',
       'view',
       'turn-over',
-      'rules',
+      'content',
     ]);
   });
 
@@ -80,7 +81,7 @@ describe('the action bar', () => {
       'back',
       'return-to-deck',
       'name',
-      'rules',
+      'content',
     ]);
   });
 
@@ -135,8 +136,24 @@ describe('the action bar', () => {
       kind: 'inspect',
       card: deck.cards.at(-1),
     });
-    PILE_COMMANDS.rules.run(c);
-    expect(c.app.openRules).toHaveBeenCalledWith(grimmWorldUI.rule(deck, defs));
+    PILE_COMMANDS.content.run(c);
+    expect(c.app.openContent).toHaveBeenCalledWith(
+      grimmWorldUI.content?.pileSection(deck, defs),
+    );
+  });
+
+  it('offers no content to a game without any', () => {
+    const t = newGame();
+    const deck = deckStack(t, 'lost-pages')!;
+    expect(PILE_COMMANDS.content.icon).toBe('📖');
+    expect(commandLabel(PILE_COMMANDS.content, context(t, deck))).toBe('Rules');
+    setGameUI({ ...grimmWorldUI, content: undefined });
+    try {
+      expect(bar(t, deck)).not.toContain('content');
+      expect(PILE_COMMANDS.content.icon).toBe('');
+    } finally {
+      setGameUI(grimmWorldUI);
+    }
   });
 
   it('changes the table through the store', () => {

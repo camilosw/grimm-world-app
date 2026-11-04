@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { cardImage, game, isLandscape } from '../engine/game';
-import { cardLabel } from '../engine/cards';
+import { game, isLandscape } from '../engine/game';
+import { cardImage, cardLabel } from '../engine/cards';
 import type { CardDef, CardRef, Stack } from '../engine/types';
 import { landscapeClass } from './cardClasses';
 import { CardGhost } from './CardGhost';
@@ -113,7 +113,7 @@ export function Sidebar({
             >
               {card ? (
                 <img
-                  src={cardImage(card.id, card.faceUp, 'sm')}
+                  src={cardImage(defs[card.id], card.faceUp, 'sm')}
                   alt={cardLabel(defs[card.id])}
                   draggable={false}
                   className={
@@ -140,7 +140,7 @@ export function Sidebar({
       </p>
       {dragged && drag && (
         <CardGhost
-          src={cardImage(dragged.id, dragged.faceUp, 'sm')}
+          src={cardImage(defs[dragged.id], dragged.faceUp, 'sm')}
           x={drag.x}
           y={drag.y}
           frame={landscapeClass(isLandscape(defs[dragged.id]), dragged.faceUp)}

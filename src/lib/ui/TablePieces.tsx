@@ -1,9 +1,10 @@
 import { useLayoutEffect, useRef } from 'react';
-import { cardImage, game, isLandscape } from '../engine/game';
+import { game, isLandscape } from '../engine/game';
 import { gameUI } from './gameUI';
+import { content } from './content';
 import { unpinned } from '../engine/actions';
 import type { Area } from '../engine/areas';
-import { cardLabel } from '../engine/cards';
+import { cardImage, cardLabel } from '../engine/cards';
 import {
   CARD_H,
   CARD_W,
@@ -53,7 +54,7 @@ export function SlotView({
           }}
         >
           <img
-            src={cardImage(top.id, top.faceUp, size)}
+            src={cardImage(defs[top.id], top.faceUp, size)}
             alt={top.faceUp ? cardLabel(defs[top.id]) : (stack.label ?? 'Card')}
             draggable={false}
           />
@@ -74,13 +75,14 @@ interface AreaViewProps {
   state: 'accept' | 'refuse' | 'moving' | null;
   /** The buttons in its header, in this order. */
   controls: TableControl[];
-  /** Its ⓘ. */
+  /** Its ⓘ, opening the game's content (`GameUI.content`) about it; shown only if there is any. */
   onInfo: () => void;
 }
 
 export function AreaView({ area, state, controls, onInfo }: AreaViewProps) {
   const { AreaIcon } = gameUI();
   const accepts = gameUI().acceptsText(area);
+  const provider = content();
   return (
     <div
       className={`area area-${area.id}${area.deck ? ' area-deck' : ''}${state ? ` ${state}` : ''}`}
@@ -98,15 +100,17 @@ export function AreaView({ area, state, controls, onInfo }: AreaViewProps) {
         <span>
           <AreaIcon id={area.id} />
           {area.label}
-          <button
-            className="area-info"
-            data-ui
-            onClick={onInfo}
-            aria-label={`Rules: ${area.label}`}
-          >
-            ⓘ
-            <Hit />
-          </button>
+          {provider && (
+            <button
+              className="area-info"
+              data-ui
+              onClick={onInfo}
+              aria-label={`${provider.label}: ${area.label}`}
+            >
+              ⓘ
+              <Hit />
+            </button>
+          )}
           {accepts !== area.label && <small>{accepts}</small>}
         </span>
         {controls.length > 0 && (
@@ -284,7 +288,7 @@ export function StackView({
         }}
       >
         <img
-          src={cardImage(top.id, faceUp, size)}
+          src={cardImage(defs[top.id], faceUp, size)}
           alt={cardLabel(defs[top.id])}
           draggable={false}
         />
@@ -304,7 +308,7 @@ export function StackView({
               aria-hidden
             >
               <img
-                src={cardImage(c.id, c.faceUp, size)}
+                src={cardImage(defs[c.id], c.faceUp, size)}
                 alt=""
                 draggable={false}
               />
