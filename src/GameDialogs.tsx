@@ -1,7 +1,7 @@
 // Grimm World's own dialogs: About, and the chapter picker for the storybook (built on the dialogs of src/lib/ui/).
 
 import { cardImage } from './lib/engine/cards';
-import type { CardDef } from './lib/engine/types';
+import type { CardDef, CardManifest } from './lib/engine/types';
 import { Modal, Thumb } from './lib/ui/dialogs';
 
 /** Who made the game, and which version of the app this is. */
@@ -108,5 +108,23 @@ export function ChapterDialog({
         under the current chapter, on top of the storybook, to come up next.
       </p>
     </Modal>
+  );
+}
+
+/** The menu's About (`GameUI.About`), with the title card of the card set. */
+export function About({
+  manifest,
+  onClose,
+}: {
+  manifest: CardManifest;
+  onClose: () => void;
+}) {
+  return (
+    <AboutDialog
+      title={
+        manifest.cards.find((c) => c.type === 'title') ?? manifest.cards[0]
+      }
+      onClose={onClose}
+    />
   );
 }

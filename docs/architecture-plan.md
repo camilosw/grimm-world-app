@@ -28,7 +28,7 @@ Status: ⬜ Not started · 🟡 In progress · ✅ Done · 🔁 Ongoing
 | B4. Commands and UI extensions           | Opus designs the registry and slots; Sonnet moves the actions over                                  | ✅ Done        |
 | B5. Refusals as codes                    | Sonnet, once Opus has fixed the list of codes                                                       | ✅ Done        |
 | B6. Generic cards, images and content    | Opus for `CardDef`; Sonnet for the pipeline configuration and the content provider                  | ✅ Done        |
-| B7. A minimal second game                | Opus                                                                                                | ⬜ Not started |
+| B7. A minimal second game                | Opus                                                                                                | ✅ Done        |
 | B8. Library repo                         | Sonnet                                                                                              | ⬜ Not started |
 
 ### Choosing the model
@@ -707,6 +707,50 @@ import rule**):
 A simple card solitaire, built only with `src/lib/`, as a throwaway test in this repo: whatever is hard to fit in there
 shows what is still coupled, and is fixed in `src/lib/` before going further. The solitaire itself is then deleted.
 
+Outcome (November 2026, on top of B6; `CLAUDE.md` describes it under **App shell**, **Saves** and **The import rule**):
+
+- **The game.** A Klondike-style solitaire (`solitaire/`, on a branch of its own, never merged): 52 cards whose faces
+  are SVG drawn in code (no card pipeline), a Stock deck in its own area, a Waste spot taking the cards of its area face
+  up, four Foundation spots and seven Tableau columns (`fan: { count: Infinity, overlaps: 'bottom', takesPiles }`),
+  dealt by its `setup`; its own tsconfig took only `src/lib/` and the solitaire, and lint kept it off the rest of
+  `src/`. **The engine needed no change to play it**: the deal, the moves between columns, the stock to the waste face
+  up, a card turned over, the waste turned back into the stock, the layout of its areas (`packedPlaces`), saving and
+  loading it all worked from its `GameDefinition` alone.
+- **What was still coupled, fixed in `src/lib/`:**
+  - **The app shell was the game's.** `src/App.tsx` (about 450 lines) wired every generic component, and the generic
+    half of `useTableEvents.ts` (select, flip, look, drops) came with it: the solitaire had to copy both. They are now
+    `GameApp` (`src/lib/ui/GameApp.tsx`) and `tableEvents()` (`src/lib/ui/tableEvents.ts`); a game adds what only it has
+    through a layer (`useLayer`: its own events replacing the defaults, an overlay over the table, its dialogs, what
+    Escape closes). Grimm World's `App.tsx` is the shell with its layer (the Battlefield bar, the chapter picker, the
+    storybook's taps, the table's buttons).
+  - **Saves.** The save file, the table without its layout and the game kept on the device (`saveFile()`,
+    `openSave()`, `withoutLayout()`, `loadGame()`, `writeGame()`) are `src/lib/engine/saves.ts`; the game keeps its
+    format's version, its shape check, its migrations and its checks (`readSave`). `GameDefinition.autosave` went: the
+    store writes the game's `saveText` itself.
+  - **The engine's grids.** `lying()` gathered the piles of two grids named `map` and `battlefield`: a game with grids of
+    other names would have crashed on its first pile on one. It now takes the game's `grids`.
+  - **Grimm's words and dialogs in the generic UI.** The Figures panel's figures (`GameUI.figures`), the Browse filter's
+    examples and what "Put under…" taps (`GameUI.texts`) are the game's; the menu offers About only for a game with one
+    (`GameUI.About`; the solitaire's About did nothing), and the toolbar the Decks button and the sidebar only for a game
+    with sidebar decks (the solitaire showed an empty one).
+  - **Reading the device on import.** `dialogs.tsx` read the Browse panel's height on import, which fails before the game
+    is registered, so `src/game.ts` couldn't import a dialog (Grimm's About); it reads it when a panel first opens.
+- **Left as they are:**
+  - `styles.css` stays in `src/` (the solitaire imported it from there): splitting the generic styles from Grimm's is
+    mechanical, and belongs with B8's move.
+  - A game words every refusal code, even those it can't meet (the solitaire has no grids, but `refusalText` is
+    exhaustive); a default would put English words in `src/lib/` (B5's choice).
+  - A kind a game has none of (`slot`, `place`, `grid`) is left out of `GameKinds`, not `never`, as the engine's lookups
+    by it wouldn't type-check (`CLAUDE.md`).
+  - A run of cards can't be taken off a fanned row together (a Tableau column's face-up cards): each card is its own
+    pile, moved one by one. A rule a solitaire wants, and none of Grimm World's, so not built for a throwaway game.
+  - The card size (B6) stayed the table's unit: a poker-sized deck fits it.
+- **Nothing changed for the player**: the tests and the save snapshots are unchanged, and on the 0.3.0 save with a
+  battlefield and the 0.5.5 save with an area moved the app's HTML is the same as on `main` after loading, in the menu,
+  About, Figures, Find, the Battlefield bar opened and closed by Escape, and a tap on the storybook.
+- Tests: `src/lib/ui/tableEvents.test.ts` (the default events: select, pick the "Put under…" target, turn over, look,
+  the game's picker on a drop, a refusal told).
+
 ### B8. Library repo
 
 Only once another game is actually wanted: `src/lib/` (and the pipeline's configurable scripts) move to a library repo
@@ -719,7 +763,6 @@ of their own, published as a package that this repo and the new game's repo depe
   changing an own place or an id still needs a migration of the saves; figures still lie by table coordinates, and
   move with an area only by lying over it. The 1-unit offsets between rows on one line (`Spot.after`) only matter to
   the frozen migrations now and could go with a layout change.
-- Which solitaire serves as B7's throwaway test.
 - `Refusal` (B5) is a closed union in `src/lib/`: a refusal of a game's own (a rule the engine doesn't know) needs a
-  code added there. If B7 or a later game wants one, open it as `GameKinds` does (a game's codes merged in), with the
+  code added there. If a later game wants one (B7's solitaire didn't), open it as `GameKinds` does (a game's codes merged in), with the
   game's `refusalText` covering them.

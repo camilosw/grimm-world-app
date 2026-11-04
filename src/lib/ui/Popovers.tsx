@@ -5,21 +5,10 @@ import { game } from '../engine/game';
 import { tokenSize } from '../engine/geometry';
 import { resetTable, update } from '../engine/store';
 import type { CardManifest, Table, Token, View } from '../engine/types';
+import { type FigureKind, gameUI } from './gameUI';
 import type { Selection } from './Table';
 import type { Dialog } from './useDialogs';
 import { useDragOut } from './useDragOut';
-
-type FigureKind = { label: string; color: string; shape: Token['shape'] };
-
-const TOKENS: FigureKind[] = [
-  { label: 'Player marker', color: '#e8e2d6', shape: 'cube' },
-  { label: 'Character', color: '#8a8f98', shape: 'pawn' },
-  { label: 'Ally', color: '#7b4fb5', shape: 'pawn' },
-  { label: 'Enemy yellow', color: '#f2c318', shape: 'pawn' },
-  { label: 'Enemy turquoise', color: '#1fb5b0', shape: 'pawn' },
-  { label: 'Enemy black', color: '#1d1d1f', shape: 'pawn' },
-  { label: 'Enemy pink', color: '#e75aa6', shape: 'pawn' },
-];
 
 /** The Figures panel (open: shown) and, while a figure is dragged out of it, the figure following the pointer. */
 export function FiguresPopover({
@@ -89,7 +78,7 @@ export function FiguresPopover({
           onPointerDown={(e) => e.target === e.currentTarget && setDialog(null)}
         >
           <div className="popover-panel">
-            {TOKENS.map((tok) => (
+            {gameUI().figures.map((tok) => (
               <button
                 key={tok.label}
                 className="figure-button"
@@ -230,7 +219,9 @@ export function MenuPopover({
             ↺ Reset layout
           </button>
         )}
-        <button onClick={() => setDialog({ kind: 'about' })}>ⓘ About</button>
+        {gameUI().About && (
+          <button onClick={() => setDialog({ kind: 'about' })}>ⓘ About</button>
+        )}
         <p className="muted small">
           Tap: select · Double-tap: flip · Long-press: read card · Drag a card
           off a pile to draw it · Drag ⠿ to move the whole pile · Drop onto a

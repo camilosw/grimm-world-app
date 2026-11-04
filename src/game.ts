@@ -29,12 +29,13 @@ import {
 } from './areas';
 import { family, isLandscape, turnsAround } from './cards';
 import { DECK_SPECS, homeDeck, returnsCards, storySlot } from './decks';
+import { About } from './GameDialogs';
 import { type GameDefinition, setGame } from './lib/engine/game';
 import { FIGURE_COMMANDS, PILE_COMMANDS } from './lib/ui/commands';
 import { type GameUI, setGameUI } from './lib/ui/gameUI';
 import { RULES_CONTENT } from './rulesContent';
 import { refusalText } from './refusals';
-import { readSave, saveText, writeGame } from './save';
+import { readSave, saveText } from './save';
 import { initialTable, isPlayable } from './setup';
 import { intoStory, STORY_SLOT_SPECS } from './storybook';
 import { gameProblems } from './validate';
@@ -82,7 +83,6 @@ export const grimmWorld: GameDefinition = {
 
   readSave,
   saveText,
-  autosave: writeGame,
   problems: gameProblems,
 };
 
@@ -104,7 +104,20 @@ export const grimmWorldUI: GameUI = {
     tray: 'Hand',
     findPlaceholder: 'Card numbers or names, e.g. Y003, B12, Chapter 3',
     nameExample: 'Encounter Deck',
+    filterExample: 'Y003, B12, Terrain…',
+    putUnderTargets: 'a pile, a deck or the storybook',
   },
+  // The Player marker, the character and an ally, and the enemies in their four colours.
+  figures: [
+    { label: 'Player marker', color: '#e8e2d6', shape: 'cube' },
+    { label: 'Character', color: '#8a8f98', shape: 'pawn' },
+    { label: 'Ally', color: '#7b4fb5', shape: 'pawn' },
+    { label: 'Enemy yellow', color: '#f2c318', shape: 'pawn' },
+    { label: 'Enemy turquoise', color: '#1fb5b0', shape: 'pawn' },
+    { label: 'Enemy black', color: '#1d1d1f', shape: 'pawn' },
+    { label: 'Enemy pink', color: '#e75aa6', shape: 'pawn' },
+  ],
+  About,
   content: RULES_CONTENT,
   pileCommands: [
     PILE_COMMANDS.draw,

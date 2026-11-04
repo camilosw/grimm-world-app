@@ -1,21 +1,16 @@
 import { migrateTable, recordAt } from './legacy/migrate';
 import type { OldTable } from './legacy/table';
 import { layOut } from './lib/engine/areas';
-import { storage } from './lib/engine/storage';
-import type { CardDef, CardManifest, Stack, Table } from './lib/engine/types';
+import {
+  isObject,
+  openSave,
+  SaveError,
+  saveFile,
+  withoutLayout as bare,
+} from './lib/engine/saves';
+import type { CardDef, CardManifest, Table } from './lib/engine/types';
 import { tableProblems } from './lib/engine/validate';
-import { initialTable } from './setup';
 import { isValidTable } from './validate';
-
-/** Which game a save file is of. */
-const GAME = 'grimm-world';
-
-/** A save as it is written: the table, with which game and which version of the save format it is. */
-export interface SaveFile {
-  game: typeof GAME;
-  version: number;
-  table: Table;
-}
 
 interface Migration {
   /** The version of the save format it brings a save to. */
@@ -45,38 +40,21 @@ const MIGRATIONS: Migration[] = [
 /** The version of the save format written now. */
 export const SAVE_VERSION = MIGRATIONS.at(-1)!.to;
 
-/** Why a save can't be loaded, worded to follow "could not be loaded: ". */
-export class SaveError extends Error {}
-
-/** A save of the table, as it is written to the device or exported: without its layout (`withoutLayout()`). */
+/** A save of the table, as it is written to the device or exported: without its layout (`saveFile()`). */
 export function saveText(t: Table): string {
-  const file: SaveFile = {
-    game: GAME,
-    version: SAVE_VERSION,
-    table: withoutLayout(t),
-  };
-  return JSON.stringify(file);
+  return saveFile(t, SAVE_VERSION);
 }
 
 /**
- * A table without what the layout works out from where its piles lie (`Stack.at`) and where the player put the areas
- * (`Table.anchors`): where each pile is drawn (`Stack.x`, `y`), how far each area lies from its own place
- * (`Table.shifts`), and, in saves from before version 3, the frames and the Enemy Card places last laid out
- * (`OldTable.frames`, `enemies`).
+ * The migration to version 3: a table without what the layout works out (`withoutLayout()` in src/lib/engine/saves.ts),
+ * nor the frames and the Enemy Card places last laid out that saves from before version 3 hold (`OldTable.frames`,
+ * `enemies`). The app's tables have neither, so `saveText` needs only the engine's.
  */
 export function withoutLayout(t: OldTable): Table {
-  const rest = { ...t };
-  delete rest.shifts;
+  const rest = bare(t);
   delete rest.frames;
   delete rest.enemies;
-  const stacks: Record<string, Stack> = {};
-  for (const [id, s] of Object.entries(t.stacks)) {
-    const pile: Partial<Stack> = { ...s };
-    delete pile.x;
-    delete pile.y;
-    stacks[id] = pile as Stack;
-  }
-  return { ...rest, stacks };
+  return rest;
 }
 
 /**
@@ -98,13 +76,7 @@ export function migrate(
  * migrated (`tableProblems`). Throws a `SaveError` saying why when it can't be loaded.
  */
 export function readSave(text: string, manifest: CardManifest): Table {
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new SaveError('it is not a save file');
-  }
-  const { version, table } = unwrap(data);
+  const { version, table } = openSave(text, SAVE_VERSION);
   const wrong = TABLE(table, 'table');
   if (wrong) throw new SaveError(`it is damaged (${wrong})`);
   if (!isValidTable(table as OldTable, manifest))
@@ -124,25 +96,10 @@ export function readSave(text: string, manifest: CardManifest): Table {
   return t;
 }
 
-/** The version and the table of a save: a bare table is a save from before the version was saved (version 0). */
-function unwrap(data: unknown): { version: number; table: unknown } {
-  if (!isObject(data) || !('game' in data)) return { version: 0, table: data };
-  if (data.game !== GAME) throw new SaveError('it is a save of another game');
-  const { version } = data;
-  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1)
-    throw new SaveError('it is not a save file');
-  if (version > SAVE_VERSION)
-    throw new SaveError('it was saved by a newer version of the app');
-  return { version, table: data.table };
-}
-
 // The shape of a saved table (any version), checked before migrating it.
 
 /** What is wrong with a value at a path (null: nothing). */
 type Shape = (v: unknown, path: string) => string | null;
-
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
 
 const num: Shape = (v, p) =>
   typeof v === 'number' && Number.isFinite(v) ? null : `${p} is not a number`;
@@ -230,30 +187,3 @@ const TABLE = object({
   enemies: optional(POINT),
   nextId: num,
 });
-
-// The game saved on this device.
-
-const saved = storage('table:v1');
-/** A save that could not be loaded, kept aside before a new game was saved over it. */
-const unreadable = storage('table:unreadable');
-
-/**
- * The game saved on this device, or a new game when there is none. A save that can't be loaded is kept aside
- * (`grimm-world:table:unreadable`) before the new game is saved over it.
- */
-export function loadGame(manifest: CardManifest): Table {
-  const text = saved.get();
-  if (text === null) return initialTable(manifest);
-  try {
-    return readSave(text, manifest);
-  } catch (e) {
-    unreadable.set(text);
-    console.warn(`The saved game could not be loaded: ${(e as Error).message}`);
-    return initialTable(manifest);
-  }
-}
-
-/** Keep the table on this device (autosave). */
-export function writeGame(t: Table) {
-  saved.set(saveText(t));
-}

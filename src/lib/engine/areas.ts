@@ -120,7 +120,9 @@ function lying(t: Table): Lying {
   if (known) return known;
   const spots = new Map<string, string[]>();
   const indices = new Map<string, number>();
-  const grids: Lying['grids'] = { map: new Map(), battlefield: new Map() };
+  const grids = Object.fromEntries(
+    game().grids.map((g) => [g, new Map<string, string>()]),
+  ) as Lying['grids'];
   const on = (spot: string, id: string) => {
     const row = spots.get(spot);
     if (row) row.push(id);

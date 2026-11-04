@@ -189,8 +189,9 @@ const HEIGHT_KEY = storage('browse-height');
 const MIN_BROWSE = 200;
 /** The toolbar and the table keep at least this much room above the panel (`.workspace` in styles.css). */
 const MIN_TABLE = 180;
-// The height dragged last (null: half the screen), kept when the panel opens on another pile.
-let browseHeight: number | null = Number(HEIGHT_KEY.get()) || null;
+// The height dragged last (null: half the screen), kept when the panel opens on another pile; read from the device when
+// a panel first opens (undefined: not yet), not on import, as the game may not be registered yet.
+let browseHeight: number | null | undefined;
 
 /**
  * Look through a pile and pull cards out. Sits in the bottom half of the
@@ -222,7 +223,11 @@ export function BrowsePanel({
   const [blind, setBlind] = useState<string[]>([]);
   // How many of the shown cards Random picks (null: all of them, i.e. shuffle them).
   const [count, setCount] = useState<number | null>(null);
-  const [height, setHeight] = useState(browseHeight);
+  const [height, setHeight] = useState(() => {
+    if (browseHeight === undefined)
+      browseHeight = Number(HEIGHT_KEY.get()) || null;
+    return browseHeight;
+  });
   const resizing = useRef(false);
   // Selected cards that are still in the pile, bottom → top, as the actions take them.
   const inPile = new Set(stack?.cards.map((c) => c.id));
@@ -402,7 +407,7 @@ export function BrowsePanel({
         <input
           type="search"
           placeholder="Filter…"
-          title="Filter: Y003, B12, Terrain…"
+          title={`Filter: ${gameUI().texts.filterExample}`}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);

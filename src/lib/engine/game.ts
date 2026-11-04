@@ -135,12 +135,13 @@ export interface GameDefinition {
 
   // ---------- saves ----------
 
-  /** A save of this game read back (migrated and checked), or a thrown error worded for the player. */
+  /**
+   * A save of this game read back (`openSave()` in saves.ts, then migrated and checked), or a thrown error worded for the
+   * player (`SaveError`).
+   */
   readSave(text: string, manifest: CardManifest): Table;
-  /** The save of a table. */
+  /** The save of a table (`saveFile()` in saves.ts, with the version of the game's save format). */
   saveText(t: Table): string;
-  /** Keep the table on this device (the store's autosave). */
-  autosave(t: Table): void;
   /** What else is wrong with a table, by the game's own rules (`tableProblems()`). */
   problems(t: Table, manifest: CardManifest): string[];
 }

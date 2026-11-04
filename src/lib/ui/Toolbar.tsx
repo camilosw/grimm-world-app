@@ -17,7 +17,8 @@ export function Toolbar({
   onFit,
 }: {
   sidebarOpen: boolean;
-  toggleSidebar: () => void;
+  /** Open or close the sidebar decks (left out: the game has none, and no button). */
+  toggleSidebar?: () => void;
   /** Bit 1: undo possible; bit 2: redo possible. */
   history: number;
   contentOpen: boolean;
@@ -30,13 +31,15 @@ export function Toolbar({
   const provider = content();
   return (
     <header className="toolbar">
-      <button
-        onClick={toggleSidebar}
-        className={sidebarOpen ? 'on' : ''}
-        aria-label="Toggle decks"
-      >
-        🂠 <span>Decks</span>
-      </button>
+      {toggleSidebar && (
+        <button
+          onClick={toggleSidebar}
+          className={sidebarOpen ? 'on' : ''}
+          aria-label="Toggle decks"
+        >
+          🂠 <span>Decks</span>
+        </button>
+      )}
       <button onClick={undo} disabled={!(history & 1)} aria-label="Undo">
         ↶ <span>Undo</span>
       </button>

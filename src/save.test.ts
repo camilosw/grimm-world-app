@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { storage } from './lib/engine/storage';
 import type { Table } from './lib/engine/types';
 import { tableProblems } from './lib/engine/validate';
-import { loadGame, readSave, SAVE_VERSION, saveText, writeGame } from './save';
+import { loadGame, writeGame } from './lib/engine/saves';
+import { readSave, SAVE_VERSION, saveText } from './save';
 import { SAVES } from './test/fixtures';
 import { manifest, newGame } from './test/play';
 
