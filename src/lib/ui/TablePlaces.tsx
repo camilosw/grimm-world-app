@@ -10,8 +10,7 @@ import {
   spotsOf,
 } from '../engine/areas';
 import {
-  fanRow,
-  freePlaces,
+  freePlace,
   shows,
   showsPlace,
   splitHalves,
@@ -47,7 +46,6 @@ interface PlaceholdersProps {
   hl: Incoming | null;
   /** The pile dragged on the table, if any, and where it would really land. */
   dragged: DraggedPile | null;
-  to: { x: number; y: number } | null;
   /** Piles shown that aren't on the table yet (a battlefield being typed): their grid shows no strips beside them. */
   faded: Set<string>;
   /** The buttons drawn in a grid's first place. */
@@ -59,7 +57,6 @@ export function Placeholders({
   shown,
   hl,
   dragged,
-  to,
   faded,
   controls,
 }: PlaceholdersProps) {
@@ -69,8 +66,7 @@ export function Placeholders({
 
   /** A spot's placeholders: its free place(s), only the part showing beside a card covering it. */
   const placeholders = (spot: Spot) => {
-    // A fanned spot shows its next free place, none when full. The Encounter Bar: left of its cards, and once it
-    // has cards, also right of its last one.
+    // A fanned spot shows its next free place, none when full.
     // A row sharing a split placeholder shows no free place of its own: the split one takes its cards, beyond both rows
     // (Titles | Skills above the Character Card, Items over Money right of the Storage Card), all of it once the other
     // row is full.
@@ -106,47 +102,28 @@ export function Placeholders({
     }
     // None once a row is full, nor where a place shows none of its own (`showsPlace()`).
     if (!showsPlace(shown, spot, spots)) return [];
-    const addsFirst = !!spot.fan?.addsFirst;
-    const row = addsFirst ? fanRow(shown, spot) : [];
-    // Where the dragged card goes: after the row's last card (not counting the card itself), else before its first.
-    // Taken from the table itself: the preview spreads a dragged pile out into cards that aren't on it.
-    const others = addsFirst
-      ? fanRow(table, spot).filter((id) => id !== dragged?.id)
-      : [];
-    const toEnd =
-      !!to &&
-      others.length > 0 &&
-      to.x > table.stacks[others[others.length - 1]].x;
-    return freePlaces(shown, spot).map((at, i) => {
-      const end = i > 0;
-      // A covered spot only shows the part beside the card lying on it. The Encounter Bar's free place lies under
-      // its first card, though the cards put there go on top; its place after the last card lies under that card. So
-      // does the hand's place after its last card, though the card put there goes on top.
-      const side = end
-        ? 'left'
-        : row.length
-          ? 'right'
-          : freeCovered(shown, spot);
-      const hover = hl?.spot === spot.id && (!addsFirst || end === toEnd);
-      const box = cardBox(at.x, at.y, landscapeSpot(spot));
-      const hidden = 1 - shows(spot);
-      if (side === 'left') box.left += hidden * box.width;
-      if (side === 'top') box.top += hidden * box.height;
-      if (side === 'left' || side === 'right') box.width *= 1 - hidden;
-      if (side === 'top' || side === 'bottom') box.height *= 1 - hidden;
-      return (
-        <div
-          key={end ? `${spot.id}-end` : spot.id}
-          className={`card-spot${side ? ` covered covered-${side}` : ''}${box.width > box.height ? ' wide' : ''}${Math.min(box.width, box.height) < NARROW_SPOT ? ' narrow' : ''}${state(hover)}`}
-          style={box}
-        >
-          <span>
-            {spot.label}
-            {spot.hint && <small>{spot.hint}</small>}
-          </span>
-        </div>
-      );
-    });
+    // A covered spot only shows the part beside the card lying on it; so does a row's place after its last card, which
+    // lies under that card (the hand's too, though the card put there goes on top).
+    const side = freeCovered(shown, spot);
+    const at = freePlace(shown, spot);
+    const box = cardBox(at.x, at.y, landscapeSpot(spot));
+    const hidden = 1 - shows(spot);
+    if (side === 'left') box.left += hidden * box.width;
+    if (side === 'top') box.top += hidden * box.height;
+    if (side === 'left' || side === 'right') box.width *= 1 - hidden;
+    if (side === 'top' || side === 'bottom') box.height *= 1 - hidden;
+    return [
+      <div
+        key={spot.id}
+        className={`card-spot${side ? ` covered covered-${side}` : ''}${box.width > box.height ? ' wide' : ''}${Math.min(box.width, box.height) < NARROW_SPOT ? ' narrow' : ''}${state(hl?.spot === spot.id)}`}
+        style={box}
+      >
+        <span>
+          {spot.label}
+          {spot.hint && <small>{spot.hint}</small>}
+        </span>
+      </div>,
+    ];
   };
 
   return (

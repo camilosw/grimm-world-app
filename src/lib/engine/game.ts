@@ -1,6 +1,7 @@
 // The game the engine plays (GameDefinition): its cards, decks, areas, spots, grids and fixed places, its texts and
 // saves, and the rules only it knows. The game registers it with `setGame()` before anything is laid out; the engine
-// and the UI read it with `game()`. The game's own kinds are named in `GameKinds` (types.ts).
+// and the UI read it with `game()`. The game's own kinds are named in `GameKinds` (types.ts). The card set being played
+// is registered with `setCardSet()` once loaded, for what the engine works out from the table alone (`cardDef()`).
 
 import type { Area, Spot } from './areas';
 import type { DeckSpec } from './decks';
@@ -167,4 +168,19 @@ export function family(def: CardDef | undefined): Family | undefined {
 /** Whether a card lies landscape (`GameDefinition.isLandscape`). */
 export function isLandscape(def: CardDef | undefined): boolean {
   return game().isLandscape(def);
+}
+
+let cards: Record<string, CardDef> = {};
+
+/**
+ * Register the card set being played, once it is loaded (before the game kept on the device is laid out): the engine
+ * reads it where only the table is at hand, as when a row keeps its cards in card order (`Fan.sorted`).
+ */
+export function setCardSet(manifest: CardManifest) {
+  cards = Object.fromEntries(manifest.cards.map((c) => [c.id, c]));
+}
+
+/** The card of the card set registered (`setCardSet()`) with this id, if any. */
+export function cardDef(id: string): CardDef | undefined {
+  return cards[id];
 }

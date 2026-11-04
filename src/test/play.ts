@@ -15,6 +15,7 @@ import {
   spotsOf,
 } from '../lib/engine/areas';
 import { spotPlaces } from '../lib/engine/arrangement';
+import { setCardSet } from '../lib/engine/game';
 import type { Refusal } from '../lib/engine/refusals';
 import type { At, CardDef, Table } from '../lib/engine/types';
 import { refusalText } from '../refusals';
@@ -26,6 +27,7 @@ import { realManifest } from './fixtures';
 // change is settled as `store.update` settles it.
 
 export const manifest = realManifest();
+setCardSet(manifest);
 export const defs: Record<string, CardDef> = Object.fromEntries(
   manifest.cards.map((c) => [c.id, c]),
 );

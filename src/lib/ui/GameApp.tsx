@@ -12,7 +12,7 @@ import {
 } from 'react';
 import * as A from '../engine/actions';
 import { allAreas, type Area } from '../engine/areas';
-import { game } from '../engine/game';
+import { game, setCardSet } from '../engine/game';
 import { CARD_H, CARD_W, type Point } from '../engine/geometry';
 import { loadGame } from '../engine/saves';
 import { redo, resetTable, undo, update } from '../engine/store';
@@ -170,6 +170,7 @@ export function GameApp({
     loadOnce
       .current()
       .then((m) => {
+        setCardSet(m);
         const t = loadGame(m);
         setManifest(m);
         resetTable(t);

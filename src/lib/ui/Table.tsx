@@ -404,7 +404,6 @@ export function TableView(props: Props) {
           shown={shownTable}
           hl={hl}
           dragged={dragStack}
-          to={drag?.to ?? null}
           faded={faded}
           controls={controls}
         />

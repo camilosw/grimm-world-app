@@ -170,17 +170,46 @@ describe('placement', () => {
     });
   });
 
-  it('puts Y-cards dropped anywhere in the Encounter Bar first in its row', () => {
+  it('puts Y-cards dropped anywhere in the Encounter Bar in its row, in card order', () => {
     const bar = inArea(t0, 'bar');
-    const t = dropEach(t0, [y1, y2], bar.x, bar.y);
+    const t = dropEach(t0, [y2, y1], bar.x, bar.y);
     const row = stacksOnSpot(t, spot(t, 'bar'));
-    expect(row).toEqual([y2, y1].map((id) => pileOf(t, id)));
+    expect(row).toEqual([y1, y2].map((id) => pileOf(t, id)));
     expect(row.map((id) => at(t, id))).toEqual(spotPlaces(spot(t, 'bar'), 2));
     // Face down, turned a quarter (`turn`), straight.
     expect(row.map((id) => t.stacks[id].cards[0].faceUp)).toEqual([
       false,
       false,
     ]);
+  });
+
+  it('keeps the Encounter Bar in card order wherever its cards are dropped', () => {
+    const [a, b, c, d] = ['Y110', 'Y113', 'Y025', 'Y791'].map(card);
+    const bar = inArea(t0, 'bar');
+    const codes = (t: Table) =>
+      stacksOnSpot(t, spot(t, 'bar')).map((id) =>
+        t.stacks[id].cards.map((c) => defs[c.id].code),
+      );
+    // One at a time, on the row and on its free place after its last card.
+    let t = dropEach(t0, [b, d], bar.x, bar.y);
+    const end = freePlace(t, spot(t, 'bar'));
+    [t] = drop(t, [a], end.x, end.y);
+    expect(codes(t)).toEqual([['Y110'], ['Y113'], ['Y791']]);
+    // A pile is spread out among the cards there.
+    [t] = drop(
+      t,
+      [c, ...['Y291c', 'Y221a', 'Y021c', 'Y111'].map(card)],
+      bar.x,
+      bar.y,
+    );
+    expect(codes(t)).toEqual(
+      ['Y021c', 'Y025', 'Y110', 'Y111', 'Y113', 'Y221a', 'Y291c', 'Y791'].map(
+        (c) => [c],
+      ),
+    );
+    expect(stacksOnSpot(t, spot(t, 'bar')).map((id) => at(t, id))).toEqual(
+      spotPlaces(spot(t, 'bar'), 8),
+    );
   });
 
   it('spreads a pile dropped on the hand out, its bottom card first', () => {

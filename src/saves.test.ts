@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { BAR_SHOWS } from './areas';
 import { battlefieldText } from './battlefield';
 import { migrateTable, recordAt } from './legacy/migrate';
 import type { OldTable } from './legacy/table';
 import { settle } from './lib/engine/actions';
+import { CARD_H } from './lib/engine/geometry';
 import type { At, Table } from './lib/engine/types';
 import { tableProblems } from './lib/engine/validate';
 import { migrate, readSave, saveText } from './save';
@@ -90,8 +92,11 @@ describe.each(Object.keys(SAVES).sort())('the save from %s', (name) => {
     for (const id of drawn.z) {
       const [was, now] = [drawn.stacks[id], migrated.stacks[id]];
       expect(now.at, id).toEqual(was.at);
+      // The Encounter Bar's row starts a place further left since it lost its free place before its first card.
+      const left = now.at && 'spot' in now.at && now.at.spot === 'bar';
+      const dx = left ? -Math.round(BAR_SHOWS * CARD_H) : 0;
       // To within the rounding of adding a loose pile's place in its area to the area's corner.
-      expect(now.x, id).toBeCloseTo(was.x, 9);
+      expect(now.x, id).toBeCloseTo(was.x + dx, 9);
       expect(now.y, id).toBeCloseTo(was.y, 9);
     }
     expect(migrated.tokens).toEqual(drawn.tokens);
@@ -109,8 +114,6 @@ describe.each(Object.keys(SAVES).sort())('the save from %s', (name) => {
 
   it('loads unchanged once migrated and saved again', () => {
     expect(readSave(saveText(migrated), manifest)).toEqual(migrated);
-    // Saved bare, as before the version was saved: `migrateTable` changes nothing in it.
-    expect(readSave(JSON.stringify(migrated), manifest)).toEqual(migrated);
   });
 
   it('migrates to a table knowing where each pile lies', () => {

@@ -2,7 +2,7 @@
 // drawing order that follows from it (its `layer` hooks, run by `drawOrder()`).
 
 import { placeStack, type Spot, stacksOnSpot } from './areas';
-import { fanRow } from './arrangement';
+import { fanRow, growth } from './arrangement';
 import type { PlaceBehaviour } from './behaviours';
 import { game } from './game';
 import { OPPOSITE, type Side } from './geometry';
@@ -42,11 +42,13 @@ export function coveredSide(spot: Spot): Side | null {
 
 /**
  * Which side of a spot's free place lies under a card, so only the rest of it shows: under the card covering the spot,
- * or, in a row whose cards lie on the one before, under its last card.
+ * or, in a row that has cards, under its last card.
  */
 export function freeCovered(t: Table, spot: Spot): Side | null {
   const overlaps = spot.fan?.overlaps;
   if (overlaps) return fanRow(t, spot).length ? OPPOSITE[overlaps] : null;
+  // A row's place after its last card lies under that card, on the side the row grows from (`growth()`).
+  if (spot.fan && fanRow(t, spot).length) return OPPOSITE[growth(spot)];
   return coveredSide(spot);
 }
 

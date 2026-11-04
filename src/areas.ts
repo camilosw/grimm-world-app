@@ -57,7 +57,7 @@ const map = {
  * Part of an Encounter Bar card's width, as it lies landscape, showing right of the card lying over it: about the strip
  * on the right of its back with its card number, location and chapter, as in rulebook figure 29.
  */
-const BAR_SHOWS = 0.26;
+export const BAR_SHOWS = 0.26;
 // Right of the Map, one landscape card high. Drawn only as large as its cards need (`allAreas()`): this size, just its
 // free place, places its spot; it grows right with the cards placed in it (see SPOTS).
 const bar = {
@@ -284,12 +284,9 @@ const BROKEN_SHOWS = 0.16;
 const GOODS_BELOW_SHOWS = 0.21;
 const goodsX = Math.round(storageSpot.x - GOODS_LEFT_SHOWS * CARD_W);
 const goodsBelowY = Math.round(storageSpot.y + GOODS_BELOW_SHOWS * CARD_H);
-/**
- * Place of the first Encounter Bar card (a portrait card's, the card lies across it), one place right of the row's
- * free place.
- */
+/** Place of the first Encounter Bar card (a portrait card's, the card lies across it). */
 const barSpot = {
-  x: bar.x + AREA_PAD + (CARD_H - CARD_W) / 2 + Math.round(BAR_SHOWS * CARD_H),
+  x: bar.x + AREA_PAD + (CARD_H - CARD_W) / 2,
   y: bar.y + AREA_HEADER + (CARD_W - CARD_H) / 2,
 };
 /**
@@ -304,8 +301,9 @@ const handSpot = { x: hand.x + AREA_PAD, y: hand.y + AREA_HEADER };
 export const SPOTS: Spot[] = [
   // The Y-cards placed in the Encounter Bar (rulebook 5.2), landscape and face down, as in rulebook figure 29: their backs
   // show the location they belong to, with card number, location and chapter on their right strip. Each lies over the
-  // left part of the one after it, so a new card, which goes first, lies on top of the others. Its free place stays
-  // before them, partly under the first; Y-cards dropped anywhere in the area go into the row. Any number of them: the area grows with it.
+  // left part of the one after it, the first on top of the others. Its free place lies after them, partly under the
+  // last; Y-cards dropped anywhere in the area go into the row, in the order of their card numbers, lowest first (as
+  // they are resolved, rulebook 7.1.2.2). Any number of them: the area grows with it.
   {
     id: 'bar',
     label: 'Encounter Bar',
@@ -315,8 +313,8 @@ export const SPOTS: Spot[] = [
     fan: {
       count: Infinity,
       shows: BAR_SHOWS,
-      addsFirst: true,
       takesPiles: true,
+      sorted: true,
     },
     facing: 'down',
     orientation: { turn: 'left' },

@@ -15,7 +15,7 @@ import {
   placement,
   spotsOf,
 } from './lib/engine/areas';
-import { freePlaces } from './lib/engine/arrangement';
+import { freePlace } from './lib/engine/arrangement';
 import { CARD_H, CARD_W } from './lib/engine/geometry';
 import type { Table } from './lib/engine/types';
 import { tableProblems } from './lib/engine/validate';
@@ -59,7 +59,7 @@ function targets(t: Table): { x: number; y: number }[] {
   const areas = allAreas(t);
   const right = Math.max(...areas.map((a) => a.x + a.w));
   return [
-    ...spotsOf(t).flatMap((s) => [{ x: s.x, y: s.y }, ...freePlaces(t, s)]),
+    ...spotsOf(t).flatMap((s) => [{ x: s.x, y: s.y }, freePlace(t, s)]),
     ...gridPlaces(t, 'map'),
     ...gridPlaces(t, 'battlefield'),
     ...ENCOUNTER_PLACES.map((p) => encounterPlace(t, p.place)),

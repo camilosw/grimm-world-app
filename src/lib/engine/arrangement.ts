@@ -12,7 +12,8 @@ import {
 } from './areas';
 import { addStack, setStack } from './actions';
 import type { PlaceBehaviour } from './behaviours';
-import { game } from './game';
+import { compareCards } from './cards';
+import { cardDef, game } from './game';
 import { CARD_H, CARD_W, type Point, type Side, OPPOSITE } from './geometry';
 import { coveredSide } from './layering';
 import { lyingSize } from './orientation';
@@ -60,12 +61,6 @@ export interface Fan {
    */
   split?: boolean;
   /**
-   * New cards go to the front of the row, on top of the others, and its free place is shown before its first card,
-   * partly under it as the cards are under each other, instead of after its last (the Encounter Bar, a row running
-   * right).
-   */
-  addsFirst?: boolean;
-  /**
    * The row has no card covering it and runs toward this side, each card lying on top of the one before, of which the
    * `shows` part is left showing (the hand in the Actions area: down, the top of each card showing above the next).
    */
@@ -73,9 +68,14 @@ export interface Fan {
   /**
    * A pile dropped on its row (of any number of cards, `count: Infinity`) is spread out on it, one card per place, its
    * top card still lying on top of the others (`settle`): the hand, taking back the cards under the Damage Card or the
-   * discard pile, its bottom card first; the Encounter Bar, its top card first.
+   * discard pile, its bottom card first; the Encounter Bar, its top card first (then put in card order, `sorted`).
    */
   takesPiles?: boolean;
+  /**
+   * The row keeps its cards in the order of their printed numbers (`CardDef.code`, `compareCards()`), lowest first,
+   * wherever they are dropped in it (`settle`): the Encounter Bar, whose cards are resolved in that order.
+   */
+  sorted?: boolean;
 }
 
 /** Part of a spot's card showing beside the card on top of it (`Fan.shows`, default half). */
@@ -140,24 +140,12 @@ export function spotPoint(spot: Spot, index: number): Point {
 }
 
 /**
- * Where a spot's next card goes, shown by its placeholder: its place, the place after the last card of a fanned row,
- * or, for a row taking new cards first, the place before its first card.
+ * Where a spot's next card goes, shown by its placeholder: its place, or the place after the last card of a fanned row
+ * (in a `sorted` row, the card then goes to its place in card order).
  */
 export function freePlace(t: Table, spot: Spot): Point {
-  if (spot.fan?.addsFirst)
-    return { x: Math.round(spot.x - fanStep(spot)), y: spot.y };
   const n = spot.fan ? fanRow(t, spot).length : 0;
   return spotPlaces(spot, n + 1)[n];
-}
-
-/**
- * The places a spot's placeholders show: its free place and, for a row taking new cards first that has cards, also the
- * place after its last card, partly under it, to add a card at the end of the row.
- */
-export function freePlaces(t: Table, spot: Spot): Point[] {
-  const first = freePlace(t, spot);
-  const n = spot.fan?.addsFirst ? fanRow(t, spot).length : 0;
-  return n ? [first, spotPlaces(spot, n + 1)[n]] : [first];
 }
 
 /** Least part of a card's height a split placeholder shows: room for the two lines of text on each half. */
@@ -244,15 +232,9 @@ export function fanRow(t: Table, spot: Spot): readonly string[] {
 
 /**
  * The places a spot can take a card dropped near it at: its place, or a fanned row's: all of them, an unlimited one as
- * far as one place past its last card (unless it takes new cards through a split placeholder); taking new cards first,
- * also its free place before them.
+ * far as one place past its last card (unless it takes new cards through a split placeholder).
  */
 export function nearPlaces(t: Table, spot: Spot): Point[] {
-  if (spot.fan?.addsFirst)
-    return [
-      ...freePlaces(t, spot),
-      ...spotPlaces(spot, fanRow(t, spot).length),
-    ];
   const n =
     fanMax(spot) === Infinity
       ? fanRow(t, spot).length + (sharesPlaceholder(t, spot) ? 0 : 1)
@@ -264,8 +246,7 @@ export function nearPlaces(t: Table, spot: Spot): Point[] {
  * Where cards going to a spot land (top-left dropped at x, y), or null when a
  * fanned spot is full. A plain spot: onto the pile lying there. A fanned spot:
  * at the place the card is dropped on, or after the last card when dropped
- * elsewhere (before the first, for a row taking new cards first, unless dropped in line beyond its last card): its
- * `index` in the row, half way between two piles' to go between them (`settleSpots()` then numbers the row again), and
+ * elsewhere (a `sorted` row then puts it in card order): its `index` in the row, half way between two piles' to go between them (`settleSpots()` then numbers the row again), and
  * where it is drawn meanwhile, half a unit beside a place.
  */
 export function spotPlace(
@@ -291,9 +272,7 @@ export function spotPlace(
   const near = inLine && along > -length / 2 / Math.abs(step) && along < reach;
   const i = near
     ? Math.max(0, Math.min(others.length, Math.round(along)))
-    : spot.fan.addsFirst && !(inLine && along >= reach)
-      ? 0
-      : others.length;
+    : others.length;
   const at = (d: number, id: string) => {
     const shift = d * Math.sign(step);
     const index = indexOf(t, id) + d;
@@ -316,12 +295,10 @@ function indexOf(t: Table, id: string): number {
 
 /**
  * The places an area is framed around for a spot: its place, or a fanned row from its first place to the next card's
- * while it has room for one, else to its last card; a row taking new cards first from its free place to the place after
- * its last card.
+ * while it has room for one, else to its last card.
  */
 export function framedPlaces(t: Table, spot: Spot): Point[] {
   if (!spot.fan) return [spot];
-  if (spot.fan.addsFirst) return freePlaces(t, spot);
   const n = fanRow(t, spot).length;
   const last = spotPlaces(spot, n)[n - 1];
   const places = [spot, fanHasPlace(t, spot) ? freePlace(t, spot) : last];
@@ -428,6 +405,12 @@ function full(spot: Spot): Refusal {
   return { code: 'area-holds-at-most', area, family, max };
 }
 
+/** The card of the card set (`cardDef()`) on top of pile `id`. */
+function topDef(t: Table, id: string) {
+  const top = t.stacks[id].cards.at(-1);
+  return top && cardDef(top.id);
+}
+
 const arrangement: PlaceBehaviour = {
   settle(t, spot) {
     if (!spot.fan) return t;
@@ -449,8 +432,13 @@ const arrangement: PlaceBehaviour = {
           })[0];
         });
       }
+    // A sorted row in card order, by each pile's top card (stable: cards of the same number keep their order).
+    const row = fanRow(next, spot);
+    const inOrder = spot.fan.sorted
+      ? [...row].sort((a, b) => compareCards(topDef(next, a), topDef(next, b)))
+      : row;
     // The gaps closed, the piles numbered from the first place in row order.
-    fanRow(next, spot).forEach((id, index) => {
+    inOrder.forEach((id, index) => {
       const s = next.stacks[id];
       const at = { spot: spot.id, index };
       if (!sameAt(s.at, at)) next = setStack(next, { ...s, at });

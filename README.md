@@ -166,12 +166,13 @@ offered). Dragged away, it is an ordinary upright card again.
 
 **Encounter Bar.** The Y-cards placed in the Encounter Bar (rulebook 5.2) lie in a row, landscape and face down, as in
 the rulebook's figure 29: each card lies over the one right of it, leaving just the strip on the right of its back (card
-number, location, chapter) showing. A Y-card dropped anywhere in the area goes first in the row, on top of the
-others, which slide right; the placeholder always stays left of the cards, partly under the first one. Once the bar has
-cards, a second placeholder shows right of the last one, partly under it: a Y-card dropped there (or anywhere in line to
-the right of the row) goes last. Dropped on the row itself, it goes where you drop it. Several Y-cards at once (a pile dragged by its `⠿` grip, or cards selected in **Browse**) are spread out in the row at that place, one card per place, the pile's top card first, still on top. The bar takes Y-cards and nothing else, any number of them: it grows to the right. A card there
+number, location, chapter) showing. The row is kept in the order of the card numbers, lowest first (Y001 → Y999, as
+the rulebook resolves them, 7.1.2.2): a Y-card dropped anywhere in the area, on its placeholder (right of the last card,
+partly under it) or on the row itself, goes to its place in that order, and the others slide aside. Several Y-cards at once (a pile dragged by its `⠿` grip, or cards selected
+in **Browse**) are spread out in the row, each card at its place. The bar takes Y-cards and nothing else, any number of
+them: it grows to the right. A card there
 can't be flipped or rotated (long-press it and tap **Other side** to read it); dragged out, it is an ordinary upright
-card again. Reordering and taking cards away work as for Money Cards (below).
+card again. Taking cards away works as for Money Cards (below); a card moved along the row goes back to its place.
 
 **Encounter Deck.** The Encounter Deck lies on the table in its own area, right of the Map, with three
 places: **Time Passes**, **Next Chapter** and **Used Cards**. The 'Time Passes' and 'Next Chapter' cards lie face down
@@ -287,7 +288,7 @@ card keeps lying upside down until you rotate it.
 **Storybook area.** The storybook lies face down on the right; the revealed cards lie on the left, the top one being
 the current chapter. Tap the storybook to turn over its next card; tap the revealed cards to put the top one back on
 the storybook, face down. A sub-chapter card (Y-card) on top of the storybook isn't turned over: a tap puts it unseen
-into the Encounter Bar, first in the row (you see it travel there), so keep tapping until the next Chapter Card comes up (rulebook 9.1.2). The storybook can't be sorted or moved; long-press the revealed card to read
+into the Encounter Bar, at its place in the row (you see it travel there), so keep tapping until the next Chapter Card comes up (rulebook 9.1.2). The storybook can't be sorted or moved; long-press the revealed card to read
 it. To fix a mistake, the **☰ Browse** button below the storybook opens the Browse panel on it (top first, on the
 backs): take cards out, or move them to another chapter with **Put under…** and a tap on the storybook (or by dragging
 them onto the Storybook area). A revealed Y-card (sub-chapter card) can be dragged out, e.g. to the Encounter Bar. To put Y-cards "into the
