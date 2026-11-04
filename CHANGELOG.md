@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.5.7](https://github.com/camilosw/grimm-world-app/compare/v0.5.6...v0.5.7) (2026-11-04)
+
+### Features
+
+* focus the table on the selected card with Focus in the action bar ([ec8dfb2](https://github.com/camilosw/grimm-world-app/commit/ec8dfb29060b202b24c602502b36765807790f72))
+
+### Bug Fixes
+
+* show the Export save and Import save icons on Android ([cb3f25c](https://github.com/camilosw/grimm-world-app/commit/cb3f25c50f3f9a453af15369c94b95c9913a1071))
+
 ## [0.5.6](https://github.com/camilosw/grimm-world-app/compare/v0.5.5...v0.5.6) (2026-11-04)
 
 ### Features
